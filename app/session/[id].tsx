@@ -275,23 +275,16 @@ export default function SessionScreen() {
     flatListRef.current?.scrollToOffset({ offset: 0, animated })
   }, [])
 
-  // Auto-scroll to keep status indicator visible at bottom of messages
-  const sessionStatus = useEvents((s) => (sessionID ? s.sessionStatus[sessionID] : undefined))
-  const sessionStatusText = useEvents((s) => (sessionID ? s.statusText[sessionID] : undefined))
+  // Auto-scroll to show status when it appears at bottom of messages
+  const sessionStatus = useEvents((s) => (currentSession ? s.sessionStatus[currentSession.id] : undefined))
+  const statusText = useEvents((s) => (currentSession ? s.statusText[currentSession.id] : undefined))
   useEffect(() => {
-    // When status becomes busy or text changes, ensure it's visible
-    if (sessionStatus || sessionStatusText) {
-      scrollToBottom(true)
-    }
-  }, [sessionStatus, sessionStatusText, scrollToBottom])
-  useEffect(() => {
-    // When new messages arrive, keep at bottom if already near bottom
-    if (messageData.length > 0) {
-      // Small delay to let FlatList render new item before scrolling
+    if (sessionStatus && sessionStatus.type !== "idle") {
+      // Small delay to let the status render before scrolling
       const t = setTimeout(() => scrollToBottom(true), 50)
       return () => clearTimeout(t)
     }
-  }, [messageData.length, scrollToBottom])
+  }, [sessionStatus?.type, (sessionStatus as { attempt?: number })?.attempt, statusText])
 
   // Re-select on every focus, not just mount. currentSession/messages/
   // permissions are a single global store, and the native stack keeps screens
@@ -746,9 +739,9 @@ export default function SessionScreen() {
                 <Ionicons name="chevron-down" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
               </TouchableOpacity>
             )}
-            {/* Status — fixed height at bottom of messages, always in flow, no gap above input */}
-            <View style={s.statusFooter}>
-              {currentSession ? <StatusIndicator sessionID={currentSession.id} isDark={isDark} /> : null}
+            {/* Status — fixed height at bottom of messages, inside listWrap (not above toolbar) */}
+            <View style={s.statusContainer}>
+              {currentSession && <StatusIndicator sessionID={currentSession.id} isDark={isDark} />}
             </View>
           </View>
         )}
@@ -901,7 +894,8 @@ const s = StyleSheet.create({
   containerDark: { backgroundColor: "#0a0a0a" },
   loading: { flex: 1, justifyContent: "center", alignItems: "center" },
   listWrap: { flex: 1, position: "relative" },
-  statusFooter: { height: 32, justifyContent: "center" },
+
+  statusContainer: { height: 32, justifyContent: "center" },
 
   // Messages
   messageList: { padding: 16, paddingBottom: 8 },
