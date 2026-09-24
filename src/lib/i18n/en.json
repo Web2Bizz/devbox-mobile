@@ -41,6 +41,16 @@
     "notifications": {
       "disabledNotice": "Notifications are disabled at the system level. Enable them in Settings to receive alerts."
     },
+    "privacy": {
+      "crashReporting": {
+        "label": "Crash Reports & Usage Analytics",
+        "description": "Share anonymous crash reports (Sentry) and usage analytics (PostHog) to help improve DevBox. Diagnostic reports you share are also delivered to our support inbox. No code or prompts are included."
+      },
+      "privacyPolicy": {
+        "label": "Privacy Policy",
+        "description": "What data we collect and how"
+      }
+    },
     "about": {
       "version": "Version",
       "github": {
@@ -375,6 +385,23 @@
     "componentLabel": "Component",
     "shareButton": "Share Report",
     "tryAgainButton": "Try Again"
+  },
+  "telemetryConsent": {
+    "title": "Help improve DevBox?",
+    "body": "Share anonymous crash reports and usage analytics to help us find and fix bugs faster. Diagnostic reports you share are also delivered to our support inbox. No code, prompts, or server addresses are ever included.",
+    "bullets": {
+      "deviceInfo": "Device model, OS version, app version",
+      "stackTraces": "Stack traces of crashes (no variable values)",
+      "usageEvents": "Anonymous usage events (app opened, connection attempts, messages sent) — sent to PostHog EU",
+      "noCode": "Your code, prompts, or chat messages",
+      "noServerUrls": "Server URLs or authentication tokens"
+    },
+    "privacyLink": "Read our full privacy policy",
+    "declineA11yLabel": "No thanks, decline crash reporting and analytics",
+    "declineButton": "No thanks",
+    "allowA11yLabel": "Allow anonymous crash reports and usage analytics",
+    "allowButton": "Allow",
+    "footnote": "You can change this at any time in Settings → Privacy."
   },
   "authGate": {
     "title": "DevBox Locked",
