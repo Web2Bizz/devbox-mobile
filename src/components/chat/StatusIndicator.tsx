@@ -19,7 +19,7 @@ export function StatusIndicator({ sessionID, isDark }: Props) {
   // Once SSE reports idle, the indicator hides regardless of the optimistic flag.
   const sseBusy = status && status.type !== "idle"
   const busy = sseBusy || (optimistic && !status)
-  if (!busy) return null
+  if (!busy) return <View style={s.barPlaceholder} />
 
   const label =
     status?.type === "retry" ? t("chat.statusIndicator.retrying", { attempt: status.attempt }) : text || t("chat.statusIndicator.working")
@@ -38,12 +38,11 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#f5f5f5",
-    borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
+    height: 36,
+    backgroundColor: "transparent",
   },
-  barDark: { backgroundColor: "#1a1a1a", borderTopColor: "#2a2a2a" },
+  barPlaceholder: { height: 36 },
+  barDark: { backgroundColor: "transparent" },
   text: { fontSize: 13, color: "#666666", fontWeight: "500" },
   textDark: { color: "#888888" },
 })
