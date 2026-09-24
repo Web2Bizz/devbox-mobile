@@ -98,48 +98,52 @@ export default function LoginScreen() {
           <Text style={[styles.title, isDark && styles.textDark]}>Вход</Text>
           <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>Введите логин и пароль</Text>
           {authError ? (
-            <Text style={styles.authErrorText}>Ошибка авторизации — проверьте логин и пароль</Text>
+            <Text style={styles.authErrorText} testID="login-auth-error">
+              Ошибка авторизации — проверьте логин и пароль
+            </Text>
           ) : null}
         </View>
 
-        <Text style={[styles.label, isDark && styles.labelDark]}>Логин</Text>
-        <TextInput
-          style={[styles.input, isDark && styles.inputDark]}
-          placeholder="username"
-          placeholderTextColor={isDark ? "#666666" : "#999999"}
-          value={username}
-          onChangeText={setUsername}
-          autoCapitalize="none"
-          autoCorrect={false}
-          testID="login-username-input"
-        />
+        <View style={styles.formWrap}>
+          <Text style={[styles.label, isDark && styles.labelDark]}>Логин</Text>
+          <TextInput
+            style={[styles.input, isDark && styles.inputDark]}
+            placeholder="username"
+            placeholderTextColor={isDark ? "#666666" : "#999999"}
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            testID="login-username-input"
+          />
 
-        <Text style={[styles.label, isDark && styles.labelDark]}>Пароль</Text>
-        <TextInput
-          style={[styles.input, isDark && styles.inputDark]}
-          placeholder="••••••••"
-          placeholderTextColor={isDark ? "#666666" : "#999999"}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          testID="login-password-input"
-        />
+          <Text style={[styles.label, isDark && styles.labelDark]}>Пароль</Text>
+          <TextInput
+            style={[styles.input, isDark && styles.inputDark]}
+            placeholder="••••••••"
+            placeholderTextColor={isDark ? "#666666" : "#999999"}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            testID="login-password-input"
+          />
 
-        <TouchableOpacity
-          style={[styles.loginButton, isDark && styles.loginButtonDark]}
-          onPress={handleLogin}
-          disabled={isLoggingIn}
-          testID="login-button"
-        >
-          {isLoggingIn ? (
-            <ActivityIndicator size="small" color={isDark ? "#0a0a0a" : "#ffffff"} />
-          ) : (
-            <>
-              <Ionicons name="log-in-outline" size={20} color={isDark ? "#0a0a0a" : "#ffffff"} />
-              <Text style={[styles.loginButtonText, isDark && styles.loginButtonTextDark]}>Войти</Text>
-            </>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.loginButton, isDark && styles.loginButtonDark]}
+            onPress={handleLogin}
+            disabled={isLoggingIn}
+            testID="login-button"
+          >
+            {isLoggingIn ? (
+              <ActivityIndicator size="small" color={isDark ? "#0a0a0a" : "#ffffff"} />
+            ) : (
+              <>
+                <Ionicons name="log-in-outline" size={20} color={isDark ? "#0a0a0a" : "#ffffff"} />
+                <Text style={[styles.loginButtonText, isDark && styles.loginButtonTextDark]}>Войти</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: Math.max(8, insets.bottom) }]}>
         <SvgXml xml={logoXml} width={178} height={21} />
@@ -152,6 +156,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffff" },
   containerDark: { backgroundColor: "#0a0a0a" },
   content: { flexGrow: 1, justifyContent: "center", padding: 24 },
+  formWrap: { width: "100%", maxWidth: 500, alignSelf: "center" },
   header: { alignItems: "center", marginBottom: 32 },
   title: { fontSize: 28, fontWeight: "700", color: "#0a0a0a", marginTop: 16 },
   textDark: { color: "#ffffff" },

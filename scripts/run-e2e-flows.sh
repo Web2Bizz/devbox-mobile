@@ -29,7 +29,7 @@ APK="android/app/build/outputs/apk/release/app-release.apk"
 CORE_FLOWS=(activation-positive activation-negative-401)
 # demo.yaml (offline "Try a demo" mode) needs no mock server — it never
 # connects — so it's safe to run alongside the others here unmodified.
-NEWER_FLOWS=(directory-picker all-sessions variant-picker diff-scroll demo)
+NEWER_FLOWS=(directory-picker all-sessions variant-picker diff-scroll demo tablet-baseline-login tablet-baseline-projects tablet-baseline-account)
 mkdir -p "$ROOT/artifacts/screenshots" "$ROOT/artifacts/diag"
 
 echo "== installing APK =="

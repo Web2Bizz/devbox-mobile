@@ -30,7 +30,8 @@ import { groupByDirectory } from "../../src/lib/session-grouping"
 import { UpdateBanner } from "../../src/components/UpdateBanner"
 import { nameOf } from "../../src/lib/path-utils"
 import { useUi } from "../../src/stores/ui"
-import { colors } from "../../src/lib/theme"
+import { breakpoints, colors } from "../../src/lib/theme"
+import { useTablet } from "../../src/lib/use-tablet"
 
 function formatTime(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const date = new Date(timestamp)
@@ -139,6 +140,8 @@ export default function SessionsScreen() {
   // session, or to switch the active connection's directory.
   const [browseMode, setBrowseMode] = useState<"create" | "switch">("create")
   const [refreshing, setRefreshing] = useState(false)
+  const { numColumns, width: windowWidth } = useTablet()
+  const isWide = windowWidth >= breakpoints.desktop
   // Directories collapsed in the grouped session list. Empty by default —
   // all groups start expanded (#67).
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set())
@@ -456,7 +459,10 @@ export default function SessionsScreen() {
 
       <FlatList
         data={projects}
+        key={numColumns}
+        numColumns={numColumns}
         keyExtractor={(item) => item.directory}
+        columnWrapperStyle={numColumns > 1 ? styles.projectGridRow : undefined}
         renderItem={({ item }) => (
           <ProjectCard
             directory={item.directory}
@@ -468,6 +474,7 @@ export default function SessionsScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? "#ffffff" : "#0a0a0a"} />
         }
+        testID="project-list"
         ListEmptyComponent={
           isLoading ? (
             <View style={styles.loadingContainer}>
@@ -479,7 +486,18 @@ export default function SessionsScreen() {
             </View>
           )
         }
-        contentContainerStyle={projects.length === 0 ? styles.emptyContent : { padding: 16, gap: 12 }}
+        contentContainerStyle={
+          projects.length === 0
+            ? styles.emptyContent
+            : [
+                { padding: 16, gap: 12 },
+                isWide && {
+                  maxWidth: breakpoints.desktop,
+                  width: "100%",
+                  alignSelf: "center",
+                },
+              ]
+        }
       />
 
       {/* FAB removed per request */}
@@ -1280,12 +1298,16 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
   projectCard: {
+    flex: 1,
     backgroundColor: "#ffffff",
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
     borderColor: "#e5e5e5",
     gap: 6,
+  },
+  projectGridRow: {
+    gap: 12,
   },
   projectCardDark: {
     backgroundColor: "#1a1a1a",

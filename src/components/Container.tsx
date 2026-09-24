@@ -16,12 +16,18 @@ import { layout } from "../lib/theme"
  *  - обёртка для контента экранов
  *  - источник токена для `headerRightContainerStyle` / `headerLeftContainerStyle`
  *
- * Не навязывает maxWidth — в мобильном приложении контейнер = 100% ширины
- * с горизонтальными полями, следовать теме достаточно.
+ * По умолчанию контейнер = 100% ширины с горизонтальными полями.
+ * На планшете можно передать `maxWidth` (см. `layout.contentMaxWidth` /
+ * `layout.formMaxWidth`) — контейнер центрируется через `alignSelf: "center"`.
  */
-export function Container({ style, children, ...props }: ViewProps) {
+export function Container({
+  style,
+  children,
+  maxWidth,
+  ...props
+}: ViewProps & { maxWidth?: number }) {
   return (
-    <View style={[styles.container, style]} {...props}>
+    <View style={[styles.container, maxWidth != null && { maxWidth, alignSelf: "center" as const }, style]} {...props}>
       {children}
     </View>
   )

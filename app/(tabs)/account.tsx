@@ -1,8 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Alert } from "react-native"
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, useColorScheme, Alert } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import { router } from "expo-router"
 import { useConnections } from "../../src/stores/connections"
+import { layout } from "../../src/lib/theme"
 
 export default function AccountScreen() {
   const colorScheme = useColorScheme()
@@ -28,21 +29,28 @@ export default function AccountScreen() {
 
   if (!activeConnection) {
     return (
-      <View style={[styles.container, isDark && styles.containerDark]}>
+      <ScrollView
+        style={[styles.container, isDark && styles.containerDark]}
+        contentContainerStyle={styles.content}
+      >
         <Ionicons name="person-circle-outline" size={80} color={isDark ? "#444444" : "#cccccc"} />
         <Text style={[styles.title, isDark && styles.textDark]}>{t("account.notLoggedIn")}</Text>
         <TouchableOpacity
           style={[styles.loginButton, isDark && styles.loginButtonDark]}
           onPress={() => router.replace("/login")}
+          testID="account-login-button"
         >
           <Text style={[styles.loginButtonText, isDark && styles.loginButtonTextDark]}>{t("common.retry")}</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     )
   }
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <ScrollView
+      style={[styles.container, isDark && styles.containerDark]}
+      contentContainerStyle={styles.content}
+    >
       <View style={styles.header}>
         <View style={[styles.avatar, isDark && styles.avatarDark]}>
           <Ionicons name="person" size={48} color={isDark ? "#ffffff" : "#0a0a0a"} />
@@ -77,13 +85,20 @@ export default function AccountScreen() {
         <Ionicons name="log-out-outline" size={20} color="#ef4444" />
         <Text style={styles.logoutButtonText}>{t("account.logout")}</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffff", padding: 24 },
+  container: { flex: 1, backgroundColor: "#ffffff" },
   containerDark: { backgroundColor: "#0a0a0a" },
+  content: {
+    flexGrow: 1,
+    padding: 24,
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: "center",
+    width: "100%",
+  },
   header: { alignItems: "center", marginTop: 32, marginBottom: 32 },
   avatar: {
     width: 96,

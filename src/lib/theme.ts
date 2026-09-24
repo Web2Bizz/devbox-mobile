@@ -77,11 +77,24 @@ export const spacing = {
   "2xl": 32,
 } as const
 
+export const breakpoints = {
+  /** Планшетная ширина — с неё включаются 2 колонки и центрирование контента. */
+  tablet: 768,
+  /** Десктопная ширина — с неё включаются 3 колонки. */
+  desktop: 1024,
+} as const
+
 export const layout = {
   /** Горизонтальный паддинг page-контейнера и header-контейнера. Следовать ему — значит badge в Header выравнивается с контентом. */
   containerPadding: 16,
   headerRightPadding: 16,
   headerLeftPadding: 16,
+  /** Максимальная ширина центрированного контента на планшете (экраны, ScrollView). */
+  contentMaxWidth: 640,
+  /** Максимальная ширина формы логина на планшете. */
+  formMaxWidth: 500,
+  /** Максимальная ширина модалок на планшете. */
+  modalMaxWidth: 560,
 } as const
 
 // ── Semantic ─────────────────────────────────────────────────────────────────
@@ -178,4 +191,5 @@ export type Colors = typeof colors
 export type Theme = typeof theme
 export type AccentColors = typeof accent
 export type Spacing = typeof spacing
+export type Breakpoints = typeof breakpoints
 export type Layout = typeof layout
