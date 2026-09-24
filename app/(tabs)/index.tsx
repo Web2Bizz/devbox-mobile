@@ -29,6 +29,8 @@ import { DirectorySwitcher, DirectoryBrowserSheet } from "../../src/components/c
 import { groupByDirectory } from "../../src/lib/session-grouping"
 import { UpdateBanner } from "../../src/components/UpdateBanner"
 import { nameOf } from "../../src/lib/path-utils"
+import { useUi } from "../../src/stores/ui"
+import { colors } from "../../src/lib/theme"
 
 function formatTime(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const date = new Date(timestamp)
@@ -43,104 +45,46 @@ function formatTime(timestamp: number, t: (key: string, opts?: Record<string, un
   return date.toLocaleDateString()
 }
 
-function SessionItem({
-  session,
+function ProjectCard({
+  directory,
+  count,
+  lastUpdated,
   isDark,
-  onRename,
-  onDelete,
 }: {
-  session: Session
+  directory: string
+  count: number
+  lastUpdated: number
   isDark: boolean
-  onRename: () => void
-  onDelete: () => void
 }) {
   const { t } = useTranslation()
-
+  const shortName = directory.split("/").filter(Boolean).pop() || directory
   const onPress = () => {
     router.push({
-      pathname: `/session/[id]`,
-      params: { id: session.id, ...(session.directory ? { directory: session.directory } : {}) },
+      pathname: "/project/[directory]",
+      params: { directory: encodeURIComponent(directory) },
     })
   }
-
-  const onLongPress = () => {
-    Alert.alert(session.title || t("sessionsList.untitledSession"), undefined, [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("sessionsList.actions.rename"), onPress: onRename },
-      { text: t("common.delete"), style: "destructive", onPress: onDelete },
-    ])
-  }
-
-  // Extract short directory name from session
-  const shortDir = session.directory ? session.directory.split("/").filter(Boolean).pop() : null
-
   return (
     <TouchableOpacity
-      style={[styles.sessionItem, isDark && styles.sessionItemDark]}
+      style={[styles.projectCard, isDark && styles.projectCardDark]}
       onPress={onPress}
-      onLongPress={onLongPress}
-      testID={`session-item-${session.id}`}
+      testID={`project-card-${directory}`}
     >
-      <View style={styles.sessionContent}>
-        <View style={styles.sessionHeader}>
-          <Text style={[styles.sessionTitle, isDark && styles.textDark]} numberOfLines={1}>
-            {session.title || t("sessionsList.untitledSession")}
-          </Text>
-        </View>
-        <View style={styles.sessionMetaRow}>
-          <Text style={[styles.sessionMeta, isDark && styles.metaDark]}>
-            {formatTime(session.time.updated, t)}
-            {/* summary is always present but files defaults to 0 until the
-                server populates it — only show the count when it's meaningful,
-                matching the SessionInfo panel's `summary.files > 0` guard (#55) */}
-            {session.summary && session.summary.files > 0 &&
-              ` · ${t("sessionsList.filesCount", { count: session.summary.files })}`}
-          </Text>
-          {shortDir && (
-            <View style={styles.sessionDirBadge}>
-              <Ionicons name="folder-outline" size={12} color={isDark ? "#888888" : "#666666"} />
-              <Text style={[styles.sessionDirText, isDark && styles.metaDark]}>{shortDir}</Text>
-            </View>
-          )}
+      <View style={styles.projectCardHeader}>
+        <Ionicons name="folder" size={22} color={isDark ? colors.accentPale : colors.accentStrong} />
+        <Text style={[styles.projectCardTitle, isDark && styles.textDark]} numberOfLines={1}>
+          {shortName}
+        </Text>
+        <View style={[styles.countBadge, isDark && styles.countBadgeDark]}>
+          <Text style={[styles.countBadgeText, isDark && styles.countBadgeTextDark]}>{count}</Text>
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={isDark ? "#666666" : "#999999"} />
-    </TouchableOpacity>
-  )
-}
-
-// Flattened list row — either a collapsible group header or a session.
-// A single flat array keeps FlatList's refresh/empty-state handling as-is
-// instead of switching to SectionList.
-type ListRow =
-  | { type: "header"; directory: string; shortName: string; count: number; collapsed: boolean }
-  | { type: "session"; session: Session }
-
-function GroupHeader({
-  row,
-  isDark,
-  onToggle,
-}: {
-  row: { directory: string; shortName: string; count: number; collapsed: boolean }
-  isDark: boolean
-  onToggle: () => void
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.groupHeader, isDark && styles.groupHeaderDark]}
-      onPress={onToggle}
-      activeOpacity={0.7}
-    >
-      <Ionicons name="folder-outline" size={16} color={isDark ? "#8b5cf6" : "#6d28d9"} />
-      <Text style={[styles.groupHeaderText, isDark && styles.textDark]} numberOfLines={1}>
-        {row.shortName}
+      <Text style={[styles.projectCardPath, isDark && styles.metaDark]} numberOfLines={1}>
+        {directory}
       </Text>
-      <Text style={[styles.groupHeaderCount, isDark && styles.metaDark]}>{row.count}</Text>
-      <Ionicons
-        name={row.collapsed ? "chevron-forward" : "chevron-down"}
-        size={16}
-        color={isDark ? "#666666" : "#999999"}
-      />
+      <Text style={[styles.projectCardMeta, isDark && styles.metaDark]}>
+        {t("sessionsList.filesCount", { count })} · {formatTime(lastUpdated, t)}
+      </Text>
     </TouchableOpacity>
   )
 }
@@ -161,6 +105,7 @@ export default function SessionsScreen() {
   const isDark = colorScheme === "dark"
   const { t } = useTranslation()
   const [showNewSession, setShowNewSession] = useState(false)
+  const { showNewProject, closeNewProject } = useUi()
   const [customDir, setCustomDir] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [renaming, setRenaming] = useState<Session | null>(null)
@@ -207,38 +152,26 @@ export default function SessionsScreen() {
     })
   }, [])
 
-  // Flatten sessions into header+item rows. Skip headers entirely when
-  // everything lives in one directory — a lone header adds noise, not clarity.
-  const rows = useMemo<ListRow[]>(() => {
+  // Projects = unique directories that have sessions, each as a card
+  const projects = useMemo(() => {
     const groups = groupByDirectory(sessions)
-    if (groups.length <= 1) {
-      return sessions.map((session) => ({ type: "session", session }))
-    }
-    const out: ListRow[] = []
-    for (const group of groups) {
-      const collapsed = collapsedDirs.has(group.directory)
-      out.push({
-        type: "header",
-        directory: group.directory,
-        shortName: nameOf(group.directory) || group.directory,
-        count: group.items.length,
-        collapsed,
-      })
-      if (!collapsed) {
-        for (const session of group.items) out.push({ type: "session", session })
-      }
-    }
-    return out
-  }, [sessions, collapsedDirs])
+    return groups
+      .map((g) => ({
+        directory: g.directory,
+        count: g.items.length,
+        lastUpdated: Math.max(...g.items.map((s) => s.time.updated), 0),
+      }))
+      .sort((a, b) => b.lastUpdated - a.lastUpdated)
+  }, [sessions])
 
   // Fetch server-known projects when the new session modal opens
   useEffect(() => {
-    if (!showNewSession || !client) return
+    if ((!showNewSession && !showNewProject) || !client) return
     client.project
       .list()
       .then(setServerProjects)
       .catch(() => setServerProjects([]))
-  }, [showNewSession, client])
+  }, [showNewSession, showNewProject, client])
 
   const handleSwitchDirectory = useCallback(
     async (dir?: string) => {
@@ -353,6 +286,7 @@ export default function SessionsScreen() {
           const session = await dirClient.session.create({})
           addRecentDirectory(dir.trim())
           setShowNewSession(false)
+          closeNewProject()
           setCustomDir("")
           if (session) {
             router.push({
@@ -369,6 +303,7 @@ export default function SessionsScreen() {
 
       const session = await createSession()
       setShowNewSession(false)
+      closeNewProject()
       setCustomDir("")
       if (session) {
         router.push({
@@ -394,13 +329,14 @@ export default function SessionsScreen() {
     (startDir: string | null, mode: "create" | "switch") => {
       setBrowseStartDir(startDir || serverHome || null)
       setBrowseMode(mode)
-      if (mode === "create" && showNewSession) {
+      if (mode === "create" && (showNewSession || showNewProject)) {
         restoreNewSessionOnDismiss.current = true
         setShowNewSession(false)
+        closeNewProject()
       }
       browserSheetRef.current?.expand()
     },
-    [serverHome, showNewSession],
+    [serverHome, showNewSession, showNewProject, closeNewProject],
   )
 
   const onBrowserSelect = useCallback(
@@ -419,9 +355,14 @@ export default function SessionsScreen() {
   const onBrowserDismiss = useCallback(() => {
     if (restoreNewSessionOnDismiss.current) {
       restoreNewSessionOnDismiss.current = false
-      setShowNewSession(true)
+      // Restore whichever modal was open (new project takes precedence)
+      if (showNewProject) {
+        // Already handled via store — no need to set
+      } else {
+        setShowNewSession(true)
+      }
     }
-  }, [])
+  }, [showNewProject])
 
   const onFabPress = () => {
     // Quick create in current project
@@ -514,20 +455,16 @@ export default function SessionsScreen() {
       </TouchableOpacity>
 
       <FlatList
-        data={rows}
-        keyExtractor={(row) => (row.type === "header" ? `dir:${row.directory}` : row.session.id)}
-        renderItem={({ item: row }) =>
-          row.type === "header" ? (
-            <GroupHeader row={row} isDark={isDark} onToggle={() => toggleGroup(row.directory)} />
-          ) : (
-            <SessionItem
-              session={row.session}
-              isDark={isDark}
-              onRename={() => handleRename(row.session)}
-              onDelete={() => handleDelete(row.session)}
-            />
-          )
-        }
+        data={projects}
+        keyExtractor={(item) => item.directory}
+        renderItem={({ item }) => (
+          <ProjectCard
+            directory={item.directory}
+            count={item.count}
+            lastUpdated={item.lastUpdated}
+            isDark={isDark}
+          />
+        )}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? "#ffffff" : "#0a0a0a"} />
         }
@@ -538,23 +475,43 @@ export default function SessionsScreen() {
             </View>
           ) : (
             <View style={styles.emptyList}>
-              <Text style={[styles.emptyListText, isDark && styles.metaDark]}>{t("sessionsList.empty.noSessions")}</Text>
+              <Text style={[styles.emptyListText, isDark && styles.metaDark]}>Нет проектов — создайте первый</Text>
             </View>
           )
         }
-        contentContainerStyle={sessions.length === 0 ? styles.emptyContent : undefined}
+        contentContainerStyle={projects.length === 0 ? styles.emptyContent : { padding: 16, gap: 12 }}
       />
 
       {/* FAB removed per request */}
 
-      {/* New Session Info Modal */}
-      <Modal visible={showNewSession} animationType="slide" transparent>
+      {/* New Session Info Modal — also opened via Navbar New Project button */}
+      <Modal
+        visible={showNewSession || showNewProject}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setShowNewSession(false)
+          closeNewProject()
+        }}
+      >
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-          <TouchableOpacity style={styles.modalDismiss} activeOpacity={1} onPress={() => setShowNewSession(false)} />
+          <TouchableOpacity
+            style={styles.modalDismiss}
+            activeOpacity={1}
+            onPress={() => {
+              setShowNewSession(false)
+              closeNewProject()
+            }}
+          />
           <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, isDark && styles.textDark]}>{t("sessionsList.newSessionModal.title")}</Text>
-              <TouchableOpacity onPress={() => setShowNewSession(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowNewSession(false)
+                  closeNewProject()
+                }}
+              >
                 <Ionicons name="close" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
               </TouchableOpacity>
             </View>
@@ -569,11 +526,11 @@ export default function SessionsScreen() {
                 onPress={() => onCreateInDirectory()}
                 disabled={isCreating}
               >
-                <Ionicons name="folder" size={20} color={isDark ? "#8b5cf6" : "#6d28d9"} />
+                <Ionicons name="folder" size={20} color={isDark ? colors.accentPale : colors.accentStrong} />
                 <Text style={[styles.modalDirText, isDark && styles.textDark]} numberOfLines={2}>
                   {currentProject?.path?.absolute || activeConnection?.directory || t("sessionsList.newSessionModal.serverDefault")}
                 </Text>
-                <Ionicons name="arrow-forward-circle" size={20} color={isDark ? "#8b5cf6" : "#6d28d9"} />
+                <Ionicons name="arrow-forward-circle" size={20} color={isDark ? colors.accentPale : colors.accentStrong} />
               </TouchableOpacity>
 
               {/* Recent projects */}
@@ -600,7 +557,7 @@ export default function SessionsScreen() {
                         <Ionicons
                           name="folder-outline"
                           size={18}
-                          color={isCurrent ? "#8b5cf6" : isDark ? "#888888" : "#666666"}
+                          color={isCurrent ? colors.accent : isDark ? "#888888" : "#666666"}
                         />
                         <View style={styles.projectRowContent}>
                           <Text
@@ -617,7 +574,7 @@ export default function SessionsScreen() {
                             {dir}
                           </Text>
                         </View>
-                        {isCurrent && <Ionicons name="checkmark-circle" size={18} color="#8b5cf6" />}
+                        {isCurrent && <Ionicons name="checkmark-circle" size={18} color={colors.accent} />}
                       </TouchableOpacity>
                     )
                   })}
@@ -667,7 +624,7 @@ export default function SessionsScreen() {
                 disabled={isCreating}
                 testID="browse-folders-button"
               >
-                <Ionicons name="folder-open-outline" size={18} color={isDark ? "#8b5cf6" : "#6d28d9"} />
+                <Ionicons name="folder-open-outline" size={18} color={isDark ? colors.accentPale : colors.accentStrong} />
                 <View style={styles.projectRowContent}>
                   <Text style={[styles.projectRowName, isDark && styles.textDark]}>
                     {t("sessionsList.newSessionModal.browseFoldersLabel")}
@@ -1031,7 +988,7 @@ const styles = StyleSheet.create({
   setupGuideLinkText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#6366f1",
+    color: colors.accent,
   },
   tryDemoButton: {
     flexDirection: "row",
@@ -1042,18 +999,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#8b5cf6",
+    borderColor: colors.accent,
   },
   tryDemoButtonDark: {
-    borderColor: "#a78bfa",
+    borderColor: colors.accentPale,
   },
   tryDemoButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#6d28d9",
+    color: colors.accentStrong,
   },
   tryDemoButtonTextDark: {
-    color: "#a78bfa",
+    color: colors.accentPale,
   },
   loadingContainer: {
     flex: 1,
@@ -1144,7 +1101,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#2a2a2a",
   },
   projectRowActive: {
-    backgroundColor: "#f5f3ff",
+    backgroundColor: colors.accentMuted,
   },
   projectRowContent: {
     flex: 1,
@@ -1155,7 +1112,7 @@ const styles = StyleSheet.create({
     color: "#0a0a0a",
   },
   projectRowNameActive: {
-    color: "#8b5cf6",
+    color: colors.accent,
   },
   projectRowPath: {
     fontSize: 11,
@@ -1205,19 +1162,19 @@ const styles = StyleSheet.create({
   pathChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "#e8e5f0",
+    backgroundColor: colors.accentChipBg,
     borderRadius: 16,
   },
   pathChipDark: {
-    backgroundColor: "#2a2040",
+    backgroundColor: colors.accentChipBgDark,
   },
   pathChipText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6d28d9",
+    color: colors.accentStrong,
   },
   pathChipTextDark: {
-    color: "#c4b5fd",
+    color: colors.accentExtraPale,
   },
   modalHint: {
     fontSize: 13,
@@ -1321,5 +1278,54 @@ const styles = StyleSheet.create({
   },
   labelDark: {
     color: "#ffffff",
+  },
+  projectCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    gap: 6,
+  },
+  projectCardDark: {
+    backgroundColor: "#1a1a1a",
+    borderColor: "#2a2a2a",
+  },
+  projectCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  projectCardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0a0a0a",
+    flex: 1,
+  },
+  projectCardPath: {
+    fontSize: 13,
+    color: "#666666",
+  },
+  projectCardMeta: {
+    fontSize: 12,
+    color: "#999999",
+    marginTop: 4,
+  },
+  countBadge: {
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  countBadgeDark: {
+    backgroundColor: "#2a2a2a",
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666666",
+  },
+  countBadgeTextDark: {
+    color: "#888888",
   },
 })

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
 import { HARDCODED_SERVER_URL } from "../../src/lib/server-config"
+import { layout } from "../../src/lib/theme"
 import { useState, useCallback } from "react"
 
 function ConnectionBadge({ isDark }: { isDark: boolean }) {
@@ -232,13 +233,22 @@ export default function TabLayout() {
           backgroundColor: isDark ? "#0a0a0a" : "#ffffff",
         },
         headerTintColor: (isDark ? "#ffffff" : "#0a0a0a") as unknown as string,
+        // Badge должен следовать ширине контейнера: контент имеет
+        // paddingHorizontal: layout.containerPadding (16), поэтому headerRight
+        // выравнивается тем же токеном. headerLeftContainerStyle не трогаем —
+        // пустой left-контейнер с paddingLeft сдвигает title вправо (двойной
+        // отступ слева у заголовков, замеченный в ревью), title и так имеет
+        // дефолтный отступ заголовка.
+        headerRightContainerStyle: {
+          paddingRight: layout.containerPadding,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: t("nav.sessionsTab"),
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" size={size} color={color as unknown as string} />,
+          title: t("nav.projectsTab"),
+          tabBarIcon: ({ color, size }) => <Ionicons name="folder-outline" size={size} color={color as unknown as string} />,
           headerRight: () => <ConnectionBadge isDark={isDark} />,
         }}
       />
@@ -248,6 +258,21 @@ export default function TabLayout() {
           title: t("nav.tasksTab"),
           tabBarIcon: ({ color, size }) => <Ionicons name="pulse-outline" size={size} color={color as unknown as string} />,
           tabBarBadge: busyCount > 0 ? busyCount : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="new-project"
+        options={{
+          title: t("nav.newProjectTab"),
+          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color as unknown as string} />,
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault()
+            // Open new project modal via global UI store — handled in index.tsx
+            const { openNewProject } = require("../../src/stores/ui").useUi.getState()
+            openNewProject()
+          },
         }}
       />
       <Tabs.Screen

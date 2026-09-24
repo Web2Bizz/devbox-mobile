@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetTextInput } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
+import { colors } from "../../lib/theme"
 
 interface Props {
   sheetRef: React.RefObject<BottomSheet | null>
@@ -75,7 +76,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
         <Text style={[s.title, isDark && s.white]}>{t("chat.directorySwitcher.title")}</Text>
         {shortCurrent && (
           <View style={s.current}>
-            <Ionicons name="folder" size={14} color="#8b5cf6" />
+            <Ionicons name="folder" size={14} color={colors.accent} />
             <Text style={s.currentText} numberOfLines={1}>
               {shortCurrent}
             </Text>
@@ -128,7 +129,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
                 onBrowse()
               }}
             >
-              <Ionicons name="folder-open-outline" size={14} color={isDark ? "#8b5cf6" : "#6d28d9"} />
+              <Ionicons name="folder-open-outline" size={14} color={isDark ? colors.accentPale : colors.accentStrong} />
               <Text style={[s.chipText, isDark && s.chipTextDark]}>{t("chat.directorySwitcher.browseLabel")}</Text>
             </TouchableOpacity>
           )}
@@ -148,7 +149,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
               <Ionicons
                 name={item.dir ? "folder-outline" : "server-outline"}
                 size={20}
-                color={item.active ? "#8b5cf6" : isDark ? "#888888" : "#666666"}
+                color={item.active ? colors.accent : isDark ? "#888888" : "#666666"}
               />
             </View>
             <View style={s.rowContent}>
@@ -164,7 +165,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
                 <Text style={[s.rowPath, isDark && s.dimDark]}>{t("chat.directorySwitcher.usesServerDir")}</Text>
               )}
             </View>
-            {item.active && <Ionicons name="checkmark-circle" size={20} color="#8b5cf6" />}
+            {item.active && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
           </TouchableOpacity>
         )}
         contentContainerStyle={s.list}
@@ -191,7 +192,7 @@ const s = StyleSheet.create({
   },
   currentText: {
     fontSize: 13,
-    color: "#8b5cf6",
+    color: colors.accent,
     fontWeight: "500",
   },
   inputWrap: {
@@ -210,11 +211,11 @@ const s = StyleSheet.create({
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "#e8e5f0",
+    backgroundColor: colors.accentChipBg,
     borderRadius: 16,
   },
   chipDark: {
-    backgroundColor: "#2a2040",
+    backgroundColor: colors.accentChipBgDark,
   },
   chipBrowse: {
     flexDirection: "row",
@@ -224,10 +225,10 @@ const s = StyleSheet.create({
   chipText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6d28d9",
+    color: colors.accentStrong,
   },
   chipTextDark: {
-    color: "#c4b5fd",
+    color: colors.accentExtraPale,
   },
   input: {
     flex: 1,
@@ -270,10 +271,10 @@ const s = StyleSheet.create({
     gap: 12,
   },
   rowDark: { borderBottomColor: "#2a2a2a" },
-  rowActive: { backgroundColor: "#f5f3ff" },
+  rowActive: { backgroundColor: colors.accentMuted },
   rowIcon: { width: 28, alignItems: "center" },
   rowContent: { flex: 1 },
   rowLabel: { fontSize: 15, fontWeight: "500", color: "#0a0a0a" },
-  rowLabelActive: { color: "#8b5cf6" },
+  rowLabelActive: { color: colors.accent },
   rowPath: { fontSize: 12, color: "#999999", marginTop: 1 },
 })

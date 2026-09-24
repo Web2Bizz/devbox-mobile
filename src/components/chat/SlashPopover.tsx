@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Keyboard, Platform } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
+import { colors } from "../../lib/theme"
 
 export interface SlashCommand {
   trigger: string
@@ -35,7 +36,7 @@ export function SlashPopover({ query, commands, isDark, onSelect }: Props) {
             <Ionicons
               name={cmd.icon as any}
               size={18}
-              color={cmd.type === "custom" ? "#8b5cf6" : isDark ? "#888888" : "#666666"}
+              color={cmd.type === "custom" ? colors.accent : isDark ? "#888888" : "#666666"}
             />
             <View style={s.textCol}>
               <Text style={[s.trigger, isDark && s.textWhite]}>/{cmd.trigger}</Text>
@@ -80,11 +81,11 @@ const s = StyleSheet.create({
   desc: { fontSize: 12, color: "#999999", marginTop: 1 },
   metaDark: { color: "#666666" },
   badge: {
-    backgroundColor: "#f3e8ff",
+    backgroundColor: colors.accentMuted,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  badgeDark: { backgroundColor: "#2a1a3e" },
-  badgeText: { fontSize: 10, color: "#8b5cf6", fontWeight: "600" },
+  badgeDark: { backgroundColor: colors.accentMutedDark },
+  badgeText: { fontSize: 10, color: colors.accent, fontWeight: "600" },
 })

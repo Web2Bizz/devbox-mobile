@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import type { Message, Session } from "../../lib/sdk"
 import type { Provider } from "../../stores/catalog"
+import { colors } from "../../lib/theme"
 
 interface Props {
   session: Session | null
@@ -137,7 +138,7 @@ export function SessionInfo({
             <TokenPill label={t("chat.sessionInfo.pills.think")} value={stats.reasoning} color="#f59e0b" isDark={isDark} />
           )}
           {stats.cacheRead > 0 && (
-            <TokenPill label={t("chat.sessionInfo.pills.cacheRead")} value={stats.cacheRead} color="#8b5cf6" isDark={isDark} />
+            <TokenPill label={t("chat.sessionInfo.pills.cacheRead")} value={stats.cacheRead} color={colors.accent} isDark={isDark} />
           )}
           {stats.cacheWrite > 0 && (
             <TokenPill

@@ -24,6 +24,7 @@ import { AnalyticsEvent, track } from "../../src/lib/analytics"
 import { submitWaitlistSignup, buildWaitlistMailtoUrl, needsManualEscapeHatch, type QueuedSignup } from "../../src/lib/waitlist"
 import { flushPendingSignups, queuePendingSignup, readPendingSignups, dropPendingSignup } from "../../src/lib/waitlist-queue-storage"
 import { HARDCODED_SERVER_URL } from "../../src/lib/server-config"
+import { colors } from "../../src/lib/theme"
 import pkg from "../../package.json"
 
 // Single source of truth — package.json
@@ -362,7 +363,7 @@ export default function AddConnectionScreen() {
         {/* OpenCode Connect — Coming Soon */}
         <View style={[styles.connectCard, isDark && styles.connectCardDark]}>
           <View style={styles.connectCardHeader}>
-            <Ionicons name="cloud-done-outline" size={28} color="#6366f1" />
+            <Ionicons name="cloud-done-outline" size={28} color={colors.accent} />
             <View style={styles.connectCardTitles}>
               <Text style={[styles.connectCardTitle, isDark && styles.textDark]}>
                 {t("connection.add.quick.connectCardTitle")}
@@ -663,7 +664,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   usernameHintLink: {
-    color: "#6366f1",
+    color: colors.accent,
     fontWeight: "600",
   },
   advancedLink: {
@@ -764,16 +765,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   connectCard: {
-    backgroundColor: "#f0f0ff",
+    backgroundColor: colors.accentMuted,
     borderRadius: 12,
     padding: 16,
     marginTop: 24,
     borderWidth: 1,
-    borderColor: "#c7d2fe",
+    borderColor: colors.accentBorder,
   },
   connectCardDark: {
-    backgroundColor: "#1e1b4b",
-    borderColor: "#3730a3",
+    backgroundColor: colors.accentMutedDark,
+    borderColor: colors.accentBorderDark,
   },
   connectCardHeader: {
     flexDirection: "row",
@@ -793,7 +794,7 @@ const styles = StyleSheet.create({
     color: "#0a0a0a",
   },
   connectCardBadge: {
-    backgroundColor: "#6366f1",
+    backgroundColor: colors.accent,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
@@ -815,7 +816,7 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#6366f1",
+    backgroundColor: colors.accent,
     marginTop: 12,
   },
   waitlistButtonText: {
@@ -842,6 +843,6 @@ const styles = StyleSheet.create({
   waitlistEscapeHatchText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#6366f1",
+    color: colors.accent,
   },
 })

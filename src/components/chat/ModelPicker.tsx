@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, { BottomSheetBackdrop, BottomSheetSectionList, BottomSheetTextInput } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
+import { colors } from "../../lib/theme"
 
 interface ModelItem {
   providerID: string
@@ -134,7 +135,7 @@ export function ModelPicker({ providers, selected, isDark, onSelect, sheetRef }:
                 </Text>
                 <Text style={[s.rowProvider, isDark && s.metaDark]}>{item.providerName || item.providerID}</Text>
               </View>
-              {active && <Ionicons name="checkmark-circle" size={20} color="#8b5cf6" />}
+              {active && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
             </TouchableOpacity>
           )
         }}
@@ -184,8 +185,8 @@ const s = StyleSheet.create({
     borderBottomColor: "#e5e5e5",
   },
   rowDark: { borderBottomColor: "#2a2a2a" },
-  rowSelected: { backgroundColor: "#f5f3ff" },
-  rowSelectedDark: { backgroundColor: "#1f1a2e" },
+  rowSelected: { backgroundColor: colors.accentMuted },
+  rowSelectedDark: { backgroundColor: colors.accentMutedDark },
   rowText: { flex: 1 },
   rowName: { fontSize: 15, fontWeight: "500", color: "#0a0a0a" },
   rowProvider: { fontSize: 12, color: "#999999", marginTop: 1 },

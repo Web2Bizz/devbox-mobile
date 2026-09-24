@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
+import { colors } from "../../lib/theme"
 
 interface VariantOption {
   id: string | null
@@ -78,7 +79,7 @@ export function VariantPicker({ variants, selected, isDark, onSelect, sheetRef }
                 <Text style={[s.rowName, isDark && s.textWhite]}>{item.label}</Text>
                 <Text style={[s.rowDesc, isDark && s.metaDark]}>{item.description}</Text>
               </View>
-              {active && <Ionicons name="checkmark-circle" size={20} color="#8b5cf6" />}
+              {active && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
             </TouchableOpacity>
           )
         }}
@@ -105,8 +106,8 @@ const s = StyleSheet.create({
     borderBottomColor: "#e5e5e5",
   },
   rowDark: { borderBottomColor: "#2a2a2a" },
-  rowSelected: { backgroundColor: "#f5f3ff" },
-  rowSelectedDark: { backgroundColor: "#1f1a2e" },
+  rowSelected: { backgroundColor: colors.accentMuted },
+  rowSelectedDark: { backgroundColor: colors.accentMutedDark },
   rowText: { flex: 1 },
   rowName: { fontSize: 15, fontWeight: "600", color: "#0a0a0a" },
   rowDesc: { fontSize: 12, color: "#999999", marginTop: 2 },

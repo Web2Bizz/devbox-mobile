@@ -12,6 +12,7 @@ import {
   demoExitedToConnectProps,
   type DemoPermissionReply,
 } from "../src/lib/demo-analytics"
+import { colors } from "../src/lib/theme"
 
 // Fully offline, scripted walkthrough for installers with no self-hosted
 // opencode server. ISOLATION: every message/part below is hardcoded local
@@ -60,7 +61,7 @@ export default function DemoScreen() {
       <Stack.Screen options={{ title: t("demo.title"), presentation: "card" }} />
       <View style={[s.container, isDark && s.containerDark]} testID="demo-screen">
         <View style={[s.banner, isDark && s.bannerDark]} testID="demo-banner">
-          <Ionicons name="play-circle-outline" size={16} color="#8b5cf6" />
+          <Ionicons name="play-circle-outline" size={16} color={colors.accent} />
           <Text style={s.bannerText}>{t("demo.banner")}</Text>
         </View>
 
@@ -111,12 +112,12 @@ const s = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: "#f5f3ff",
+    backgroundColor: colors.accentMuted,
     borderBottomWidth: 1,
-    borderBottomColor: "#e9d5ff",
+    borderBottomColor: colors.accentBorder,
   },
-  bannerDark: { backgroundColor: "#1a1030", borderBottomColor: "#2a1a4a" },
-  bannerText: { fontSize: 13, fontWeight: "600", color: "#6d28d9", flex: 1 },
+  bannerDark: { backgroundColor: colors.accentBannerDark, borderBottomColor: colors.accentBorderDark },
+  bannerText: { fontSize: 13, fontWeight: "600", color: colors.accentStrong, flex: 1 },
 
   scrollContent: { padding: 16, paddingBottom: 40 },
 
@@ -141,7 +142,7 @@ const s = StyleSheet.create({
   },
   connectButtonText: { color: "#ffffff", fontWeight: "600", fontSize: 15 },
   hostedCtaLink: { marginTop: 14 },
-  hostedCtaLinkText: { fontSize: 14, fontWeight: "600", color: "#8b5cf6", textAlign: "center" },
+  hostedCtaLinkText: { fontSize: 14, fontWeight: "600", color: colors.accent, textAlign: "center" },
   setupGuideLink: { marginTop: 14 },
-  setupGuideLinkText: { fontSize: 14, fontWeight: "600", color: "#6366f1" },
+  setupGuideLinkText: { fontSize: 14, fontWeight: "600", color: colors.accent },
 })
