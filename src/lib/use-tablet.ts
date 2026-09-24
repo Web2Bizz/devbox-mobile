@@ -1,22 +1,9 @@
-import { useWindowDimensions } from "react-native"
-import { breakpoints } from "./theme"
-
 /**
- * use-tablet — планшетный хук для адаптивной сетки.
+ * Back-compat shim (card 2/5 decompose).
  *
- * Использует `useWindowDimensions().width` (реактивен к повороту), а не
- * статичный снапшот размера окна (см. MessageBubble.tsx:179 — там размер
- * снимается один раз при старте и не пересчитывается при повороте).
+ * Real hook lives in `@opencode-ai/uikit` (`packages/uikit/src/hooks/use-tablet.ts`,
+ * breakpoints unified with the theme module). This file re-exports the package
+ * so existing imports (`src/lib/use-tablet`, …) keep working — `app/` is untouched.
+ * New code should import from `@opencode-ai/uikit` directly.
  */
-export function numColumnsForWidth(width: number): 1 | 2 | 3 {
-  if (width >= breakpoints.desktop) return 3
-  if (width >= breakpoints.tablet) return 2
-  return 1
-}
-
-export function useTablet() {
-  const { width } = useWindowDimensions()
-  const isTablet = width >= breakpoints.tablet
-  const numColumns = numColumnsForWidth(width)
-  return { isTablet, numColumns, width }
-}
+export * from "@opencode-ai/uikit"

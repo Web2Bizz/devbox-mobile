@@ -235,13 +235,15 @@
     }
   },
   "nav": {
-    "sessionsTab": "Сессии",
+    "sessionsTab": "Проекты",
     "connectionsTab": "Подключения",
     "settingsTab": "Настройки",
     "addConnectionTitle": "Add Connection",
     "editConnectionTitle": "Edit Connection",
     "accountTab": "Аккаунт",
-    "tasksTab": "Задачи"
+    "tasksTab": "Задачи",
+    "projectsTab": "Проекты",
+    "newProjectTab": "Новый проект"
   },
   "connectionsList": {
     "activeBadge": "Active",

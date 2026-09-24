@@ -6,12 +6,15 @@ import path from "node:path"
 
 // Tablet-adaptive layout regression coverage.
 //
-// What changed and why (single adaptive pass):
-//   - src/lib/theme.ts: breakpoints { tablet: 768, desktop: 1024 } + layout
+// What changed and why (single adaptive pass + card 2/5 uikit move):
+//   - packages/uikit/src/theme.ts (re-exported via src/lib/theme.ts shim):
+//     breakpoints { tablet: 768, desktop: 1024 } + layout
 //     { contentMaxWidth: 640, formMaxWidth: 500, modalMaxWidth: 560 }.
-//   - src/components/Container.tsx: optional maxWidth prop (centered via
+//   - packages/uikit/src/Container.tsx (re-exported via
+//     src/components/Container.tsx shim): optional maxWidth prop (centered via
 //     alignSelf) — the old docstring forbade maxWidth for "mobile 100%".
-//   - src/lib/use-tablet.ts: useWindowDimensions().width -> numColumns
+//   - packages/uikit/src/hooks/use-tablet.ts (re-exported via
+//     src/lib/use-tablet.ts shim): useWindowDimensions().width -> numColumns
 //     (1 / 2 / 3). Must NOT use Dimensions.get (static snapshot, see
 //     MessageBubble.tsx:179).
 //   - app/login.tsx: form wrapped in centered maxWidth-500 View.
@@ -29,8 +32,15 @@ function readSource(relativePath: string): string {
   return readFileSync(path.join(dir, relativePath), "utf8")
 }
 
+// Card 2/5 (uikit decompose): theme / Container / use-tablet live in
+// packages/uikit/src — this helper reads the package sources.
+function readPackageSource(relativePath: string): string {
+  const dir = path.dirname(fileURLToPath(import.meta.url))
+  return readFileSync(path.join(dir, "../../packages/uikit/src", relativePath), "utf8")
+}
+
 test("theme exposes tablet breakpoints and max-width layout tokens", () => {
-  const src = readSource("../lib/theme.ts")
+  const src = readPackageSource("theme.ts")
   assert.match(src, /tablet:\s*768/, "breakpoints.tablet must be 768")
   assert.match(src, /desktop:\s*1024/, "breakpoints.desktop must be 1024")
   assert.match(src, /contentMaxWidth:\s*640/, "layout.contentMaxWidth must be 640")
@@ -40,18 +50,27 @@ test("theme exposes tablet breakpoints and max-width layout tokens", () => {
 })
 
 test("Container accepts an optional centered maxWidth", () => {
-  const src = readSource("Container.tsx")
+  const src = readPackageSource("Container.tsx")
   assert.match(src, /maxWidth\?:\s*number/, "Container must accept maxWidth?: number")
   assert.match(src, /alignSelf:\s*"center"/, "maxWidth container must center via alignSelf")
   assert.doesNotMatch(src, /Не навязывает maxWidth/, "old maxWidth ban docstring must be gone")
 })
 
 test("use-tablet derives columns from live window width, not Dimensions.get", () => {
-  const src = readSource("../lib/use-tablet.ts")
+  const src = readPackageSource("hooks/use-tablet.ts")
   assert.match(src, /useWindowDimensions/, "must use useWindowDimensions (rotation-reactive)")
   assert.match(src, /breakpoints\.desktop/, "3-col threshold must source breakpoints.desktop")
   assert.match(src, /breakpoints\.tablet/, "2-col threshold must source breakpoints.tablet")
   assert.doesNotMatch(src, /Dimensions\.get/, "must not use static Dimensions.get snapshot")
+})
+
+test("legacy src/ paths re-export from @opencode-ai/uikit (no breaking changes)", () => {
+  const themeShim = readSource("../lib/theme.ts")
+  assert.match(themeShim, /@opencode-ai\/uikit/, "src/lib/theme.ts must re-export from @opencode-ai/uikit")
+  const hookShim = readSource("../lib/use-tablet.ts")
+  assert.match(hookShim, /@opencode-ai\/uikit/, "src/lib/use-tablet.ts must re-export from @opencode-ai/uikit")
+  const containerShim = readSource("Container.tsx")
+  assert.match(containerShim, /@opencode-ai\/uikit/, "src/components/Container.tsx must re-export from @opencode-ai/uikit")
 })
 
 test("login form is wrapped in a centered max-width container", () => {

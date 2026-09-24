@@ -1,41 +1,9 @@
-import { View, StyleSheet, type ViewProps } from "react-native"
-import { layout } from "../lib/theme"
-
 /**
- * Container — единый горизонтальный контейнер для всего приложения.
+ * Back-compat shim (card 2/5 decompose).
  *
- * До этого в проекте Container / Header как отдельные компоненты отсутствовали:
- * - `app/_layout.tsx` и `app/(tabs)/_layout.tsx` используют нативный header
- *   expo-router (Stack / Tabs), без кастомного <Header>
- * - каждый экран задавал `padding: 16` / `paddingHorizontal: 16` вручную
- * - из-за отсутствия container-токена `headerRight` (ConnectionBadge) рендерился
- *   без отступа справа и не выравнивался с контентом
- *
- * Этот компонент фиксирует ширину контейнера через `layout.containerPadding`
- * (16) и используется как:
- *  - обёртка для контента экранов
- *  - источник токена для `headerRightContainerStyle` / `headerLeftContainerStyle`
- *
- * По умолчанию контейнер = 100% ширины с горизонтальными полями.
- * На планшете можно передать `maxWidth` (см. `layout.contentMaxWidth` /
- * `layout.formMaxWidth`) — контейнер центрируется через `alignSelf: "center"`.
+ * Real component lives in `@opencode-ai/uikit` (`packages/uikit/src/Container.tsx`).
+ * This file re-exports the package so existing imports
+ * (`src/components/Container`, …) keep working — `app/` is untouched.
+ * New code should import from `@opencode-ai/uikit` directly.
  */
-export function Container({
-  style,
-  children,
-  maxWidth,
-  ...props
-}: ViewProps & { maxWidth?: number }) {
-  return (
-    <View style={[styles.container, maxWidth != null && { maxWidth, alignSelf: "center" as const }, style]} {...props}>
-      {children}
-    </View>
-  )
-}
-
-const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-    paddingHorizontal: layout.containerPadding,
-  },
-})
+export * from "@opencode-ai/uikit"
