@@ -28,7 +28,7 @@ interface Props {
   // Called whenever the sheet fully closes (selection or cancel).
   onDismiss?: () => void
   // UI stub: browse the static mock tree (fs-mock.ts) instead of the server.
-  // Shapes mirror the real opencode API; drop this prop when backend lands.
+  // Shapes mirror the real devbox API; drop this prop when backend lands.
   useMock?: boolean
 }
 

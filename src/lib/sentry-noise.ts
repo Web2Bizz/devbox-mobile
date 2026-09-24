@@ -1,6 +1,6 @@
 // Client-side Sentry noise gate (AGE-105).
 //
-// Why this exists: `opencode-mobile` became the #1 source of Sentry error
+// Why this exists: `devbox-mobile` became the #1 source of Sentry error
 // volume in the org (~4,500 events/month against a 3,500/month org gate).
 // Breaking that number down, the top three issues (~1,100 events) were NOT app
 // defects:

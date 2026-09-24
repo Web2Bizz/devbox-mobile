@@ -2,7 +2,7 @@
 // No React Native imports — unit-testable with node --test.
 //
 // Server working directories can be POSIX (/a/b) or Windows (C:\a\b, D:/a/b)
-// since the mobile app can point at either kind of opencode server, so both
+// since the mobile app can point at either kind of devbox server, so both
 // separators are handled.
 
 /** Remove trailing slashes/backslashes, keeping the input if that would empty it. */

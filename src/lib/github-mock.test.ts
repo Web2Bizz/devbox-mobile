@@ -7,8 +7,8 @@ test("filterMockRepos: empty query returns all", () => {
 })
 
 test("filterMockRepos: matches by name/fullName/description", () => {
-  assert.ok(filterMockRepos("opencode-mobile").length >= 1)
-  assert.ok(filterMockRepos("sst/").some((r) => r.fullName === "sst/opencode"))
+  assert.ok(filterMockRepos("devbox").length >= 1)
+  assert.ok(filterMockRepos("web2bizz/").some((r) => r.fullName === "web2bizz/devbox-core"))
 })
 
 test("filterMockRepos: no match returns empty", () => {

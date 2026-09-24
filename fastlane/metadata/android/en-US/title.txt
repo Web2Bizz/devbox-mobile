@@ -1,1 +1,1 @@
-OpenCode: AI Coding Agent
+DevBox: AI Coding Agent

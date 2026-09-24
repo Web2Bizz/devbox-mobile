@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "OpenCode",
+    "name": "DevBox",
     "slug": "opencode-mobile",
     "version": "0.4.15",
     "orientation": "portrait",
@@ -15,12 +15,12 @@
         "aps-environment": "production"
       },
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Use Face ID to unlock OpenCode and access your sessions securely.",
-        "NSSpeechRecognitionUsageDescription": "OpenCode uses speech recognition so you can dictate prompts to your AI coding agent hands-free.",
-        "NSMicrophoneUsageDescription": "OpenCode uses the microphone to capture your voice when using speech-to-text input.",
-        "NSPhotoLibraryUsageDescription": "OpenCode can attach images from your photo library to messages to your AI coding agent.",
-        "NSCameraUsageDescription": "OpenCode can capture images with your camera and attach them to messages to your AI coding agent.",
-        "NSLocalNetworkUsageDescription": "OpenCode uses your local network to connect to self-hosted OpenCode servers running on your LAN.",
+        "NSFaceIDUsageDescription": "Use Face ID to unlock DevBox and access your sessions securely.",
+        "NSSpeechRecognitionUsageDescription": "DevBox uses speech recognition so you can dictate prompts to your AI coding agent hands-free.",
+        "NSMicrophoneUsageDescription": "DevBox uses the microphone to capture your voice when using speech-to-text input.",
+        "NSPhotoLibraryUsageDescription": "DevBox can attach images from your photo library to messages to your AI coding agent.",
+        "NSCameraUsageDescription": "DevBox can capture images with your camera and attach them to messages to your AI coding agent.",
+        "NSLocalNetworkUsageDescription": "DevBox uses your local network to connect to self-hosted DevBox servers running on your LAN.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "NSAllowsArbitraryLoadsInWebContent": false

@@ -15,9 +15,9 @@ export interface MockRepo {
 export const MOCK_REPOS: MockRepo[] = [
   {
     id: "1",
-    name: "opencode-mobile",
-    fullName: "dzianisv/opencode-mobile",
-    description: "React Native / Expo client for the opencode AI coding agent",
+    name: "devbox",
+    fullName: "web2bizz/devbox",
+    description: "React Native / Expo client for the DevBox AI coding agent",
     language: "TypeScript",
     stars: 128,
     isPrivate: false,
@@ -75,9 +75,9 @@ export const MOCK_REPOS: MockRepo[] = [
   },
   {
     id: "7",
-    name: "opencode",
-    fullName: "sst/opencode",
-    description: "The AI coding agent — terminal-based, open source",
+    name: "devbox-core",
+    fullName: "web2bizz/devbox-core",
+    description: "The AI coding agent engine powering DevBox",
     language: "TypeScript",
     stars: 24100,
     isPrivate: false,

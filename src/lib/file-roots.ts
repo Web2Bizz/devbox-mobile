@@ -1,4 +1,4 @@
-// Pure helpers for normalizing GET /file/roots responses from opencode
+// Pure helpers for normalizing GET /file/roots responses from devbox
 // servers. No React Native imports — unit-testable with node --test.
 //
 // Older servers don't expose the endpoint (404), which the SDK client turns

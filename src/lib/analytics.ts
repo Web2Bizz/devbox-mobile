@@ -5,7 +5,7 @@
 //   2. Strict no-op when the user has not granted telemetry consent — this
 //      module never calls PostHog.init/capture on its own; it is only ever
 //      driven by ./telemetry.ts, which gates BOTH Sentry and analytics behind
-//      the exact same "opencode_telemetry_consent" flag.
+//      the exact same "devbox_telemetry_consent" flag.
 //   3. On consent REVOCATION, buffered-but-unsent events are DROPPED, not
 //      flushed: PostHog's shutdown() normally drains the queue over the
 //      network, and optOut() only blocks NEW captures (already-queued events
@@ -30,7 +30,7 @@ import { log } from "./logbuffer"
 export { classifyConnectionError, type ConnectionErrorClass } from "./analytics-classify"
 
 const API_KEY = process.env.EXPO_PUBLIC_POSTHOG_KEY
-// EU by default (GDPR-friendly region for opencode's mostly-EU/self-hosted user base).
+// EU by default (GDPR-friendly region for devbox's mostly-EU/self-hosted user base).
 // Override with EXPO_PUBLIC_POSTHOG_HOST for a self-hosted instance.
 const HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com"
 

@@ -1,12 +1,12 @@
-// OpenCode Connect waitlist signup: pure payload/fallback logic.
+// DevBox Connect waitlist signup: pure payload/fallback logic.
 //
 // Kept free of react-native imports (Linking, Alert) so it's unit-testable
 // with plain `node --test`, the same split used for buildAuth() in auth.ts
 // and shouldRequestReview() in store-review-policy.ts. The screen injects
 // nothing in production (global fetch is used); tests inject a fake fetch.
 //
-// Backend: the OpenCodeMobileSite beta-signup route (VibeBrowserProductPage
-// repo, OpenCodeMobileSite/app/api/beta-signup/route.ts) validates `email`
+// Backend: the DevBoxSite beta-signup route (VibeBrowserProductPage
+// repo, DevBoxSite/app/api/beta-signup/route.ts) validates `email`
 // and adds it to a Brevo list. It ignores unknown body fields today, so the
 // `source` tag we send is forward-compatible: harmless now, attributable as
 // soon as the route starts reading it.
@@ -14,7 +14,7 @@
 export const WAITLIST_ENDPOINT = "https://opencode.agentlabs.cc/api/beta-signup"
 export const WAITLIST_SOURCE = "opencode-connect-waitlist"
 export const WAITLIST_TIMEOUT_MS = 8_000
-export const WAITLIST_FALLBACK_EMAIL = "support@agentlabs.cc"
+export const WAITLIST_FALLBACK_EMAIL = "support@web2bizz.team"
 
 // Mirrors the server-side pattern in brevo-contact.ts so we reject locally
 // exactly what the server would 400 on, instead of burning a round trip.
@@ -45,10 +45,10 @@ export function buildWaitlistPayload(email: string): { email: string; source: st
  * which would be a live defect. Absence of the line means "pre-v0.4.13 build".
  */
 export function buildWaitlistMailtoUrl(email: string, appVersion?: string): string {
-  const subject = encodeURIComponent("OpenCode Connect Waitlist")
+  const subject = encodeURIComponent("DevBox Connect Waitlist")
   const lines = ["Sign me up!"]
   if (email) lines.push("", `Email: ${email}`)
-  if (appVersion) lines.push("", `App: OpenCode Mobile v${appVersion}`)
+  if (appVersion) lines.push("", `App: DevBox v${appVersion}`)
   const body = encodeURIComponent(lines.join("\n"))
   return `mailto:${WAITLIST_FALLBACK_EMAIL}?subject=${subject}&body=${body}`
 }

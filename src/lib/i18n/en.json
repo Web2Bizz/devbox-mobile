@@ -38,7 +38,7 @@
     "privacy": {
       "crashReporting": {
         "label": "Crash Reports & Usage Analytics",
-        "description": "Share anonymous crash reports (Sentry) and usage analytics (PostHog) to help improve OpenCode. Diagnostic reports you share are also delivered to our support inbox. No code or prompts are included."
+        "description": "Share anonymous crash reports (Sentry) and usage analytics (PostHog) to help improve DevBox. Diagnostic reports you share are also delivered to our support inbox. No code or prompts are included."
       },
       "privacyPolicy": {
         "label": "Privacy Policy",
@@ -53,7 +53,7 @@
       },
       "docs": {
         "label": "Documentation",
-        "description": "Learn how to use OpenCode"
+        "description": "Learn how to use DevBox"
       }
     },
     "language": {
@@ -64,14 +64,14 @@
       "ru": "Русский"
     },
     "footer": {
-      "appName": "OpenCode Mobile",
+      "appName": "DevBox",
       "tagline": "Connect to your AI coding assistant from anywhere"
     },
     "alerts": {
       "privacyNotSavedTitle": "Privacy Setting Not Saved",
       "privacyNotSavedMessage": "Crash reporting is off for this session, but your choice could not be saved. Please try again.",
       "notificationsDisabledTitle": "Notifications Disabled",
-      "notificationsDisabledMessage": "Enable notifications for OpenCode in your device settings to receive alerts."
+      "notificationsDisabledMessage": "Enable notifications for DevBox in your device settings to receive alerts."
     },
     "logout": {
       "button": "Log Out",
@@ -107,7 +107,7 @@
     "alerts": {
       "messageActionsTitle": "Message actions",
       "notSupportedTitle": "Not supported",
-      "notSupportedMessage": "Editing sent messages needs a newer opencode server. Please update the server and try again.",
+      "notSupportedMessage": "Editing sent messages needs a newer devbox server. Please update the server and try again.",
       "revertAuthFailedTitle": "Authentication failed",
       "revertAuthFailedMessage": "Your server credentials were rejected. Check your connection and try again.",
       "editFailedTitle": "Edit failed",
@@ -160,7 +160,7 @@
     },
     "add": {
       "quick": {
-        "title": "Connect to OpenCode",
+        "title": "Connect to DevBox",
         "subtitle": "Enter your computer's IP address to connect",
         "ipAddressLabel": "IP Address",
         "nameOptionalLabel": "Name (optional)",
@@ -178,21 +178,21 @@
         "helpProtocolPrefix": "Use ",
         "helpProtocolMiddle": " for local and Tailscale addresses unless TLS is configured, then use ",
         "helpProtocolSuffix": ".",
-        "helpRunningPrefix": "Make sure OpenCode is running:",
-        "connectCardTitle": "OpenCode Connect",
+        "helpRunningPrefix": "Make sure DevBox is running:",
+        "connectCardTitle": "DevBox Connect",
         "connectCardBadge": "Coming Soon",
-        "connectCardDesc": "Bridge your phone to your opencode server — no tunnel setup, no firewall config. One-tap connect from anywhere.",
+        "connectCardDesc": "Bridge your phone to your devbox server — no tunnel setup, no firewall config. One-tap connect from anywhere.",
         "advancedLink": "Advanced options (tunnels, cloud, auth)"
       },
       "waitlist": {
-        "successText": "You're on the list — we'll email you when OpenCode Connect is ready.",
+        "successText": "You're on the list — we'll email you when DevBox Connect is ready.",
         "joinButton": "Join Waitlist",
         "alertTitle": "Join Waitlist",
         "queuedText": "Saved on this device — we'll finish signing you up as soon as you're back online. You don't have to do anything.",
         "emailUsLink": "Still not working? Email us instead",
         "emailUsButton": "Email us",
         "queueFailedMessage": "We couldn't reach the signup service or save your request on this device. You can email us instead and we'll add you by hand.",
-        "noMailAppMessage": "No email app is available. Please email support@agentlabs.cc with subject \"OpenCode Connect Waitlist\"."
+        "noMailAppMessage": "No email app is available. Please email support@web2bizz.team with subject \"DevBox Connect Waitlist\"."
       },
       "advanced": {
         "backToQuick": "Simple mode",
@@ -254,7 +254,7 @@
     },
     "empty": {
       "title": "No Connections",
-      "subtitle": "Add a connection to your OpenCode server"
+      "subtitle": "Add a connection to your DevBox server"
     },
     "header": "Tap to switch, long press for options",
     "preferences": {
@@ -286,7 +286,7 @@
     },
     "empty": {
       "noConnectionTitle": "No Connection",
-      "noConnectionSubtitle": "Connect to a computer running opencode serve on your network or via Tailscale to get started.",
+      "noConnectionSubtitle": "Connect to a computer running devbox serve on your network or via Tailscale to get started.",
       "setupGuideLink": "How to set up a server",
       "addConnectionButton": "Add Connection",
       "tryDemoButton": "Try a demo (no server needed)",
@@ -346,7 +346,7 @@
     "tryAgainButton": "Try Again"
   },
   "telemetryConsent": {
-    "title": "Help improve OpenCode?",
+    "title": "Help improve DevBox?",
     "body": "Share anonymous crash reports and usage analytics to help us find and fix bugs faster. Diagnostic reports you share are also delivered to our support inbox. No code, prompts, or server addresses are ever included.",
     "bullets": {
       "deviceInfo": "Device model, OS version, app version",
@@ -363,7 +363,7 @@
     "footnote": "You can change this at any time in Settings → Privacy."
   },
   "authGate": {
-    "title": "OpenCode Locked",
+    "title": "DevBox Locked",
     "subtitle": "Authenticate to access your sessions",
     "unlockButton": "Unlock"
   },
@@ -463,10 +463,10 @@
     "title": "Demo",
     "banner": "Demo — sample conversation, no server connected",
     "ctaTitle": "Like what you see?",
-    "ctaSubtitle": "This was a scripted demo. Connect your own opencode server to do this for real.",
+    "ctaSubtitle": "This was a scripted demo. Connect your own devbox server to do this for real.",
     "connectButton": "Connect your own server",
     "setupGuideLink": "How to set up a server",
-    "hostedCtaLink": "No server? Join the OpenCode Connect waitlist — hosted, no setup"
+    "hostedCtaLink": "No server? Join the DevBox Connect waitlist — hosted, no setup"
   },
   "update": {
     "available": "Update available",

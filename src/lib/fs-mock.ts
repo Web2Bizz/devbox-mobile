@@ -1,5 +1,5 @@
 // Mock server filesystem for the directory explorer UI stub.
-// Backend will later serve real data via opencode API:
+// Backend will later serve real data via devbox API:
 //   GET /file?path=.  -> FileEntry[] (see sdk.ts file.list)
 //   GET /file/roots   -> FileRoot[]  (see sdk.ts file.roots, 404-tolerant)
 //   GET /path          -> { home, ... } (see sdk.ts path.get)
@@ -22,10 +22,10 @@ const MOCK_TREE: Record<string, string[]> = {
   "/": ["home"],
   "/home": ["user"],
   "/home/user": ["projects", "work", "notes"],
-  "/home/user/projects": ["opencode-mobile", "dotfiles", "landing"],
-  "/home/user/projects/opencode-mobile": ["app", "src", "scripts"],
-  "/home/user/projects/opencode-mobile/app": ["project", "session"],
-  "/home/user/projects/opencode-mobile/src": ["components", "lib", "stores"],
+  "/home/user/projects": ["devbox", "dotfiles", "landing"],
+  "/home/user/projects/devbox": ["app", "src", "scripts"],
+  "/home/user/projects/devbox/app": ["project", "session"],
+  "/home/user/projects/devbox/src": ["components", "lib", "stores"],
   "/home/user/projects/dotfiles": ["nvim", "tmux"],
   "/home/user/projects/landing": [],
   "/home/user/work": ["api-gateway", "ml-pipeline"],

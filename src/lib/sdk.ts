@@ -1,5 +1,5 @@
 // SDK client wrapper for React Native
-// We create our own lightweight client that mirrors the opencode SDK patterns
+// We create our own lightweight client that mirrors the devbox SDK patterns
 // but works in React Native environment
 // expo/fetch provides WinterCG-compliant fetch with ReadableStream support for SSE
 import { fetch as expoFetch } from "expo/fetch"
@@ -314,7 +314,7 @@ export function createClient(config: ClientConfig) {
     },
 
     // Server-side filesystem browsing, scoped to this client's directory
-    // (see ClientConfig.directory / x-opencode-directory header). Use
+    // (see ClientConfig.directory / x-devbox-directory header). Use
     // clientForDirectory(dir) to get a client rooted at a specific folder,
     // then list("." ) to enumerate its immediate children.
     file: {
@@ -325,7 +325,7 @@ export function createClient(config: ClientConfig) {
       // Enumerate the server's filesystem roots (mounted drives, home dir)
       // to seed the directory browser's pinned top-level entries. Resolves
       // to null on servers that don't yet expose GET /file/roots (older
-      // opencode builds) so callers fall back to manual path entry instead
+      // devbox builds) so callers fall back to manual path entry instead
       // of crashing; other errors propagate like any other request.
       roots: async (): Promise<FileRoot[] | null> => {
         try {
