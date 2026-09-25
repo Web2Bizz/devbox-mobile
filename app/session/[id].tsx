@@ -825,11 +825,6 @@ export default function SessionScreen() {
           style={[s.inputContainer, isDark && s.inputContainerDark, { paddingBottom: Math.max(12, insets.bottom) }]}
         >
           <View style={s.inputRow}>
-            {/* Attach button */}
-            <TouchableOpacity style={s.attachBtn} onPress={pickFromLibrary} onLongPress={pickFromCamera}>
-              <Ionicons name="add-circle-outline" size={26} color={isDark ? "#888888" : "#666666"} />
-            </TouchableOpacity>
-
             <TextInput
               style={[s.input, isDark && s.inputDark, speech.listening && s.inputListening, { maxHeight: inputMaxHeight }]}
               placeholder={
@@ -854,24 +849,31 @@ export default function SessionScreen() {
                 <Ionicons name="stop" size={20} color="#ffffff" />
               </TouchableOpacity>
             )}
-            {/* Mic button: when no input, not sending, and not listening */}
-            {!isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
-              <TouchableOpacity style={s.micBtn} onPress={speech.start}>
-                <Ionicons name="mic" size={22} color={isDark ? "#888888" : "#666666"} />
-              </TouchableOpacity>
-            )}
-            {/* Listening indicator: tap to stop */}
-            {speech.listening && (
-              <TouchableOpacity style={s.micBtnActive} onPress={speech.stop}>
-                <Ionicons name="mic" size={22} color="#ffffff" />
-              </TouchableOpacity>
-            )}
             {/* Send button: when there's input */}
             {!speech.listening && (input.trim() || attachments.length > 0) && (
               <TouchableOpacity style={s.sendBtn} onPress={handleSend} testID="chat-send-button">
                 <Ionicons name="send" size={20} color="#ffffff" />
               </TouchableOpacity>
             )}
+            {/* Overlay buttons (mic + attach): bottom-left over the input.
+                box-none lets taps outside the buttons fall through to the field. */}
+            <View style={s.overlayBtns} pointerEvents="box-none">
+              {!speech.listening && (
+                <TouchableOpacity style={s.overlayBtn} onPress={pickFromLibrary} onLongPress={pickFromCamera}>
+                  <Ionicons name="add-circle-outline" size={24} color={isDark ? "#888888" : "#666666"} />
+                </TouchableOpacity>
+              )}
+              {!isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
+                <TouchableOpacity style={s.overlayBtn} onPress={speech.start}>
+                  <Ionicons name="mic" size={20} color={isDark ? "#888888" : "#666666"} />
+                </TouchableOpacity>
+              )}
+              {speech.listening && (
+                <TouchableOpacity style={[s.overlayBtn, s.overlayBtnActive]} onPress={speech.stop}>
+                  <Ionicons name="mic" size={20} color="#ffffff" />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -1013,20 +1015,36 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
   },
-  attachBtn: {
+  overlayBtns: {
+    position: "absolute",
+    left: 8,
+    bottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    zIndex: 1,
+    elevation: 1,
+  },
+  overlayBtn: {
     width: 36,
-    height: 40,
+    height: 36,
     justifyContent: "center",
     alignItems: "center",
+  },
+  overlayBtnActive: {
+    backgroundColor: "#ef4444",
+    borderRadius: 18,
   },
   input: {
     flex: 1,
     backgroundColor: "#f5f5f5",
     borderRadius: 20,
-    paddingHorizontal: 16,
+    paddingRight: 16,
+    paddingLeft: 92,
     paddingVertical: 10,
     fontSize: 16,
-    maxHeight: 120,
+    minHeight: 80,
+    maxHeight: 240,
     color: "#0a0a0a",
   },
   inputDark: { backgroundColor: "#1a1a1a", color: "#ffffff" },
@@ -1041,23 +1059,6 @@ const s = StyleSheet.create({
     marginLeft: 8,
   },
   sendBtnDisabled: { backgroundColor: "#cccccc" },
-  micBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 8,
-  },
-  micBtnActive: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#ef4444",
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 8,
-  },
   stopBtn: {
     width: 40,
     height: 40,
