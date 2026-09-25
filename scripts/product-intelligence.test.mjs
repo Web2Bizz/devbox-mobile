@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { collectSentry, workflowFailures } from "./product-intelligence.mjs"
+import { workflowFailures } from "./product-intelligence.mjs"
 
 const now = Date.parse("2026-07-22T12:00:00Z")
 
@@ -46,24 +46,4 @@ test("failures outside the monitored default branch are ignored", () => {
     failedRuns7d: 0,
     activeFailureStreaks: 0,
   })
-})
-
-test("Sentry zero issues is available data, not unavailable", async (context) => {
-  context.mock.method(globalThis, "fetch", async () => new Response("[]", {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  }))
-
-  const result = await collectSentry("token", "org", "project", now)
-  assert.deepEqual(result, {
-    status: "available",
-    data: { unresolvedIssues: 0, newIssues24h: 0, newIssues7d: 0, eventCount: 0 },
-  })
-})
-
-test("Sentry authentication failure stays explicitly unavailable", async (context) => {
-  context.mock.method(globalThis, "fetch", async () => new Response("unauthorized", { status: 401 }))
-
-  const result = await collectSentry("bad-token", "org", "project", now)
-  assert.deepEqual(result, { status: "unavailable", reason: "Sentry issues returned HTTP 401" })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import { Stack, router, useSegments } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { useColorScheme, View, ActivityIndicator, AppState } from "react-native"
@@ -14,10 +14,7 @@ import { useCatalog } from "../src/stores/catalog"
 import { useSettings } from "../src/stores/settings"
 import { AuthGate } from "../src/components/AuthGate"
 import { ErrorBoundary } from "../src/components/ErrorBoundary"
-import { TelemetryConsentModal } from "../src/components/TelemetryConsentModal"
 import * as notifications from "../src/lib/notifications"
-import { loadTelemetryConsent, setTelemetryConsent } from "../src/lib/telemetry"
-import { initAnalytics, trackAppOpened } from "../src/lib/analytics"
 import { flushPendingSignups } from "../src/lib/waitlist-queue-storage"
 import * as SplashScreen from "expo-splash-screen"
 
@@ -35,9 +32,6 @@ function RootLayout() {
   const sseStarted = useRef(false)
   const notifPermissionRequested = useRef(false)
 
-  // Telemetry consent state: null = loading, 'unknown' = show modal, else decided
-  const [consentState, setConsentState] = useState<"loading" | "unknown" | "decided">("loading")
-
   useEffect(() => {
     initAuth()
     loadConnections()
@@ -53,24 +47,6 @@ function RootLayout() {
       if (data.sessionId) router.push(`/session/${data.sessionId}`)
       else router.push("/")
     })
-
-    // Load telemetry consent — initialise analytics only if granted
-    loadTelemetryConsent()
-      .then((state) => {
-        if (state === "granted") {
-          initAnalytics()
-          trackAppOpened()
-          setConsentState("decided")
-        } else if (state === "denied") {
-          setConsentState("decided")
-        } else {
-          setConsentState("unknown")
-        }
-      })
-      .catch(() => {
-        // SecureStore unavailable — show modal so user can decide
-        setConsentState("unknown")
-      })
 
     return unsubNotifications
   }, [])
@@ -143,7 +119,7 @@ function RootLayout() {
     }
   }, [client])
 
-  const isLoading = authLoading || connectionsLoading || consentState === "loading"
+  const isLoading = authLoading || connectionsLoading
 
   // Server auth gate: split into two routes — unauthenticated sees only /login,
   // authenticated sees the full app. HARDCODED_SERVER_URL is fixed, so auth is
@@ -237,18 +213,6 @@ function RootLayout() {
           </QueryClientProvider>
         </BottomSheetModalProvider>
       </GestureHandlerRootView>
-      {/* Telemetry consent modal — shown once on first launch */}
-      <TelemetryConsentModal
-        visible={consentState === "unknown"}
-        onAllow={async () => {
-          await setTelemetryConsent(true)
-          setConsentState("decided")
-        }}
-        onDecline={async () => {
-          await setTelemetryConsent(false)
-          setConsentState("decided")
-        }}
-      />
       </I18nextProvider>
     </ErrorBoundary>
   )

@@ -80,7 +80,7 @@ Then open the app, tap Connect, paste your server URL, and you're in. Your AI co
 OpenCode Mobile is MIT licensed. Source code, issue tracker, and community at github.com/dzianisv/opencode-mobile. Contributions welcome.
 
 <b>PRIVACY</b>
-OpenCode Mobile does not collect your code, prompts, or AI responses. All traffic goes directly from the app to YOUR opencode server — never through our infrastructure. Optional Sentry crash reporting collects only device model, OS version, and stack traces (no message content).
+OpenCode Mobile does not collect your code, prompts, or AI responses. All traffic goes directly from the app to YOUR opencode server — never through our infrastructure. No crash reporting, no analytics.
 
 Support: support@agentlabs.cc
 Issues: github.com/dzianisv/opencode-mobile/issues

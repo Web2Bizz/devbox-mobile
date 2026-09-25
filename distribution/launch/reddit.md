@@ -26,7 +26,7 @@ The interesting engineering bits:
 - Credentials in Android Keystore via `expo-secure-store`
 - Built with Expo SDK 54, TypeScript, signed APK + AAB on every tag via GitHub Actions (Gradle)
 
-**Stack:** React Native / Expo, TypeScript, React Query for server state, Zustand for local state, Sentry for crash reporting (opt-in, off by default).
+**Stack:** React Native / Expo, TypeScript, React Query for server state, Zustand for local state. No crash reporting, no analytics.
 
 MIT licensed, source at https://github.com/dzianisv/opencode-mobile.
 
@@ -64,7 +64,7 @@ OpenCode Mobile connects to your own opencode server over whatever you already u
 
 Not a standalone AI model. You need opencode running: `npm install -g opencode-ai && OPENCODE_SERVER_PASSWORD=yourpassword opencode serve --hostname 0.0.0.0 --port 4096`. Your API keys stay on your server.
 
-No accounts, no analytics, no proprietary backend. Sentry crash reporting is opt-in and off by default.
+No accounts, no analytics, no crash reporting, no proprietary backend.
 
 Install (add this repo URL in your F-Droid client): https://dzianisv.github.io/opencode-mobile/fdroid/repo
 Direct APK / all options: https://dzianisv.github.io/opencode-mobile/

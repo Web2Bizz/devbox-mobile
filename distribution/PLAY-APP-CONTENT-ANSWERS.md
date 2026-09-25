@@ -8,8 +8,8 @@ improve → Policy → App content.
 App facts these answers derive from:
 - The app is a client for a USER-self-hosted opencode server. AI traffic goes from
   the app directly to the user's own server. No backend operated by us.
-- Crash reporting (Sentry) is OPT-IN, default OFF (`TelemetryConsentModal`).
-- No ads, no analytics SDK, no third-party tracking.
+- No crash reporting, no analytics SDK, no third-party tracking. The app sends
+  nothing anywhere automatically.
 - Connection settings + optional credentials stored locally via expo-secure-store
   (encrypted on-device). Biometric unlock uses the OS; no biometric data leaves device.
 
@@ -20,14 +20,14 @@ App facts these answers derive from:
 
 ## 2. Data safety
 **Does your app collect or share any required user data types?**
-- If Sentry stays default-OFF and you treat opt-in diagnostics as collected:
-  - **Data collected: Yes** → "App activity / Crash logs" and "App info and
-    performance / Diagnostics". Collected = Yes, Shared = No, Processed
-    ephemerally = No, **Optional** (user opt-in), purpose = App functionality /
-    Analytics (crash diagnostics).
-  - Everything else (personal info, location, messages, files, contacts): **Not
-    collected** — they never leave the user's own server; the app stores
-    connection settings locally only.
+- **Data collected: Yes** → "Personal info / Email address", **Optional**
+  (only if the user joins the optional OpenCode Connect waitlist and submits
+  an email), purpose = App functionality. Collected = Yes, Shared = Yes
+  (Brevo, to manage the waitlist).
+  - Everything else (crash logs, diagnostics, usage data, location,
+    messages, files, contacts): **Not collected** — the app sends nothing
+    anywhere automatically; everything else never leaves the user's own
+    server, and the app stores connection settings locally only.
 - Data encrypted in transit: **Yes** (HTTPS to server when user uses TLS; note the
   app also allows user-chosen HTTP to self-hosted servers).
 - Users can request deletion: data is local/on the user's own server; no account.

@@ -14,7 +14,6 @@
     "sections": {
       "security": "Безопасность",
       "notifications": "Уведомления",
-      "privacy": "Конфиденциальность",
       "about": "О приложении"
     },
     "security": {
@@ -34,16 +33,6 @@
     },
     "notifications": {
       "disabledNotice": "Notifications are disabled at the system level. Enable them in Settings to receive alerts."
-    },
-    "privacy": {
-      "crashReporting": {
-        "label": "Отчеты о сбоях и аналитика",
-        "description": "Делитесь анонимными отчетами о сбоях и аналитикой, чтобы помочь улучшить DevBox."
-      },
-      "privacyPolicy": {
-        "label": "Политика конфиденциальности",
-        "description": "Какие данные мы собираем"
-      }
     },
     "about": {
       "version": "Версия",
@@ -68,8 +57,6 @@
       "tagline": "Connect to your AI coding assistant from anywhere"
     },
     "alerts": {
-      "privacyNotSavedTitle": "Privacy Setting Not Saved",
-      "privacyNotSavedMessage": "Crash reporting is off for this session, but your choice could not be saved. Please try again.",
       "notificationsDisabledTitle": "Notifications Disabled",
       "notificationsDisabledMessage": "Enable notifications for DevBox in your device settings to receive alerts."
     },
@@ -339,30 +326,13 @@
   },
   "errorBoundary": {
     "title": "Something went wrong",
-    "subtitle": "The app hit an unexpected error. It has been reported automatically. You can share a detailed report to help us fix it faster.",
+    "subtitle": "The app hit an unexpected error. You can share a detailed report to help us fix it faster.",
     "errorLabel": "Ошибка",
     "unknownError": "Unknown error",
     "stackLabel": "Stack",
     "componentLabel": "Component",
     "shareButton": "Share Report",
     "tryAgainButton": "Try Again"
-  },
-  "telemetryConsent": {
-    "title": "Help improve DevBox?",
-    "body": "Share anonymous crash reports and usage analytics to help us find and fix bugs faster. Diagnostic reports you share are also delivered to our support inbox. No code, prompts, or server addresses are ever included.",
-    "bullets": {
-      "deviceInfo": "Device model, OS version, app version",
-      "stackTraces": "Stack traces of crashes (no variable values)",
-      "usageEvents": "Anonymous usage events (app opened, connection attempts, messages sent) — sent to PostHog EU",
-      "noCode": "Your code, prompts, or chat messages",
-      "noServerUrls": "Server URLs or authentication tokens"
-    },
-    "privacyLink": "Read our full privacy policy",
-    "declineA11yLabel": "No thanks, decline crash reporting and analytics",
-    "declineButton": "No thanks",
-    "allowA11yLabel": "Allow anonymous crash reports and usage analytics",
-    "allowButton": "Allow",
-    "footnote": "You can change this at any time in Settings → Privacy."
   },
   "authGate": {
     "title": "DevBox Locked",

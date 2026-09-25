@@ -57,7 +57,7 @@ Key features include streaming chat with the AI agent, a file diff viewer for
 reviewing proposed code changes before accepting them, multi-session management,
 tool call approval gates, and biometric unlock. All AI traffic flows directly
 from the app to the user's own server — no middleman, no mandatory accounts, no
-vendor lock-in. Crash reporting via Sentry is opt-in with default OFF.
+vendor lock-in. No crash reporting, no analytics.
 
 The app is aimed at developers who run opencode on a workstation or self-hosted
 server (on-prem or any cloud VPS) and want a mobile companion for on-the-go
@@ -75,7 +75,7 @@ require any specific provider.
 
 No other anti-features apply:
 - No ads (no ad SDK present)
-- No tracking (Sentry opt-in, default OFF — user must explicitly enable)
+- No tracking (no crash reporting, no analytics SDKs)
 - No non-free dependencies beyond FCM receiver classes compiled in by
   `expo-notifications` (local-only usage; `scheduleNotificationAsync` only;
   no `getExpoPushTokenAsync` / `getDevicePushTokenAsync` calls)

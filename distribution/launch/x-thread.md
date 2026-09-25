@@ -70,7 +70,7 @@ Your keys. Your hardware. Your inference budget.
 ```
 MIT licensed. Source at github.com/dzianisv/opencode-mobile
 
-No subscription. No ads. Sentry crash reporting is opt-in and off by default. Credentials live in Android Keystore.
+No subscription. No ads. No crash reporting, no analytics. Credentials live in Android Keystore.
 
 F-Droid submission in progress.
 ```

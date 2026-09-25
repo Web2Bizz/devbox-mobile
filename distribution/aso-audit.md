@@ -145,7 +145,7 @@ Install opencode on any machine: npm install -g opencode-ai, then run opencode s
 OpenCode Mobile is MIT licensed. Source code, issue tracker, and community discussion at github.com/dzianisv/opencode-mobile. Contributions welcome.
 
 <b>PRIVACY</b>
-OpenCode Mobile does not collect your code, prompts, or AI responses. All traffic goes directly from the app to YOUR opencode server — never through our infrastructure. We use Sentry for crash diagnostics only (no PII, no message content, opt-in available).
+OpenCode Mobile does not collect your code, prompts, or AI responses. All traffic goes directly from the app to YOUR opencode server — never through our infrastructure. No crash reporting, no analytics.
 
 Support: support@agentlabs.cc
 Issues: github.com/dzianisv/opencode-mobile/issues

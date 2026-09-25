@@ -54,7 +54,6 @@ export default function LoginScreen() {
             url: HARDCODED_SERVER_URL,
             username: username.trim(),
           },
-          "onboarding",
           password,
         )
         if (!result.ok) throw new Error(result.error || "Connection failed")
@@ -70,7 +69,6 @@ export default function LoginScreen() {
       } else {
         const result = await testConnection(
           { ...activeConnection, username: username.trim() },
-          "edit_test",
           password,
         )
         if (!result.ok) throw new Error(result.error || "Connection failed")

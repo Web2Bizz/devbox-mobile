@@ -16,7 +16,7 @@ IzzyOnDroid is the fastest OSS distribution channel — typical inclusion is
       (e.g. `https://github.com/dzianisv/opencode-mobile/releases/tag/v0.4.2`)
 - [ ] APK is signed with `keystores/production-release.jks`
 - [ ] SHA-256 fingerprint confirmed: see `distribution/SIGNING-KEY-FINGERPRINTS.md`
-- [ ] Sentry opt-in gate is in production (avoids `Tracking` anti-feature escalation)
+- [ ] Telemetry fully removed from the app (no crash reporting / analytics SDKs — avoids `Tracking` anti-feature escalation)
 - [ ] Privacy policy is live at `https://dzianisv.github.io/opencode-mobile/privacy/`
 - [ ] `app.json` `version` and `android.versionCode` are set correctly in the tagged commit
 

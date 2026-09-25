@@ -17,9 +17,8 @@
  *
  * The measured result on 2026-08-14: 64% of 30d-active users sat on v0.4.10 and
  * 0.2% on the newest build. A device on a direct-APK install has literally no
- * way to learn a newer version exists — so any client-side fix (the AGE-105
- * Sentry noise gate, for one) is capped at the slice of the base that happens to
- * update by luck.
+ * way to learn a newer version exists — so any client-side fix only reaches
+ * the slice of the base that happens to update.
  *
  * DESIGN RULES, so this never becomes an ad
  * -----------------------------------------

@@ -66,7 +66,7 @@ Connect any way that works for your setup:
 <b>WHAT IT IS NOT</b>
 • Not a standalone AI model — you bring your own opencode server, which can connect to Claude, GPT, Gemini, local LLMs, or any other model via your own API keys
 • Not a code editor — it pairs with your existing IDE and terminal workflow
-• Not a subscription app — free, open-source, MIT licensed, no ads, no telemetry you did not opt into
+• Not a subscription app — free, open-source, MIT licensed, no ads, no telemetry
 
 <b>GETTING STARTED</b>
 Install opencode on any machine:
@@ -79,7 +79,7 @@ Then open the app, tap Connect, paste your server URL, and you're in. Your AI co
 OpenCode Mobile is MIT licensed. Source code, issue tracker, and community at github.com/dzianisv/opencode-mobile. Contributions welcome.
 
 <b>PRIVACY</b>
-OpenCode Mobile does not collect your code, prompts, or AI responses. All traffic goes directly from the app to YOUR opencode server — never through our infrastructure. With your opt-in consent we use Sentry for crash diagnostics and PostHog for anonymous usage analytics (no PII, no message content, off by default). Diagnostic reports you share are also delivered to our support inbox. If you choose to join the optional OpenCode Connect waitlist, we collect the email address you enter to notify you at launch.
+OpenCode Mobile does not collect your code, prompts, or AI responses. All traffic goes directly from the app to YOUR opencode server — never through our infrastructure. The app sends nothing anywhere automatically: no crash reporting, no usage analytics. If you choose to join the optional OpenCode Connect waitlist, we collect the email address you enter to notify you at launch.
 
 Support: support@agentlabs.cc
 Issues: github.com/dzianisv/opencode-mobile/issues
@@ -168,74 +168,42 @@ Issues: github.com/dzianisv/opencode-mobile/issues
 Suggested path: `https://dzianisv.github.io/opencode-mobile/privacy/`
 
 Privacy policy must cover:
-- What data is collected (Sentry crash diagnostics: device model, OS version, stack trace; PostHog usage analytics: activation-funnel events with coarse properties; Chatwoot shared support reports: scrubbed diagnostic reports sent only when the user taps "Share Report"; **email address: only if the user opts into the optional "OpenCode Connect" waitlist on the Connect screen** — no other user content in any of them)
-- How data is used (debugging crashes; measuring whether new users successfully connect/activate; responding to user-initiated support reports; **notifying waitlist signups when the hosted service launches**)
-- Third-party SDKs (Sentry — https://sentry.io/privacy/; PostHog — https://posthog.com/privacy; **Brevo — https://www.brevo.com/legal/privacypolicy/, used only for the optional waitlist**) and our own self-hosted Chatwoot support inbox (support.agentlabs.cc — not a third-party vendor)
-- Data retention (Sentry default 90 days; PostHog standard retention; Chatwoot support conversations retained until resolved, then periodically purged; **waitlist emails retained in Brevo until the user unsubscribes or requests deletion**)
+- What data is collected (**email address: only if the user opts into the optional "OpenCode Connect" waitlist on the Connect screen** — no other user content; the app sends nothing anywhere automatically)
+- How data is used (**notifying waitlist signups when the hosted service launches**)
+- Third-party SDKs (**Brevo — https://www.brevo.com/legal/privacypolicy/, used only for the optional waitlist**)
+- Data retention (**waitlist emails retained in Brevo until the user unsubscribes or requests deletion**)
 - User rights (delete request via email, contact us)
 - Contact: support@agentlabs.cc
 
 ```
 OpenCode Mobile Privacy Policy
-Effective: 2026-05-24
+Effective: 2026-09-25
 Operator: VIBE TECHNOLOGIES, LLC, 519 S Henderson St, Seattle WA 98108-4522 USA
 
 We do not collect your code, prompts, AI responses, server URLs, or chat history.
+The app sends nothing anywhere automatically: no crash reporting, no usage
+analytics, no background uploads.
 
-We collect, only with your opt-in consent (single toggle, default OFF):
-
-Via Sentry SDK (crash reporting):
-- Device model, OS version, app version
-- Stack traces of crashes and unhandled errors
-- App breadcrumbs (function names, screen names — no message bodies)
-
-Via PostHog SDK (anonymous usage analytics, EU region):
-- Activation-funnel events: app_opened, connection_form_submitted,
-  connection_attempted, connection_succeeded, connection_failed,
-  message_sent, response_received
-- Only coarse properties (e.g. mode=quick/advanced, error_class=timeout);
-  never server URLs, prompts, code, or raw error text
-
-Via our own Chatwoot support inbox (support.agentlabs.cc), only when you tap
-"Share Report":
-- The same diagnostic report shown in the OS share sheet: connection
-  classification, probe results, device info, and recent app logs
-- Every URL and every hostname/IP probed this session is redacted first —
-  your server address never reaches this inbox
-- A random per-install identifier links follow-up reports into the same
-  support conversation; not linked to your name, email, or account
-
-Separately, and independent of the consent toggle above, if you choose to
-join the optional "OpenCode Connect" waitlist on the Connect screen:
+Separately, if you choose to join the optional "OpenCode Connect" waitlist
+on the Connect screen:
 - We collect the email address you type into that field
 - We send it to Brevo, a third-party email marketing/CRM platform, to add
   you to the waitlist and notify you when the hosted service launches
 - This is entirely optional — nothing is collected unless you open the
   waitlist card and submit an email
 
-Data is sent to Sentry (sentry.io, ~90 days retention), PostHog
-(eu.i.posthog.com, standard retention), Brevo (waitlist emails, retained
-until you unsubscribe or request deletion), and our Chatwoot instance
-(support.agentlabs.cc, retained until the conversation is resolved and
-periodically purged thereafter).
+Data is sent to Brevo (waitlist emails, retained until you unsubscribe or
+request deletion) and nowhere else.
 
 Third-party services:
-- Sentry — crash reporting. https://sentry.io/privacy/
-- PostHog — usage analytics. https://posthog.com/privacy
 - Brevo — waitlist email management (only if you join the waitlist).
   https://www.brevo.com/legal/privacypolicy/
 
-Self-hosted infrastructure:
-- Chatwoot support inbox (support.agentlabs.cc) — we operate this
-  ourselves; it is not a third-party vendor.
-
-Data sharing: Sentry, PostHog, Brevo (waitlist only), and our own Chatwoot
-support inbox.
+Data sharing: Brevo (waitlist only).
 
 User rights:
-- Email support@agentlabs.cc to request deletion of crash records, analytics
-  records, waitlist email records, or shared support-report conversations
-  associated with your device.
+- Email support@agentlabs.cc to request deletion of waitlist email records
+  associated with your email address.
 
 Contact: support@agentlabs.cc
 ```
@@ -249,18 +217,18 @@ Google requires this before publishing. Answers for OpenCode Mobile current stat
 | Question | Answer |
 |---|---|
 | Does your app collect or share any of the required user data types? | Yes |
-| Is all of the user data collected by your app encrypted in transit? | Yes (HTTPS to Sentry, PostHog, Brevo, and our Chatwoot support inbox) |
+| Is all of the user data collected by your app encrypted in transit? | Yes (HTTPS to Brevo for waitlist emails) |
 | Do you provide a way for users to request that their data is deleted? | Yes — via support@agentlabs.cc |
 
 ### Data types collected
 
 | Data type | Collected? | Shared? | Optional? | Purpose | Encrypted in transit? |
 |---|---|---|---|---|---|
-| App crash logs (Diagnostics) | Yes | Yes (Sentry) | **Yes (opt-in, default OFF)** | App functionality, diagnostics | Yes |
-| App interactions (App activity) | Yes | Yes (PostHog) | **Yes (opt-in, default OFF, same toggle)** | Analytics (activation funnel: app opened, connection attempted/succeeded/failed, message sent, response received) | Yes |
-| Device or other IDs | Yes | Yes (Sentry/PostHog anonymous IDs) | **Yes (opt-in, default OFF)** | Diagnostics, analytics — random app-generated IDs, not linked to identity | Yes |
-| User-submitted diagnostic reports (Diagnostics) | Yes | Yes (delivered to our own self-hosted Chatwoot support inbox) | **Yes (opt-in, default OFF, same toggle; also requires the user to manually tap "Share Report")** | Customer support — troubleshooting a connection failure or crash the user chose to report; server address always redacted first | Yes |
-| Personal info — Email address | **Yes** | **Yes (Brevo, third-party email marketing/CRM platform)** | **Yes — entirely optional; only collected if the user opens the "OpenCode Connect" waitlist card on the Connect screen and submits an email. Independent of the Sentry/PostHog consent toggle.** | **Account management (waitlist signup for the not-yet-launched "OpenCode Connect" hosted service) / App functionality** | Yes |
+| App crash logs (Diagnostics) | No | – | – | – | – |
+| App interactions (App activity) | No | – | – | – | – |
+| Device or other IDs | No | – | – | – | – |
+| User-submitted diagnostic reports (Diagnostics) | No — tapping "Share Report" only opens the device's share sheet; nothing reaches us | – | – | – | – |
+| Personal info — Email address | **Yes** | **Yes (Brevo, third-party email marketing/CRM platform)** | **Yes — entirely optional; only collected if the user opens the "OpenCode Connect" waitlist card on the Connect screen and submits an email.** | **Account management (waitlist signup for the not-yet-launched "OpenCode Connect" hosted service) / App functionality** | Yes |
 | Financial info | No | – | – | – | – |
 | Health / fitness | No | – | – | – | – |
 | Messages | No | – | – | – | – |

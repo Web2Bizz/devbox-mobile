@@ -58,9 +58,6 @@ jobs:
     # macos-15 ships Xcode 16.x, which React Native 0.81 / Expo SDK 54 require.
     runs-on: macos-15
     timeout-minutes: 45
-    env:
-      # No source-map upload from CI (no Sentry auth token here); keep the build hermetic.
-      SENTRY_DISABLE_AUTO_UPLOAD: "true"
     steps:
       - uses: actions/checkout@v6
 

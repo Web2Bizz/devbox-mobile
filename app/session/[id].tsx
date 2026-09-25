@@ -175,12 +175,13 @@ export default function SessionScreen() {
     }, []),
   )
 
-  // Surface speech recognition failures (e.g. mic permission denied). Keyed
-  // on the error value itself so it only fires once per distinct error, not
-  // on every re-render while it remains set.
+  // Surface speech recognition failures with the native error detail
+  // (e.g. "not-allowed", "service-not-allowed") so the alert is diagnosable.
+  // Keyed on the error value itself so it only fires once per distinct error,
+  // not on every re-render while it remains set.
   useEffect(() => {
     if (!speech.error) return
-    Alert.alert(t("session.alerts.speechErrorTitle"), t("session.alerts.speechErrorMessage"))
+    Alert.alert(t("session.alerts.speechErrorTitle"), `${t("session.alerts.speechErrorMessage")}\n\n${speech.error}`)
   }, [speech.error, t])
 
   // Slash command state

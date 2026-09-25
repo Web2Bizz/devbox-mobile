@@ -61,11 +61,12 @@ export const categoryMeta: Record<Category, { labelKey: string; descriptionKey: 
   },
 }
 
-// Default state — permissions and questions on (they block work), the rest off
+// Default state — everything on: permissions/questions block work, and
+// completed/errors/connection are the reason users background the app.
 export const defaultPreferences: Record<Category, boolean> = {
   permissions: true,
   questions: true,
-  completed: false,
+  completed: true,
   errors: true,
   connection: true,
 }

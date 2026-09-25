@@ -13,7 +13,7 @@ Mirrors Tailscale ($45M ARR, OSS client, paid coordination service) and the open
 
 - **Client (this repo, MIT)**: free on Play Store, IzzyOnDroid, and F-Droid. Identical binary on all three (same signing key via reproducible builds).
 - **opencode Cloud (separate product, proprietary)**: managed opencode server hosting. One-tap connect option in the app alongside "self-hosted" and "tunnel". Target $10/mo individual, $30/mo team. **Not built yet — see Action items.**
-- **Donations layer**: GitHub Sponsors / OpenCollective to cover Sentry + CI costs (~$60/mo) while cloud revenue scales.
+- **Donations layer**: GitHub Sponsors / OpenCollective to cover CI costs while cloud revenue scales.
 
 Rejected alternatives:
 - ❌ **Paid Play + free F-Droid** — MIT allows redistribution; community resentment when users find F-Droid version; license-check callbacks always get stripped in forks. DAVx⁵ exception works only because it's a one-time donation, not a feature gate.
@@ -28,7 +28,7 @@ Rejected alternatives:
 |---|---|---|---|---|---|
 | 1 | **Google Play (Internal)** | `cc.agentlabs.opencode` | ⏸ blocked on identity verification | Days after ID approved | CI ready. Track: `internal` first, then closed testing (12+ testers / 14d) before production. |
 | 2 | **IzzyOnDroid** | `cc.agentlabs.opencode` (same key) | ❌ not started | 1–3 days | Submit prebuilt APK to https://codeberg.org/IzzyOnDroid/repodata/issues. Fastest OSS channel. |
-| 3 | **F-Droid mainline** | `cc.agentlabs.opencode` (same key, reproducible build) | ❌ not started | 4–12 weeks | File MR at https://gitlab.com/fdroid/fdroiddata. Requires `expo-notifications` FCM audit + Sentry opt-in gate. |
+| 3 | **F-Droid mainline** | `cc.agentlabs.opencode` (same key, reproducible build) | ❌ not started | 4–12 weeks | File MR at https://gitlab.com/fdroid/fdroiddata. Requires `expo-notifications` FCM audit (telemetry is fully removed, so no consent gate is needed). |
 | 4 | **Apple App Store** | `cc.agentlabs.opencode` | ⏸ pending iOS prep agent | Weeks (Apple enrollment $99 + review) | iOS agent running — separate report. |
 
 **All channels: same package id (`cc.agentlabs.opencode`), same signing key.** Lets users update across stores in-place.
@@ -46,7 +46,7 @@ Rejected alternatives:
 
 ### Soft blockers (we can fix without user)
 
-5. **Sentry opt-in consent gate** — currently always-on; needed for F-Droid `Tracking` anti-feature avoidance. Add settings toggle + first-launch consent screen. Persist in `expo-secure-store`.
+5. ~~**Telemetry consent gate** — ✅ done 2026-09-25, then superseded: telemetry (Sentry, PostHog, support-inbox auto-delivery) was removed entirely, so there is nothing to gate and no F-Droid `Tracking` concern from it.~~
 6. ~~**Audit `expo-notifications` FCM usage**~~ — ✅ done 2026-05-24. `src/lib/notifications.ts` uses local-only (`scheduleNotificationAsync`); no `getExpoPushTokenAsync`/`getDevicePushTokenAsync` anywhere. Remaining concern: library still compiles FCM receiver classes — F-Droid scanner may flag. Fix later with a `fdroid` Gradle flavor that excludes the FCM artifact. **Non-blocker for IzzyOnDroid** (more tolerant). For mainline F-Droid: add `productFlavors { fdroid { /* exclude FCM */ } }` to `android/app/build.gradle`.
 7. **APK size check** — IzzyOnDroid limit 30 MB. AAB currently 58.5 MB but that's universal — per-ABI splits typically 15–20 MB.
 8. **Fastlane metadata** — `fastlane/metadata/android/en-US/{short_description.txt,full_description.txt,images/}` so F-Droid auto-pulls listing.
@@ -106,7 +106,7 @@ Rejected alternatives:
    ```
 3. Wait 1–3 days for inclusion. Updates auto-pulled from each new GitHub release tag.
 
-### F-Droid mainline (after Sentry opt-in + FCM audit done)
+### F-Droid mainline (after FCM audit done)
 
 1. Fork https://gitlab.com/fdroid/fdroiddata.
 2. Create `metadata/cc.agentlabs.opencode.yml` with reproducible-build config (template in F-Droid report).

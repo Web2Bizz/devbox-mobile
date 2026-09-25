@@ -1,15 +1,18 @@
 import { useState, useCallback, useRef, useEffect } from "react"
+import * as Localization from "expo-localization"
 
 // expo-speech-recognition requires a dev build (native module not in Expo Go).
 // Make it optional so `npx expo start` in Expo Go doesn't crash at import time.
 let ExpoSpeechRecognitionModule: any
 let useSpeechRecognitionEvent: any
+let nativeAvailable = true
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mod = require("expo-speech-recognition") as typeof import("expo-speech-recognition")
   ExpoSpeechRecognitionModule = mod.ExpoSpeechRecognitionModule
   useSpeechRecognitionEvent = mod.useSpeechRecognitionEvent
 } catch {
+  nativeAvailable = false
   ExpoSpeechRecognitionModule = {
     requestPermissionsAsync: async () => ({ granted: false }),
     start: () => {},
@@ -17,6 +20,15 @@ try {
     abort: () => {},
   }
   useSpeechRecognitionEvent = () => {}
+}
+
+/** Recognition language from the device locale (e.g. "ru-RU"), en-US fallback. */
+function recognitionLang(): string {
+  try {
+    return Localization.getLocales()[0]?.languageTag || "en-US"
+  } catch {
+    return "en-US"
+  }
 }
 
 interface SpeechState {
@@ -66,21 +78,36 @@ export function useSpeech(onResult: (text: string) => void): SpeechState & Speec
       setListening(false)
       return
     }
-    setError(event.message || event.error)
+    // Keep the native error code visible (e.g. "not-allowed", "service-not-allowed",
+    // "network", "busy", "language-not-supported") — the UI surfaces it so a
+    // "Voice input failed" alert is actually diagnosable.
+    const detail = event.message ? `${event.error}: ${event.message}` : String(event.error)
+    setError(detail)
     setListening(false)
   })
 
   const start = useCallback(async () => {
+    if (!nativeAvailable) {
+      setError("speech recognition unavailable in Expo Go — use a dev build")
+      return
+    }
     const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync()
     if (!result.granted) {
       setError("Microphone permission denied")
       return
     }
-    ExpoSpeechRecognitionModule.start({
-      lang: "en-US",
-      interimResults: true,
-      continuous: true,
-    })
+    try {
+      // A previous session stuck in "busy" (e.g. killed mid-recognition) rejects
+      // start — abort() is a no-op when idle, so always reset first.
+      ExpoSpeechRecognitionModule.abort()
+      ExpoSpeechRecognitionModule.start({
+        lang: recognitionLang(),
+        interimResults: true,
+        continuous: true,
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
   }, [])
 
   const stop = useCallback(() => {

@@ -110,8 +110,6 @@ jobs:
         run: rm -rf android/app/build/generated android/build/generated android/app/build/intermediates
 
       - name: Install dependencies & build APK
-        env:
-          SENTRY_DISABLE_AUTO_UPLOAD: "true"
         run: |
           npm install --legacy-peer-deps
           npx expo prebuild --platform android --no-install

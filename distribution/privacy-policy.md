@@ -1,10 +1,10 @@
 # OpenCode Mobile — Privacy Policy
 
-**Effective date:** 2026-07-23
+**Effective date:** 2026-09-25
 **Operator:** VIBE TECHNOLOGIES, LLC
 **App:** OpenCode Mobile (`cc.agentlabs.opencode`)
 
-> **Summary:** OpenCode Mobile does not collect your code, prompts, AI responses, server URLs, or any chat content. All AI traffic goes directly from the app to your own opencode server. With your consent, we use Sentry for anonymous crash diagnostics, PostHog for anonymous usage analytics, and — only when you tap "Share Report" — deliver a scrubbed copy of that diagnostic report to our support inbox. If you choose to join the optional "OpenCode Connect" waitlist, we collect the email address you submit and share it with Brevo to notify you at launch.
+> **Summary:** OpenCode Mobile does not collect your code, prompts, AI responses, server URLs, or any chat content. All AI traffic goes directly from the app to your own opencode server. The app sends nothing anywhere automatically — no crash reporting, no usage analytics, no background uploads. Tapping "Share Report" only opens your device's normal share sheet; nothing reaches us unless you send it yourself through your own channel. If you choose to join the optional "OpenCode Connect" waitlist, we collect the email address you submit and share it with Brevo to notify you at launch.
 
 ---
 
@@ -32,75 +32,35 @@ We never collect, transmit to our servers, or share with third parties:
 - Contacts, calendar, or any other personal data
 
 The one exception is your **email address**, and only if you choose to type
-it in and join the optional "OpenCode Connect" waitlist — see section 3c below.
+it in and join the optional "OpenCode Connect" waitlist — see section 3b below.
 
 All communication between the app and your AI coding agent travels directly between your device and your self-hosted opencode server. VIBE TECHNOLOGIES, LLC never sees this traffic.
 
 ---
 
-## 3. Data We Do Collect (Crash Diagnostics)
+## 3. No Automatic Collection
 
-With your explicit consent (shown at first launch), we collect anonymous crash diagnostic data via **Sentry** to help us identify and fix bugs.
+The app sends nothing anywhere automatically. There is no crash reporting,
+no usage analytics, no background upload of any kind, and no consent prompt —
+there is nothing to consent to.
 
-| Data type | What is captured | What is NOT captured |
-|---|---|---|
-| Device info | Device model, OS version, screen resolution, app version | Serial number, IMEI, advertising ID |
-| Crash / error reports | Stack traces, exception types and messages, source file names and line numbers | Variable values; no user data in scope |
-| Breadcrumbs | Screen names and function call sequence leading to the crash | Message bodies, server URLs, prompt text — all stripped by our URL-scrubbing filter |
-| App version | Version string and build number | — |
+## 3a. Shared Support Reports (Manual Only)
 
-URL scrubbing: before any event is sent to Sentry, our code strips all server URLs, authentication tokens, and query parameters. No server hostname or port number ever leaves your device via Sentry.
-
-## 3a. Data We Do Collect (Usage Analytics)
-
-With the same explicit consent (there is a single opt-in covering both crash reporting and analytics), we collect a small set of anonymous usage events via **PostHog** to understand whether new users successfully connect to their server and start using the app (an "activation funnel").
-
-Events collected, with their only properties:
-
-| Event | When it fires | Properties |
-|---|---|---|
-| `app_opened` | Once per app session, after consent | `is_first_open` (true/false) |
-| `connection_form_submitted` | You tap Connect/Save with a server URL entered | `mode` ("quick" or "advanced") |
-| `connection_attempted` | A connection test starts | `source` ("onboarding" or "edit_test") |
-| `connection_succeeded` | The connection test succeeds | `source` |
-| `connection_failed` | The connection test fails | `source`, `error_class` (a coarse category such as "timeout" or "unauthorized" — never the raw error text) |
-| `message_sent` | You send a message to an agent session | — |
-| `response_received` | An agent response finishes | — |
-| `demo_started` | You open the offline "Try a Demo" screen (no server, no network) | — |
-| `demo_step_advanced` | You reply to the demo's scripted permission prompt | `step_index`, `step_name`, `reply` ("once", "always", or "reject") |
-| `demo_completed` | The scripted demo reaches its end | `outcome` ("completed" or "denied") |
-| `demo_exited_to_connect` | You tap "Connect your own server" on the demo's CTA | `reached_completion` (true/false) |
-
-What analytics events **never** contain: your server URL, hostname, IP address, or port; prompts, messages, or AI responses; code or file contents; tokens or credentials; raw error messages. Connection failures are reduced to a fixed list of coarse categories before being sent. The demo screen is fully offline and hardcoded — these events describe interaction with the scripted walkthrough, never real session content.
-
-Analytics data is sent to PostHog's **EU region** (`eu.i.posthog.com`) and is identified only by a random, app-generated anonymous ID — not linked to your name, email, or any account.
-
-If you decline consent, no analytics is initialised and nothing is sent. If you revoke consent later, analytics stops immediately and any events still buffered on the device are discarded, not uploaded.
+When a connection fails or the app crashes, you can tap **Share Report** to
+open your device's normal share sheet with a diagnostic report (connection
+classification, probe results, device info, recent app logs). That report
+stays on your device: it is copied to your clipboard and handed to the OS
+share sheet, and nothing is delivered to any support inbox. We only see a
+report if you choose to send it to us yourself through your own channel
+(e.g. forwarding it by email or messenger).
 
 ---
 
-## 3b. Data We Do Collect (Shared Support Reports)
-
-When a connection fails or the app crashes, you can tap **Share Report** to open your device's normal share sheet with a diagnostic report. If you have granted the same consent that covers crash reporting and analytics, a copy of that report is *also* delivered directly to our support inbox, hosted on our own **Chatwoot** instance (`support.agentlabs.cc`) — this is infrastructure we operate ourselves, not a third-party SaaS vendor.
-
-| Data type | What is included | What is NOT included |
-|---|---|---|
-| Diagnostic summary | Connection classification (e.g. "server unreachable"), probe results, timing | — |
-| Device info | Device model, OS version, app version | Serial number, IMEI, advertising ID |
-| Recent app logs | Recent internal log lines (screen names, function-level breadcrumbs) | Message bodies, prompts, AI responses |
-| Your server address | — | Never included — every URL and every hostname/IP the app probed this session is redacted before the report leaves your device |
-
-A random, per-install identifier (stored locally via secure device storage) links follow-up reports from the same install into the same support conversation so we can reply to an ongoing issue. This identifier is not linked to your name, email, or account — we only learn contact details if you volunteer them in your own reply.
-
-Sharing a report is always a manual, explicit action — it is never sent automatically or in the background. It is only delivered to the support inbox if you have granted consent; if you decline or revoke consent, tapping **Share Report** still opens your device's normal share sheet, but nothing reaches our support inbox.
-
----
-
-## 3c. Data We Do Collect (Optional Waitlist Signup)
+## 3b. Data We Do Collect (Optional Waitlist Signup)
 
 The **Connect** screen offers an optional waitlist for **OpenCode Connect**, our not-yet-launched hosted opencode service. If you choose to type in your email address and tap **Join waitlist**, we collect that email address and send it to **Brevo**, a third-party email marketing/CRM platform, so we can add you to the waitlist and notify you when the hosted service becomes available.
 
-This is entirely separate from — and independent of — the crash-reporting/analytics consent toggle described in section 4. It only happens if you open the waitlist card and submit an email; if you never do, no email address is ever collected.
+It only happens if you open the waitlist card and submit an email; if you never do, no email address is ever collected.
 
 | Data type | What is collected | Shared with | Purpose |
 |---|---|---|---|
@@ -110,40 +70,31 @@ We do not use this email address for any other purpose (no other marketing, no a
 
 ---
 
-## 4. Consent and Control
+## 4. No Consent Needed
 
-Crash reporting, usage analytics, and support-inbox delivery of shared reports are all **opt-in and off by default**, controlled by a single consent decision. On first launch you will see a consent prompt. You can change this at any time:
-
-- Open the app → **Settings** → **Privacy** → **Crash Reports & Usage Analytics** toggle.
-- If you decline, neither Sentry nor PostHog is ever initialised, and shared reports are never delivered to our support inbox (only your device's normal share sheet is used). If you turn the toggle off later, both SDKs are shut down, no new events are captured, analytics events still buffered on the device are dropped without being sent, and future shared reports stop reaching the support inbox.
+The app collects nothing automatically, so there is no consent prompt and
+nothing to opt out of. Joining the waitlist is a separate, explicit action:
+tapping **Join waitlist** with an email you typed in.
 
 ---
 
 ## 5. Third-Party Services
 
-We use three third-party services:
+We use a single third-party service:
 
-- **Sentry** — crash and error monitoring (consent-gated).
-  - Privacy policy: https://sentry.io/privacy/
-  - Data is sent to Sentry's US-based servers and retained for approximately 90 days per Sentry's default data-retention policy.
-- **PostHog** — anonymous usage analytics (the activation-funnel events listed in section 3a; consent-gated).
-  - Privacy policy: https://posthog.com/privacy
-  - Data is sent to PostHog's EU-region servers (`eu.i.posthog.com`).
-- **Brevo** — email marketing/CRM platform used only if you join the optional OpenCode Connect waitlist described in section 3c. This is a separate, independent action from the consent toggle above — nothing is sent to Brevo unless you submit an email to the waitlist form.
+- **Brevo** — email marketing/CRM platform used only if you join the optional OpenCode Connect waitlist described in section 3b. Nothing is sent to Brevo unless you submit an email to the waitlist form.
   - Privacy policy: https://www.brevo.com/legal/privacypolicy/
   - Data sent: only the email address you submit to the waitlist form.
 
-We use no advertising networks, social SDKs, or any other third-party data collection services. The app contains no ads and no ad SDKs.
-
-We also operate our own **Chatwoot** support-inbox instance (`support.agentlabs.cc`, described in section 3b) to receive diagnostic reports you explicitly choose to share. Unlike Sentry and PostHog, this is infrastructure we run ourselves rather than a third-party vendor, but data sent to it still leaves your device and is retained by us as described below.
+We use no advertising networks, social SDKs, crash reporters, analytics SDKs, or any other third-party data collection services. The app contains no ads and no ad SDKs.
 
 ---
 
 ## 6. Data Retention
 
-Crash reports sent to Sentry are retained for approximately 90 days, after which they are automatically deleted per Sentry's retention defaults. Usage analytics events sent to PostHog are retained per PostHog's standard retention policy. Shared support reports delivered to our Chatwoot inbox are retained until the associated support conversation is resolved and periodically purged thereafter; email support@agentlabs.cc to request earlier deletion of a specific report. Waitlist email addresses submitted via the optional OpenCode Connect waitlist are retained in Brevo until you unsubscribe or request deletion.
+Waitlist email addresses submitted via the optional OpenCode Connect waitlist are retained in Brevo until you unsubscribe or request deletion.
 
-Beyond that support inbox, we do not operate our own servers that store your data; there is no other VIBE TECHNOLOGIES back end involved in normal app usage.
+Beyond that, we do not operate our own servers that store your data; there is no other VIBE TECHNOLOGIES back end involved in normal app usage.
 
 ---
 
@@ -151,9 +102,9 @@ Beyond that support inbox, we do not operate our own servers that store your dat
 
 You have the right to:
 
-- **Opt out** — disable crash reporting, usage analytics, and support-inbox delivery of shared reports at any time in Settings → Privacy. Unsubscribe from the waitlist at any time using the link in any waitlist email.
-- **Request deletion** — email support@agentlabs.cc with subject "Data deletion request" and we will request deletion of any crash events (Sentry), analytics events (PostHog), shared support-report conversations (Chatwoot), and waitlist email records (Brevo) associated with your device or email address.
-- **Access** — request a summary of what diagnostic data (if any) we hold about your device by emailing the same address.
+- **Unsubscribe** — leave the waitlist at any time using the link in any waitlist email.
+- **Request deletion** — email support@agentlabs.cc with subject "Data deletion request" and we will delete any waitlist email records (Brevo) associated with your email address.
+- **Access** — request a summary of what data (if any) we hold about you by emailing the same address.
 
 Residents of the EU/EEA/UK may exercise rights under GDPR/UK GDPR. California residents may exercise rights under the CCPA.
 
@@ -167,7 +118,10 @@ OpenCode Mobile is a developer tool intended for users aged 18 and over. We do n
 
 ## 9. Security
 
-All diagnostic and analytics data — including shared support reports — is transmitted over HTTPS (TLS 1.2+) to Sentry, PostHog, and our Chatwoot support inbox. We do not transmit any data over unencrypted connections.
+The app transmits no diagnostic or analytics data, so there is nothing to
+intercept. The one exception — the waitlist email you explicitly submit —
+is sent over HTTPS (TLS 1.2+) to Brevo. We do not transmit any data over
+unencrypted connections.
 
 ---
 
@@ -220,14 +174,14 @@ The following table maps our data practices to Apple's official App Privacy cate
 | Browsing History | Any | No | N/A | No |
 | Search History | Any | No | N/A | No |
 | Identifiers | User ID | No | N/A | No |
-| Identifiers | Device ID | Yes (Sentry / PostHog anonymous IDs) | No — not linked to Apple ID or personal info | No |
+| Identifiers | Device ID | No | N/A | No |
 | Purchases | Any | No | N/A | No |
-| Usage Data | Product interaction | Yes (PostHog activation events, with consent) | No | No |
-| Diagnostics | Crash Data | Yes (Sentry, with consent) | No | No |
-| Diagnostics | Performance Data | Yes (Sentry, with consent) | No | No |
-| Diagnostics | Other Diagnostic Data | Yes (shared support reports delivered to our Chatwoot inbox, only when the user taps "Share Report" with consent) | No | No |
+| Usage Data | Product interaction | No | N/A | No |
+| Diagnostics | Crash Data | No | N/A | No |
+| Diagnostics | Performance Data | No | N/A | No |
+| Diagnostics | Other Diagnostic Data | No | N/A | No |
 
 **Summary for App Store Connect App Privacy section**:
 - Data Linked to You: **Email Address** (only if you join the optional OpenCode Connect waitlist)
-- Data Not Linked to You: **Crash Data, Performance Data** (Sentry diagnostics, when user consents), **Product Interaction** (PostHog activation events, when user consents), **Other Diagnostic Data** (shared support reports via Chatwoot, when user consents)
+- Data Not Linked to You: **None**
 - Tracking: **No**

@@ -25,4 +25,4 @@
 - Reply to all HN comments within 6 hours of posting
 - Reply to all Reddit comments within 24 hours
 - Monitor Play Console reviews; respond to 1–3 stars within 48 hours
-- Self-hosted F-Droid repo is live at https://dzianisv.github.io/opencode-mobile/fdroid/repo (used in all drafts). Optional: file an upstream fdroiddata MR for inclusion in the main F-Droid catalog once the Sentry opt-in gate is merged
+- Self-hosted F-Droid repo is live at https://dzianisv.github.io/opencode-mobile/fdroid/repo (used in all drafts). Optional: file an upstream fdroiddata MR for inclusion in the main F-Droid catalog (telemetry is fully removed, so no consent gate is needed)
