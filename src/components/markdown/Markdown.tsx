@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react"
 import { View, Text, useColorScheme, Platform, type StyleProp, type ViewStyle, type TextStyle } from "react-native"
 import { useMarkdown, Renderer } from "react-native-marked"
 import { CodeBlock } from "./CodeBlock"
+import { CopyLink } from "./CopyLink"
 
 // react-native-marked's base Renderer hardcodes `selectable` on every plain
 // text node it produces (text/strong/em/del/heading/codespan). On Android,
@@ -53,6 +54,15 @@ class CustomRenderer extends Renderer {
 
   codespan(text: string, styles?: TextStyle): ReactNode {
     return this.plainText(text, [styles, { fontStyle: "normal", fontWeight: "normal" }])
+  }
+
+  // Tap-to-copy (long press opens): see CopyLink.
+  link(children: string | ReactNode[], href: string, styles?: TextStyle): ReactNode {
+    return (
+      <CopyLink key={this.getKey()} href={href} style={styles}>
+        {children}
+      </CopyLink>
+    )
   }
 }
 
