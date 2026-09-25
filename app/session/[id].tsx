@@ -122,8 +122,17 @@ export default function SessionScreen() {
     unrevertSession,
   } = useSessions()
 
-  // Derive sending state for this specific session
-  const isSending = useSessions((s) => !!(currentSession && s.sending[currentSession.id]))
+  // Busy = optimistic sending flag OR SSE-reported status. The optimistic
+  // flag alone is not enough: it only bridges the gap between tap and SSE
+  // busy, and a re-entry (useFocusEffect → selectSession) used to clear it —
+  // so after leaving and returning to a running chat the Stop button
+  // disappeared even though the server was still busy. SSE status persists
+  // globally across navigation, so it keeps the button visible.
+  const optimisticSending = useSessions((s) => !!(currentSession && s.sending[currentSession.id]))
+  const sseBusy = useEvents(
+    (s) => !!currentSession && !!s.sessionStatus[currentSession.id] && s.sessionStatus[currentSession.id].type !== "idle",
+  )
+  const isSending = optimisticSending || sseBusy
 
   const { authenticateForMessage } = useAuth()
   const { client, clientForDirectory } = useConnections()

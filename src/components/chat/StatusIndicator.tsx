@@ -14,11 +14,14 @@ export function StatusIndicator({ sessionID, isDark }: Props) {
   const text = useEvents((s) => s.statusText[sessionID])
   const optimistic = useSessions((s) => s.sending[sessionID])
 
-  // SSE status is the source of truth. The optimistic `sending` flag only
-  // covers the gap between the user tapping send and SSE confirming busy.
-  // Once SSE reports idle, the indicator hides regardless of the optimistic flag.
+  // SSE status is the source of truth, but the optimistic `sending` flag
+  // must also count on its own: it bridges the gap between the user tapping
+  // send and SSE confirming busy (including a stale `idle` left over from
+  // the previous run), and it survives only if selectSession doesn't clear
+  // it. Once SSE reports idle for the current run, events.ts clears
+  // `sending` too, so `sseBusy || optimistic` can't get stuck.
   const sseBusy = status && status.type !== "idle"
-  const busy = sseBusy || (optimistic && !status)
+  const busy = sseBusy || optimistic
   if (!busy) return <View style={s.barPlaceholder} />
 
   const label =

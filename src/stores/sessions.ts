@@ -141,13 +141,16 @@ export const useSessions = create<SessionsState>((set, get) => ({
     // genuinely new/different session needs the blocking spinner.
     const isColdLoad = isColdSessionLoad(get().currentSession?.id, sessionID)
     try {
-      // Reset optimistic sending — SSE sessionStatus is the source of truth
+      // NOTE: do NOT reset sending[sessionID] here. It bridges the gap
+      // between tap and SSE busy, and selectSession runs on every screen
+      // focus (see useFocusEffect) — clearing it hid the Stop button after
+      // leaving and re-entering a running chat. SSE sessionStatus is the
+      // source of truth and events.ts already clears `sending` on idle/error.
       set((state) => ({
         isLoading: isColdLoad ? true : state.isLoading,
         error: null,
         hasMore: false,
         loadingMore: false,
-        sending: { ...state.sending, [sessionID]: false },
       }))
 
       const [session, messagesResponse] = await Promise.all([
