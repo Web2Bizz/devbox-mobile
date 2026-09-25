@@ -87,6 +87,7 @@ export default function ProjectSessionsScreen() {
         <FlatList
           data={projectSessions}
           keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.sessionItem, isDark && styles.sessionItemDark]}
@@ -176,10 +177,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
+    gap: 12,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
   },
-  sessionItemDark: { borderBottomColor: "#1a1a1a" },
+  sessionItemDark: { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a" },
+  listContent: { padding: 16, gap: 12 },
   sessionContent: { flex: 1 },
   sessionTitle: { fontSize: 16, fontWeight: "500", color: "#0a0a0a", marginBottom: 4 },
   sessionMeta: { fontSize: 13, color: "#666666" },

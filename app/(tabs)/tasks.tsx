@@ -1,10 +1,11 @@
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, useColorScheme } from "react-native"
 import { router, useFocusEffect } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import { useSessions } from "../../src/stores/sessions"
 import { useEvents } from "../../src/stores/events"
+import { colors } from "../../src/lib/theme"
 import type { Session } from "../../src/lib/sdk"
 
 // Tasks = sessions where the agent is currently doing something:
@@ -28,11 +29,29 @@ export default function TasksScreen() {
     return st?.type === "busy" || st?.type === "retry" || sending[session.id]
   })
 
-  const renderItem = ({ item }: { item: Session }) => {
+  // Group by project directory — only projects with ≥1 active task appear
+  // (inactive sessions never enter `active`, so empty groups can't exist).
+  const groups = useMemo(() => {
+    const byDir = new Map<string, Session[]>()
+    for (const session of active) {
+      const key = session.directory || ""
+      const list = byDir.get(key)
+      if (list) list.push(session)
+      else byDir.set(key, [session])
+    }
+    return [...byDir.entries()]
+      .map(([directory, items]) => ({
+        directory,
+        shortName: directory.split("/").filter(Boolean).pop() || "—",
+        items,
+      }))
+      .sort((a, b) => a.shortName.localeCompare(b.shortName))
+  }, [active])
+
+  const renderTask = (item: Session) => {
     const st = sessionStatus[item.id]
     const isRetry = st?.type === "retry"
     const text = statusText[item.id] || t("tasks.working")
-    const shortDir = item.directory ? item.directory.split("/").filter(Boolean).pop() : null
     return (
       <TouchableOpacity
         style={[styles.row, isDark && styles.rowDark]}
@@ -51,17 +70,9 @@ export default function TasksScreen() {
           <Text style={[styles.title, isDark && styles.textDark]} numberOfLines={1}>
             {item.title || t("sessionsList.untitledSession")}
           </Text>
-          <View style={styles.metaRow}>
-            <Text style={[styles.status, isRetry && styles.statusRetry]} numberOfLines={1}>
-              {isRetry ? t("tasks.retrying") : text}
-            </Text>
-            {shortDir && (
-              <View style={styles.dirBadge}>
-                <Ionicons name="folder-outline" size={12} color={isDark ? "#888888" : "#666666"} />
-                <Text style={[styles.dirText, isDark && styles.metaDark]}>{shortDir}</Text>
-              </View>
-            )}
-          </View>
+          <Text style={[styles.status, isRetry && styles.statusRetry]} numberOfLines={1}>
+            {isRetry ? t("tasks.retrying") : text}
+          </Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color={isDark ? "#666666" : "#999999"} />
       </TouchableOpacity>
@@ -71,9 +82,20 @@ export default function TasksScreen() {
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       <FlatList
-        data={active}
-        keyExtractor={(s) => s.id}
-        renderItem={renderItem}
+        data={groups}
+        keyExtractor={(g) => g.directory}
+        renderItem={({ item: group }) => (
+          <View style={styles.group}>
+            <View style={styles.groupHeader}>
+              <Ionicons name="folder" size={16} color={isDark ? colors.accentPale : colors.accentStrong} />
+              <Text style={[styles.groupTitle, isDark && styles.textDark]} numberOfLines={1}>
+                {group.shortName}
+              </Text>
+              <Text style={[styles.groupCount, isDark && styles.metaDark]}>{group.items.length}</Text>
+            </View>
+            <View style={styles.groupList}>{group.items.map(renderTask)}</View>
+          </View>
+        )}
         ListEmptyComponent={
           <View style={styles.empty} testID="tasks-empty">
             <Ionicons name="checkmark-circle-outline" size={64} color={isDark ? "#444444" : "#cccccc"} />
@@ -81,7 +103,7 @@ export default function TasksScreen() {
             <Text style={[styles.emptyHint, isDark && styles.metaDark]}>{t("tasks.emptyHint")}</Text>
           </View>
         }
-        contentContainerStyle={active.length === 0 ? styles.emptyContent : undefined}
+        contentContainerStyle={groups.length === 0 ? styles.emptyContent : styles.listContent}
       />
     </View>
   )
@@ -95,10 +117,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
   },
-  rowDark: { borderBottomColor: "#1a1a1a" },
+  rowDark: { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a" },
+  listContent: { padding: 16, gap: 16 },
+  group: { gap: 12 },
+  groupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  groupTitle: { flex: 1, fontSize: 14, fontWeight: "600", color: "#0a0a0a" },
+  groupCount: { fontSize: 12, color: "#666666" },
+  groupList: { gap: 12 },
   dot: {
     width: 12,
     height: 12,
@@ -113,19 +148,8 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   title: { fontSize: 16, fontWeight: "500", color: "#0a0a0a", marginBottom: 2 },
   textDark: { color: "#ffffff" },
-  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   status: { fontSize: 13, color: "#15803d", flex: 1 },
   statusRetry: { color: "#b45309" },
-  dirBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#f5f5f5",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  dirText: { fontSize: 11, color: "#666666" },
   metaDark: { color: "#888888" },
   empty: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32 },
   emptyContent: { flex: 1 },

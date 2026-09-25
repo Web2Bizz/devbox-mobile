@@ -896,55 +896,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666666",
   },
-  sessionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
-  },
-  sessionItemDark: {
-    borderBottomColor: "#1a1a1a",
-  },
-  sessionContent: {
-    flex: 1,
-  },
-  sessionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 2,
-  },
-  sessionTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#0a0a0a",
-    marginBottom: 4,
-  },
   textDark: {
     color: "#ffffff",
-  },
-  sessionMeta: {
-    fontSize: 13,
-    color: "#666666",
-  },
-  sessionMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sessionDirBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#f5f5f5",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  sessionDirText: {
-    fontSize: 11,
-    color: "#666666",
   },
   metaDark: {
     color: "#888888",
