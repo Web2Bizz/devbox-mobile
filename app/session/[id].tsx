@@ -843,34 +843,36 @@ export default function SessionScreen() {
               maxLength={10000}
               testID="chat-message-input"
             />
-            {/* Stop button: only when busy and no input */}
-            {isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
-              <TouchableOpacity style={s.stopBtn} onPress={abortSession}>
-                <Ionicons name="stop" size={20} color="#ffffff" />
-              </TouchableOpacity>
-            )}
-            {/* Send button: when there's input */}
-            {!speech.listening && (input.trim() || attachments.length > 0) && (
-              <TouchableOpacity style={s.sendBtn} onPress={handleSend} testID="chat-send-button">
-                <Ionicons name="send" size={20} color="#ffffff" />
-              </TouchableOpacity>
-            )}
-            {/* Overlay buttons (mic + attach): bottom-left over the input.
+            {/* Overlay control bar: bottom row over the input.
                 box-none lets taps outside the buttons fall through to the field. */}
             <View style={s.overlayBtns} pointerEvents="box-none">
-              {!speech.listening && (
-                <TouchableOpacity style={s.overlayBtn} onPress={pickFromLibrary} onLongPress={pickFromCamera}>
-                  <Ionicons name="add-circle-outline" size={24} color={isDark ? "#888888" : "#666666"} />
+              <View style={s.overlayGroup}>
+                {!speech.listening && (
+                  <TouchableOpacity style={s.overlayBtn} onPress={pickFromLibrary} onLongPress={pickFromCamera}>
+                    <Ionicons name="add-circle-outline" size={22} color={isDark ? "#888888" : "#666666"} />
+                  </TouchableOpacity>
+                )}
+                {!isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
+                  <TouchableOpacity style={s.overlayBtn} onPress={speech.start}>
+                    <Ionicons name="mic" size={22} color={isDark ? "#888888" : "#666666"} />
+                  </TouchableOpacity>
+                )}
+                {speech.listening && (
+                  <TouchableOpacity style={[s.overlayBtn, s.overlayBtnActive]} onPress={speech.stop}>
+                    <Ionicons name="mic" size={22} color="#ffffff" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {/* Stop button: only when busy and no input */}
+              {isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
+                <TouchableOpacity style={s.stopBtn} onPress={abortSession}>
+                  <Ionicons name="stop" size={22} color="#ffffff" />
                 </TouchableOpacity>
               )}
-              {!isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
-                <TouchableOpacity style={s.overlayBtn} onPress={speech.start}>
-                  <Ionicons name="mic" size={20} color={isDark ? "#888888" : "#666666"} />
-                </TouchableOpacity>
-              )}
-              {speech.listening && (
-                <TouchableOpacity style={[s.overlayBtn, s.overlayBtnActive]} onPress={speech.stop}>
-                  <Ionicons name="mic" size={20} color="#ffffff" />
+              {/* Send button: when there's input */}
+              {!speech.listening && (input.trim() || attachments.length > 0) && (
+                <TouchableOpacity style={s.sendBtn} onPress={handleSend} testID="chat-send-button">
+                  <Ionicons name="send" size={22} color="#ffffff" />
                 </TouchableOpacity>
               )}
             </View>
@@ -1018,12 +1020,18 @@ const s = StyleSheet.create({
   overlayBtns: {
     position: "absolute",
     left: 8,
+    right: 8,
     bottom: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    justifyContent: "space-between",
     zIndex: 1,
     elevation: 1,
+  },
+  overlayGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   overlayBtn: {
     width: 36,
@@ -1039,9 +1047,10 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
     borderRadius: 20,
-    paddingRight: 16,
-    paddingLeft: 92,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 52,
+    paddingLeft: 16,
+    paddingRight: 52,
     fontSize: 16,
     minHeight: 80,
     maxHeight: 240,
@@ -1050,23 +1059,21 @@ const s = StyleSheet.create({
   inputDark: { backgroundColor: "#1a1a1a", color: "#ffffff" },
   inputListening: { borderWidth: 1, borderColor: "#ef4444" },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#0a0a0a",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
   },
   sendBtnDisabled: { backgroundColor: "#cccccc" },
   stopBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#ef4444",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
   },
 
   // Header
