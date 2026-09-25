@@ -225,13 +225,6 @@ function RootLayout() {
                 }}
               />
               <Stack.Screen
-                name="project/new"
-                options={{
-                  title: t("project.new.title"),
-                  presentation: "card",
-                }}
-              />
-              <Stack.Screen
                 name="project/clone"
                 options={{
                   title: t("project.clone.title"),

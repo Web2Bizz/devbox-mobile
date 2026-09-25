@@ -17,8 +17,8 @@ import { useClonedProjects } from "../../src/stores/cloned-projects"
 import { useConnections } from "../../src/stores/connections"
 
 // UI stub: fake 1.5s "cloning", then stores the project locally and
-// returns to /project/new where it appears in the list. Backend will
-// replace the setTimeout with a real clone call — the store shape stays.
+// goes back. Backend will replace the setTimeout with a real clone
+// call — the store shape stays.
 export default function CloneRepoScreen() {
   const isDark = useColorScheme() === "dark"
   const { t } = useTranslation()
@@ -39,7 +39,7 @@ export default function CloneRepoScreen() {
       const project = addCloned(repo, typeof targetDir === "string" ? targetDir : undefined)
       void addRecentDirectory(project.path).catch(() => {})
       setCloningId(null)
-      router.replace("/project/new")
+      router.back()
     }, 1500)
   }
 

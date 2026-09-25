@@ -305,7 +305,9 @@
       "browseFoldersHint": "Explore the server's filesystem",
       "enterPathLabel": "Enter Path Manually",
       "createInButton": "Create in {{dir}}",
-      "createSessionButton": "Create Session"
+      "createSessionButton": "Create Session",
+      "cloneRepoLabel": "Clone from GitHub",
+      "cloneRepoHint": "Pick a repository to clone onto the server (stub)"
     },
     "renameModal": {
       "title": "Rename Session"

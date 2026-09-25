@@ -444,19 +444,6 @@ export default function SessionsScreen() {
 
       <UpdateBanner isDark={isDark} />
 
-      <TouchableOpacity
-        style={[styles.newProjectBar, isDark && styles.newProjectBarDark]}
-        onPress={() => router.push("/project/new")}
-        activeOpacity={0.7}
-        testID="new-project-button"
-      >
-        <Ionicons name="add-circle-outline" size={18} color={isDark ? "#8b5cf6" : "#6d28d9"} />
-        <Text style={[styles.newProjectText, isDark && styles.newProjectTextDark]}>
-          {t("project.new.title")}
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color={isDark ? "#666666" : "#999999"} />
-      </TouchableOpacity>
-
       <FlatList
         data={projects}
         key={numColumns}
@@ -654,6 +641,29 @@ export default function SessionsScreen() {
                 <Ionicons name="chevron-forward" size={16} color={isDark ? "#666666" : "#999999"} />
               </TouchableOpacity>
 
+              {/* Clone a GitHub repo onto the server (stub — backend lands later) */}
+              <TouchableOpacity
+                style={[styles.projectRow, isDark && styles.projectRowDark, { marginTop: 8 }]}
+                onPress={() => {
+                  setShowNewSession(false)
+                  closeNewProject()
+                  router.push("/project/clone")
+                }}
+                disabled={isCreating}
+                testID="clone-repo-button"
+              >
+                <Ionicons name="logo-github" size={18} color={isDark ? colors.accentPale : colors.accentStrong} />
+                <View style={styles.projectRowContent}>
+                  <Text style={[styles.projectRowName, isDark && styles.textDark]}>
+                    {t("sessionsList.newSessionModal.cloneRepoLabel")}
+                  </Text>
+                  <Text style={[styles.projectRowPath, isDark && styles.metaDark]}>
+                    {t("sessionsList.newSessionModal.cloneRepoHint")}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={isDark ? "#666666" : "#999999"} />
+              </TouchableOpacity>
+
               {/* Manual path input fallback */}
               <Text style={[styles.modalLabel, isDark && styles.metaDark, { marginTop: 16 }]}>
                 {t("sessionsList.newSessionModal.enterPathLabel")}
@@ -827,27 +837,6 @@ const styles = StyleSheet.create({
   },
   connectionBarDark: {
     borderBottomColor: "#1a1a1a",
-  },
-  newProjectBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
-  },
-  newProjectBarDark: {
-    borderBottomColor: "#1a1a1a",
-  },
-  newProjectText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#6d28d9",
-  },
-  newProjectTextDark: {
-    color: "#a78bfa",
   },
   connectionInfo: {
     flexDirection: "row",

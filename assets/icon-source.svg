@@ -7,14 +7,11 @@
       <stop offset="100%" stop-color="#FF9966" />
     </linearGradient>
 
-    <!-- Мягкая свечение-тень для глубины на темном/светлом фоне -->
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#FF2A7A" flood-opacity="0.25"/>
-    </filter>
   </defs>
 
-  <!-- Иконка DevBox в стиле Outline -->
-  <g filter="url(#glow)">
+  <!-- Иконка DevBox в стиле Outline (без фильтров: feDropShadow крошится
+       в бандинг на прозрачном фоне adaptive-иконки) -->
+  <g>
     <!-- Внешний геокуб (Контейнер DevBox) -->
     <path
       d="M 256,64

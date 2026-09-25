@@ -305,7 +305,9 @@
       "browseFoldersHint": "Explore the server's filesystem",
       "enterPathLabel": "Enter Path Manually",
       "createInButton": "Create in {{dir}}",
-      "createSessionButton": "Create Session"
+      "createSessionButton": "Create Session",
+      "cloneRepoLabel": "Клонировать с GitHub",
+      "cloneRepoHint": "Выберите репозиторий для клонирования на сервер (заготовка)"
     },
     "renameModal": {
       "title": "Rename Session"
