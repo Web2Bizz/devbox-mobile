@@ -429,6 +429,12 @@
         "hoursAgo": "{{count}}h ago",
         "daysAgo": "{{count}}d ago"
       }
+    },
+    "aiSettings": {
+      "title": "AI Settings",
+      "agentLabel": "Agent",
+      "modelLabel": "Model",
+      "effortLabel": "Reasoning effort"
     }
   },
   "demo": {

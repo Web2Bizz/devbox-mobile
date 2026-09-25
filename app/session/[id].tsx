@@ -28,8 +28,7 @@ import {
   QuestionPrompt,
   StatusIndicator,
   SlashPopover,
-  ModelPicker,
-  VariantPicker,
+  AiSettingsSheet,
   ImageAttachments,
   SessionInfo,
   type SlashCommand,
@@ -42,7 +41,6 @@ import { useAuth } from "../../src/stores/auth"
 import { useCatalog } from "../../src/stores/catalog"
 import { useSpeech } from "../../src/lib/speech"
 import { composerMaxHeight, keyboardVerticalOffset } from "../../src/lib/session-layout"
-import { colors } from "../../src/lib/theme"
 
 // --- Builtin slash commands ---
 const BUILTIN_COMMANDS: SlashCommand[] = [
@@ -85,10 +83,14 @@ export default function SessionScreen() {
   const { t } = useTranslation()
 
   const flatListRef = useRef<FlatList>(null)
-  const modelSheetRef = useRef<BottomSheetModal>(null)
-  const variantSheetRef = useRef<BottomSheetModal>(null)
+  const aiSheetRef = useRef<BottomSheetModal>(null)
   const [input, setInput] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
+  // Explicit composer height: the native multiline measurement doesn't reliably
+  // shrink back after a programmatic clear on Android, so track content height
+  // and drive the field height ourselves (clamped to [minHeight, maxHeight]).
+  // null = natural height (floor applies).
+  const [composerHeight, setComposerHeight] = useState<number | null>(null)
   const [showInfo, setShowInfo] = useState(false)
   const [keyboardY, setKeyboardY] = useState<number | null>(null)
 
@@ -106,6 +108,9 @@ export default function SessionScreen() {
   }, [])
 
   const inputMaxHeight = composerMaxHeight(Platform.OS, windowHeight, keyboardY, insets.top, fontScale)
+  // Controlled field height: grow with content, snap back to the floor on reset.
+  // Must mirror s.input.minHeight (80).
+  const composerFieldHeight = Math.max(80, Math.min(composerHeight ?? 80, inputMaxHeight))
 
   const {
     currentSession,
@@ -153,7 +158,7 @@ export default function SessionScreen() {
   const setModel = catalog.setModel
   const variant = catalog.variant
   const setVariant = catalog.setVariant
-  const cycleAgent = catalog.cycleAgent
+  const setAgent = catalog.setAgent
 
   // Permission & question state
   const sessionID = currentSession?.id
@@ -340,18 +345,15 @@ export default function SessionScreen() {
             router.back()
             return
           case "model":
-            setInput("")
-            modelSheetRef.current?.present()
-            return
           case "agent":
             setInput("")
-            cycleAgent()
+            aiSheetRef.current?.present()
             return
         }
       }
       setInput(`/${cmd.trigger} `)
     },
-    [router, cycleAgent],
+    [router],
   )
 
   // --- Image picking ---
@@ -458,6 +460,9 @@ export default function SessionScreen() {
     const files = [...attachments]
     setInput("")
     setAttachments([])
+    // Reset the controlled height together with the text — the native
+    // measurement doesn't reliably shrink on its own after a clear.
+    setComposerHeight(null)
 
     // Server slash commands (no attachments for commands)
     if (text.startsWith("/") && files.length === 0) {
@@ -586,17 +591,8 @@ export default function SessionScreen() {
     }
   }
 
-  const handleModelSelect = useCallback(
-    (providerID: string, modelID: string) => {
-      setModel({ providerID, modelID })
-    },
-    [setModel],
-  )
-
-  // Current agent display
-  const currentAgent = agents.find((a) => a.name === agent)
-  const agentColor = currentAgent?.color || colors.accent
-  const modelLabel = model?.modelID ? model.modelID.split("/").pop() || model.modelID : "default"
+  // Summary label for the single AI settings button ("agent • model")
+  const aiSummary = `${agent || "build"} • ${model?.modelID ? model.modelID.split("/").pop() || model.modelID : "default"}`
 
   // Variants for current model (for reasoning effort picker)
   const currentModelVariants = useMemo(() => {
@@ -691,6 +687,7 @@ export default function SessionScreen() {
                 // leave a stale draft that could be sent as a duplicate.
                 setInput("")
                 setAttachments([])
+                setComposerHeight(null)
               }}
               hitSlop={8}
             >
@@ -780,41 +777,19 @@ export default function SessionScreen() {
           <SlashPopover query={slashQuery} commands={allCommands} isDark={isDark} onSelect={handleSlashSelect} />
         )}
 
-        {/* Agent/model toolbar */}
+        {/* AI settings — single button opening the agent/model/effort sheet */}
         <View style={[s.toolbar, isDark && s.toolbarDark]}>
           <TouchableOpacity
-            style={[s.agentChip, { borderColor: agentColor }]}
-            onPress={() => cycleAgent()}
-            onLongPress={() => cycleAgent(-1)}
+            style={[s.aiChip, isDark && s.aiChipDark]}
+            onPress={() => aiSheetRef.current?.present()}
+            testID="ai-settings-button"
           >
-            <View style={[s.agentDot, { backgroundColor: agentColor }]} />
-            <Text style={[s.agentLabel, isDark && s.textWhite]}>{agent || "build"}</Text>
-            <Ionicons name="swap-horizontal-outline" size={12} color={isDark ? "#888888" : "#666666"} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[s.modelChip, isDark && s.modelChipDark]}
-            onPress={() => modelSheetRef.current?.present()}
-            testID="model-chip"
-          >
-            <Ionicons name="hardware-chip-outline" size={14} color={isDark ? "#888888" : "#666666"} />
-            <Text style={[s.modelLabel, isDark && s.metaDark]} numberOfLines={1}>
-              {modelLabel}
+            <Ionicons name="options-outline" size={14} color={isDark ? "#888888" : "#666666"} />
+            <Text style={[s.aiLabel, isDark && s.metaDark]} numberOfLines={1}>
+              {aiSummary}
             </Text>
+            <Ionicons name="chevron-up-outline" size={12} color={isDark ? "#888888" : "#666666"} />
           </TouchableOpacity>
-
-          {currentModelVariants && Object.keys(currentModelVariants).length > 0 && (
-            <TouchableOpacity
-              style={[s.variantChip, isDark && s.variantChipDark, variant && s.variantChipActive]}
-              onPress={() => variantSheetRef.current?.present()}
-              testID="variant-chip"
-            >
-              <Ionicons name="flash-outline" size={14} color={variant ? colors.accent : isDark ? "#888888" : "#666666"} />
-              <Text style={[s.variantLabel, isDark && s.metaDark, variant && s.variantLabelActive]} numberOfLines={1}>
-                {variant ? variant.charAt(0).toUpperCase() + variant.slice(1) : t("session.toolbar.auto")}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Attachment preview */}
@@ -826,7 +801,12 @@ export default function SessionScreen() {
         >
           <View style={s.inputRow}>
             <TextInput
-              style={[s.input, isDark && s.inputDark, speech.listening && s.inputListening, { maxHeight: inputMaxHeight }]}
+              style={[
+                s.input,
+                isDark && s.inputDark,
+                speech.listening && s.inputListening,
+                { height: composerFieldHeight },
+              ]}
               placeholder={
                 speech.listening
                   ? t("session.input.placeholderListening")
@@ -837,6 +817,7 @@ export default function SessionScreen() {
               placeholderTextColor={speech.listening ? "#ef4444" : isDark ? "#666666" : "#999999"}
               value={speech.listening ? speech.transcript : input}
               onChangeText={speech.listening ? undefined : setInput}
+              onContentSizeChange={(e) => setComposerHeight(e.nativeEvent.contentSize.height)}
               editable={!speech.listening}
               multiline
               scrollEnabled
@@ -849,57 +830,59 @@ export default function SessionScreen() {
               <View style={s.overlayGroup}>
                 {!speech.listening && (
                   <TouchableOpacity style={s.overlayBtn} onPress={pickFromLibrary} onLongPress={pickFromCamera}>
-                    <Ionicons name="add-circle-outline" size={22} color={isDark ? "#888888" : "#666666"} />
-                  </TouchableOpacity>
-                )}
-                {!isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
-                  <TouchableOpacity style={s.overlayBtn} onPress={speech.start}>
-                    <Ionicons name="mic" size={22} color={isDark ? "#888888" : "#666666"} />
-                  </TouchableOpacity>
-                )}
-                {speech.listening && (
-                  <TouchableOpacity style={[s.overlayBtn, s.overlayBtnActive]} onPress={speech.stop}>
-                    <Ionicons name="mic" size={22} color="#ffffff" />
+                    <Ionicons name="add-circle-outline" size={24} color={isDark ? "#888888" : "#666666"} />
                   </TouchableOpacity>
                 )}
               </View>
-              {/* Stop button: only when busy and no input */}
-              {isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
-                <TouchableOpacity style={s.stopBtn} onPress={abortSession}>
-                  <Ionicons name="stop" size={22} color="#ffffff" />
-                </TouchableOpacity>
-              )}
-              {/* Send button: when there's input */}
-              {!speech.listening && (input.trim() || attachments.length > 0) && (
-                <TouchableOpacity style={s.sendBtn} onPress={handleSend} testID="chat-send-button">
-                  <Ionicons name="send" size={22} color="#ffffff" />
-                </TouchableOpacity>
-              )}
+              <View style={s.overlayGroup}>
+                {!isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
+                  <TouchableOpacity style={s.overlayBtn} onPress={speech.start}>
+                    <Ionicons name="mic" size={24} color={isDark ? "#888888" : "#666666"} />
+                  </TouchableOpacity>
+                )}
+                {speech.listening && (
+                  <TouchableOpacity style={s.overlayBtn} onPress={speech.stop}>
+                    <Ionicons name="mic" size={24} color="#ef4444" />
+                  </TouchableOpacity>
+                )}
+                {/* Stop button: only when busy and no input */}
+                {isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
+                  <TouchableOpacity style={s.overlayBtn} onPress={abortSession}>
+                    <Ionicons name="stop" size={24} color="#ef4444" />
+                  </TouchableOpacity>
+                )}
+                {/* Send button: when there's input */}
+                {!speech.listening && (input.trim() || attachments.length > 0) && (
+                  <TouchableOpacity style={s.overlayBtn} onPress={handleSend} testID="chat-send-button">
+                    <Ionicons name="send" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         </View>
       </KeyboardAvoidingView>
 
-      {/* Model picker bottom sheet */}
-      <ModelPicker
-        sheetRef={modelSheetRef}
+      {/* AI settings bottom sheet (agent + model + reasoning effort) */}
+      <AiSettingsSheet
+        sheetRef={aiSheetRef}
+        agents={agents}
+        selectedAgent={agent}
         providers={providers}
-        selected={model}
-        isDark={isDark}
-        onSelect={handleModelSelect}
-      />
-
-      {/* Reasoning effort (variant) picker bottom sheet */}
-      <VariantPicker
-        sheetRef={variantSheetRef}
+        selectedModel={model}
         variants={currentModelVariants}
-        selected={variant}
+        selectedVariant={variant}
         isDark={isDark}
-        onSelect={setVariant}
+        onSelectAgent={setAgent}
+        onSelectModel={(providerID, modelID) => setModel({ providerID, modelID })}
+        onSelectVariant={setVariant}
       />
     </>
   )
 }
+
+// Uniform composer spacing: container padding and the input's top/side insets.
+const COMPOSER_PADDING = 12
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffff" },
@@ -967,47 +950,22 @@ const s = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
   toolbarDark: { borderTopColor: "#1a1a1a", backgroundColor: "#0a0a0a" },
-  agentChip: {
+  aiChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  agentDot: { width: 8, height: 8, borderRadius: 4 },
-  agentLabel: { fontSize: 12, fontWeight: "600", color: "#0a0a0a" },
-  modelChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
+    gap: 6,
     backgroundColor: "#f5f5f5",
     borderRadius: 12,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 6,
+    maxWidth: "100%",
   },
-  modelChipDark: { backgroundColor: "#1a1a1a" },
-  modelLabel: { fontSize: 12, color: "#666666", maxWidth: 160 },
-
-  // Variant (reasoning effort) chip
-  variantChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  variantChipDark: { backgroundColor: "#1a1a1a" },
-  variantChipActive: { backgroundColor: colors.accentMuted },
-  variantLabel: { fontSize: 12, color: "#666666" },
-  variantLabelActive: { color: colors.accent },
+  aiChipDark: { backgroundColor: "#1a1a1a" },
+  aiLabel: { flex: 1, fontSize: 12, color: "#666666" },
 
   // Input
   inputContainer: {
-    padding: 12,
+    padding: COMPOSER_PADDING,
     borderTopWidth: 1,
     borderTopColor: "#e5e5e5",
     backgroundColor: "#ffffff",
@@ -1039,18 +997,16 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  overlayBtnActive: {
-    backgroundColor: "#ef4444",
-    borderRadius: 18,
-  },
+  // Composer spacing — single value for container padding and the input's
+  // top/side insets so the field spans full width uniformly.
   input: {
     flex: 1,
     backgroundColor: "#f5f5f5",
     borderRadius: 20,
-    paddingTop: 10,
+    paddingTop: COMPOSER_PADDING,
     paddingBottom: 52,
-    paddingLeft: 16,
-    paddingRight: 52,
+    paddingLeft: COMPOSER_PADDING,
+    paddingRight: COMPOSER_PADDING,
     fontSize: 16,
     minHeight: 80,
     maxHeight: 240,
@@ -1058,23 +1014,6 @@ const s = StyleSheet.create({
   },
   inputDark: { backgroundColor: "#1a1a1a", color: "#ffffff" },
   inputListening: { borderWidth: 1, borderColor: "#ef4444" },
-  sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#0a0a0a",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  sendBtnDisabled: { backgroundColor: "#cccccc" },
-  stopBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#ef4444",
-    justifyContent: "center",
-    alignItems: "center",
-  },
 
   // Header
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
