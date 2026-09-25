@@ -1,7 +1,12 @@
 import { useState, useCallback, useMemo, useRef } from "react"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import BottomSheet, { BottomSheetBackdrop, BottomSheetSectionList, BottomSheetTextInput } from "@gorhom/bottom-sheet"
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetSectionList,
+  BottomSheetTextInput,
+} from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
 import { colors } from "../../lib/theme"
 
@@ -23,7 +28,7 @@ interface Props {
   selected: { providerID: string; modelID: string } | null
   isDark: boolean
   onSelect: (providerID: string, modelID: string) => void
-  sheetRef: React.RefObject<BottomSheet | null>
+  sheetRef: React.RefObject<BottomSheetModal | null>
 }
 
 export function ModelPicker({ providers, selected, isDark, onSelect, sheetRef }: Props) {
@@ -75,15 +80,15 @@ export function ModelPicker({ providers, selected, isDark, onSelect, sheetRef }:
     (providerID: string, modelID: string) => {
       onSelect(providerID, modelID)
       setSearch("")
-      sheetRef.current?.close()
+      sheetRef.current?.dismiss()
     },
     [onSelect, sheetRef],
   )
 
   return (
-    <BottomSheet
+    <BottomSheetModal
       ref={sheetRef}
-      index={-1}
+      index={0}
       snapPoints={["50%", "80%"]}
       // See DirectoryBrowserSheet.tsx for why this is required alongside
       // static snapPoints (issue #104): without it the sheet can never open.
@@ -142,7 +147,7 @@ export function ModelPicker({ providers, selected, isDark, onSelect, sheetRef }:
         contentContainerStyle={s.content}
         stickySectionHeadersEnabled
       />
-    </BottomSheet>
+    </BottomSheetModal>
   )
 }
 

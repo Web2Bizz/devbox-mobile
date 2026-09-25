@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next"
 import * as ImagePicker from "expo-image-picker"
 import * as ImageManipulator from "expo-image-manipulator"
 import * as Clipboard from "expo-clipboard"
-import type BottomSheet from "@gorhom/bottom-sheet"
+import type { BottomSheetModal } from "@gorhom/bottom-sheet"
 import {
   MessageBubble,
   PermissionPrompt,
@@ -85,8 +85,8 @@ export default function SessionScreen() {
   const { t } = useTranslation()
 
   const flatListRef = useRef<FlatList>(null)
-  const modelSheetRef = useRef<BottomSheet>(null)
-  const variantSheetRef = useRef<BottomSheet>(null)
+  const modelSheetRef = useRef<BottomSheetModal>(null)
+  const variantSheetRef = useRef<BottomSheetModal>(null)
   const [input, setInput] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [showInfo, setShowInfo] = useState(false)
@@ -341,7 +341,7 @@ export default function SessionScreen() {
             return
           case "model":
             setInput("")
-            modelSheetRef.current?.expand()
+            modelSheetRef.current?.present()
             return
           case "agent":
             setInput("")
@@ -794,7 +794,7 @@ export default function SessionScreen() {
 
           <TouchableOpacity
             style={[s.modelChip, isDark && s.modelChipDark]}
-            onPress={() => modelSheetRef.current?.expand()}
+            onPress={() => modelSheetRef.current?.present()}
             testID="model-chip"
           >
             <Ionicons name="hardware-chip-outline" size={14} color={isDark ? "#888888" : "#666666"} />
@@ -806,7 +806,7 @@ export default function SessionScreen() {
           {currentModelVariants && Object.keys(currentModelVariants).length > 0 && (
             <TouchableOpacity
               style={[s.variantChip, isDark && s.variantChipDark, variant && s.variantChipActive]}
-              onPress={() => variantSheetRef.current?.expand()}
+              onPress={() => variantSheetRef.current?.present()}
               testID="variant-chip"
             >
               <Ionicons name="flash-outline" size={14} color={variant ? colors.accent : isDark ? "#888888" : "#666666"} />

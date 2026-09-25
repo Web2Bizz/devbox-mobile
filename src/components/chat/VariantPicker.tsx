@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList } from "@gorhom/bottom-sheet"
+import { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetModal } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
 import { colors } from "../../lib/theme"
 
@@ -15,7 +15,7 @@ interface Props {
   selected: string | null
   isDark: boolean
   onSelect: (variant: string | null) => void
-  sheetRef: React.RefObject<BottomSheet | null>
+  sheetRef: React.RefObject<BottomSheetModal | null>
 }
 
 export function VariantPicker({ variants, selected, isDark, onSelect, sheetRef }: Props) {
@@ -43,13 +43,13 @@ export function VariantPicker({ variants, selected, isDark, onSelect, sheetRef }
 
   const handleSelect = (id: string | null) => {
     onSelect(id)
-    sheetRef.current?.close()
+    sheetRef.current?.dismiss()
   }
 
   return (
-    <BottomSheet
+    <BottomSheetModal
       ref={sheetRef}
-      index={-1}
+      index={0}
       snapPoints={["30%", "50%"]}
       // See DirectoryBrowserSheet.tsx for why this is required alongside
       // static snapPoints (issue #104): without it the sheet can never open.
@@ -85,7 +85,7 @@ export function VariantPicker({ variants, selected, isDark, onSelect, sheetRef }
         }}
         contentContainerStyle={s.content}
       />
-    </BottomSheet>
+    </BottomSheetModal>
   )
 }
 
