@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { Fragment, useCallback, useState } from "react"
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import {
 } from "../../src/lib/notifications"
 import type { Category } from "../../src/lib/notifications"
 import { CURRENT_VERSION } from "../../src/lib/update-check"
+import { layout } from "../../src/lib/theme"
 import type { LocalePreference } from "../../src/lib/i18n/locale-resolve"
 
 function SettingRow({
@@ -44,10 +45,8 @@ function SettingRow({
   onPress?: () => void
 }) {
   const content = (
-    <View style={[styles.settingRow, isDark && styles.settingRowDark]}>
-      <View style={[styles.settingIcon, isDark && styles.settingIconDark]}>
-        <Ionicons name={icon} size={22} color={isDark ? "#ffffff" : "#0a0a0a"} />
-      </View>
+    <View style={styles.settingRow}>
+      <Ionicons name={icon} size={20} color={isDark ? "#888888" : "#666666"} />
       <View style={styles.settingContent}>
         <Text style={[styles.settingLabel, isDark && styles.textDark]}>{label}</Text>
         {description && <Text style={[styles.settingDescription, isDark && styles.metaDark]}>{description}</Text>}
@@ -61,15 +60,6 @@ function SettingRow({
   }
 
   return content
-}
-
-function SettingSection({ title, children, isDark }: { title: string; children: React.ReactNode; isDark: boolean }) {
-  return (
-    <View style={styles.section}>
-      <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>{title}</Text>
-      <View style={[styles.sectionContent, isDark && styles.sectionContentDark]}>{children}</View>
-    </View>
-  )
 }
 
 export default function SettingsScreen() {
@@ -136,98 +126,110 @@ export default function SettingsScreen() {
     ])
   }, [activeConnection, removeConnection, t])
 
-  return (
-    <ScrollView style={[styles.container, isDark && styles.containerDark]} contentContainerStyle={styles.content}>
-      <SettingSection title={t("settings.sections.security")} isDark={isDark}>
-        <SettingRow
-          icon="finger-print"
-          label={t("settings.security.biometricOpen.label")}
-          description={
-            hasBiometrics
-              ? t("settings.security.biometricOpen.descriptionEnabled")
-              : t("settings.security.biometricOpen.descriptionUnavailable")
-          }
-          isDark={isDark}
-          right={
-            <Switch
-              value={settings.requireBiometric}
-              onValueChange={(value) => updateSettings({ requireBiometric: value })}
-              disabled={!hasBiometrics}
-              trackColor={{ false: "#767577", true: "#22c55e" }}
-            />
-          }
+  // All settings as a single profile-style card list with dividers
+  const rows: React.ReactNode[] = [
+    <SettingRow
+      key="biometric-open"
+      icon="finger-print"
+      label={t("settings.security.biometricOpen.label")}
+      description={
+        hasBiometrics
+          ? t("settings.security.biometricOpen.descriptionEnabled")
+          : t("settings.security.biometricOpen.descriptionUnavailable")
+      }
+      isDark={isDark}
+      right={
+        <Switch
+          value={settings.requireBiometric}
+          onValueChange={(value) => updateSettings({ requireBiometric: value })}
+          disabled={!hasBiometrics}
+          trackColor={{ false: "#767577", true: "#22c55e" }}
         />
-        <SettingRow
-          icon="lock-closed"
-          label={t("settings.security.biometricSend.label")}
-          description={t("settings.security.biometricSend.description")}
-          isDark={isDark}
-          right={
-            <Switch
-              value={settings.requireBiometricForMessages}
-              onValueChange={(value) => updateSettings({ requireBiometricForMessages: value })}
-              disabled={!hasBiometrics || !settings.requireBiometric}
-              trackColor={{ false: "#767577", true: "#22c55e" }}
-            />
-          }
+      }
+    />,
+    <SettingRow
+      key="biometric-send"
+      icon="lock-closed"
+      label={t("settings.security.biometricSend.label")}
+      description={t("settings.security.biometricSend.description")}
+      isDark={isDark}
+      right={
+        <Switch
+          value={settings.requireBiometricForMessages}
+          onValueChange={(value) => updateSettings({ requireBiometricForMessages: value })}
+          disabled={!hasBiometrics || !settings.requireBiometric}
+          trackColor={{ false: "#767577", true: "#22c55e" }}
         />
-        {settings.requireBiometric && (
+      }
+    />,
+    ...(settings.requireBiometric
+      ? [
           <SettingRow
+            key="lock-now"
             icon="exit"
             label={t("settings.security.lockNow.label")}
             description={t("settings.security.lockNow.description")}
             isDark={isDark}
             onPress={lock}
             right={<Ionicons name="chevron-forward" size={20} color={isDark ? "#666666" : "#999999"} />}
-          />
-        )}
-      </SettingSection>
-
-      <SettingSection title={t("settings.sections.notifications")} isDark={isDark}>
-        {categories.map((category) => {
-          const meta = categoryMeta[category]
-          return (
-            <SettingRow
-              key={category}
-              icon={meta.icon as keyof typeof Ionicons.glyphMap}
-              label={t(meta.labelKey)}
-              description={t(meta.descriptionKey)}
-              isDark={isDark}
-              right={
-                <Switch
-                  value={notifications[category]}
-                  onValueChange={(value) => handleToggle(category, value)}
-                  trackColor={{ false: "#767577", true: "#22c55e" }}
-                />
-              }
+          />,
+        ]
+      : []),
+    ...categories.map((category) => {
+      const meta = categoryMeta[category]
+      return (
+        <SettingRow
+          key={category}
+          icon={meta.icon as keyof typeof Ionicons.glyphMap}
+          label={t(meta.labelKey)}
+          description={t(meta.descriptionKey)}
+          isDark={isDark}
+          right={
+            <Switch
+              value={notifications[category]}
+              onValueChange={(value) => handleToggle(category, value)}
+              trackColor={{ false: "#767577", true: "#22c55e" }}
             />
-          )
-        })}
+          }
+        />
+      )
+    }),
+    <SettingRow
+      key="language"
+      icon="language"
+      label={t("settings.language.label")}
+      description={localeLabels[locale]}
+      isDark={isDark}
+      onPress={handleLanguagePress}
+      right={<Ionicons name="chevron-forward" size={20} color={isDark ? "#666666" : "#999999"} />}
+    />,
+    <SettingRow
+      key="version"
+      icon="information-circle"
+      label={t("settings.about.version")}
+      description={CURRENT_VERSION}
+      isDark={isDark}
+    />,
+  ]
+
+  return (
+    <ScrollView style={[styles.container, isDark && styles.containerDark]} contentContainerStyle={styles.content}>
+      <View style={[styles.card, isDark && styles.cardDark]}>
+        {rows.map((row, i) => (
+          <Fragment key={i}>
+            {i > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
+            {row}
+          </Fragment>
+        ))}
         {osGranted === false && (
-          <View style={[styles.settingRow, isDark && styles.settingRowDark]}>
-            <Text style={[styles.settingDescription, { color: "#ef4444", paddingLeft: 48 }]}>
+          <>
+            <View style={[styles.divider, isDark && styles.dividerDark]} />
+            <Text style={[styles.settingDescription, { color: "#ef4444" }]}>
               {t("settings.notifications.disabledNotice")}
             </Text>
-          </View>
+          </>
         )}
-      </SettingSection>
-
-      <SettingSection title={t("settings.sections.about")} isDark={isDark}>
-        <SettingRow
-          icon="language"
-          label={t("settings.language.label")}
-          description={localeLabels[locale]}
-          isDark={isDark}
-          onPress={handleLanguagePress}
-          right={<Ionicons name="chevron-forward" size={20} color={isDark ? "#666666" : "#999999"} />}
-        />
-        <SettingRow
-          icon="information-circle"
-          label={t("settings.about.version")}
-          description={CURRENT_VERSION}
-          isDark={isDark}
-        />
-      </SettingSection>
+      </View>
 
       {activeConnection && (
         <View style={styles.logoutContainer}>
@@ -254,61 +256,33 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#ffffff",
   },
   containerDark: {
     backgroundColor: "#0a0a0a",
   },
   content: {
+    flexGrow: 1,
+    padding: 24,
     paddingBottom: 32,
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: "center",
+    width: "100%",
   },
-  section: {
-    marginTop: 24,
+  card: {
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#666666",
-    marginLeft: 16,
-    marginBottom: 8,
-    textTransform: "uppercase",
-  },
-  sectionTitleDark: {
-    color: "#888888",
-  },
-  sectionContent: {
-    backgroundColor: "#ffffff",
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#e5e5e5",
-  },
-  sectionContentDark: {
-    backgroundColor: "#1a1a1a",
-    borderColor: "#2a2a2a",
-  },
+  cardDark: { backgroundColor: "#1a1a1a" },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
+    gap: 12,
   },
-  settingRowDark: {
-    borderBottomColor: "#2a2a2a",
-  },
-  settingIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  settingIconDark: {
-    backgroundColor: "#2a2a2a",
-  },
+  divider: { height: 1, backgroundColor: "#e5e5e5" },
+  dividerDark: { backgroundColor: "#2a2a2a" },
   settingContent: {
     flex: 1,
   },
@@ -328,8 +302,7 @@ const styles = StyleSheet.create({
     color: "#888888",
   },
   logoutContainer: {
-    marginTop: 32,
-    paddingHorizontal: 16,
+    marginTop: 24,
   },
   logoutButton: {
     flexDirection: "row",
