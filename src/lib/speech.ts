@@ -73,8 +73,11 @@ export function useSpeech(onResult: (text: string) => void): SpeechState & Speec
   })
 
   useSpeechRecognitionEvent("error", (event: any) => {
-    // "no-speech" is not really an error — user just didn't say anything
-    if (event.error === "no-speech") {
+    // "no-speech" is not really an error — user just didn't say anything.
+    // "aborted" is never an error either: the native module emits it every
+    // time abort() is called (even when idle), and abort() is only ever
+    // invoked intentionally (cancel, unmount cleanup).
+    if (event.error === "no-speech" || event.error === "aborted") {
       setListening(false)
       return
     }
@@ -97,9 +100,6 @@ export function useSpeech(onResult: (text: string) => void): SpeechState & Speec
       return
     }
     try {
-      // A previous session stuck in "busy" (e.g. killed mid-recognition) rejects
-      // start — abort() is a no-op when idle, so always reset first.
-      ExpoSpeechRecognitionModule.abort()
       ExpoSpeechRecognitionModule.start({
         lang: recognitionLang(),
         interimResults: true,
