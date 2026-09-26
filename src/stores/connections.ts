@@ -40,7 +40,17 @@ interface ConnectionsState {
   // Actions
   loadConnections: () => Promise<void>
   addConnection: (connection: Omit<ServerConnection, "id">, password?: string) => Promise<void>
+  // Second-connection path for LAN discovery: same storage, but the entry
+  // keeps its discovered URL (hardcode enforcement skips LAN-marked entries)
+  // and starts inactive — the caller activates it explicitly. Returns the id.
+  addLanConnection: (url: string, name?: string) => Promise<string>
   removeConnection: (id: string) => Promise<void>
+  // Full logout: drop EVERY connection (cloud + LAN) with their stored
+  // passwords, so the auth gate lands (and stays) on the login entry
+  // choice. Removing only the active entry is not enough with two
+  // connections — the remaining one is still valid and the gate would bounce
+  // straight back into the app instead of showing login.
+  logoutAll: () => Promise<void>
   setActiveConnection: (id: string) => Promise<void>
   testConnection: (
     connection: ServerConnection,
@@ -88,10 +98,11 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
       ])
       let connections: ServerConnection[] = stored ? JSON.parse(stored) : []
       const recentDirectories: string[] = recentRaw ? JSON.parse(recentRaw) : []
-      // Enforce hardcoded URL — migrate any existing connections
+      // Enforce hardcoded URL — migrate any existing connections, but NEVER
+      // touch LAN-discovered entries: their custom URL is the whole point.
       let migrated = false
       connections = connections.map((c) => {
-        if (c.url !== HARDCODED_SERVER_URL) {
+        if (!c.discoveredOnLan && c.url !== HARDCODED_SERVER_URL) {
           migrated = true
           return { ...c, url: HARDCODED_SERVER_URL }
         }
@@ -147,8 +158,11 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
 
   addConnection: async (connection, password) => {
     const id = generateId()
-    // Enforce hardcoded URL
-    const hardcodedConnection = { ...connection, url: HARDCODED_SERVER_URL }
+    // Enforce hardcoded URL — except for LAN-discovered entries, which keep
+    // their scanned URL (the marker is set by the discovery flow only).
+    const hardcodedConnection = connection.discoveredOnLan
+      ? { ...connection }
+      : { ...connection, url: HARDCODED_SERVER_URL }
     const newConnection: ServerConnection = {
       ...hardcodedConnection,
       id,
@@ -180,6 +194,22 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
     set({ connections, activeConnection, client, clientBase: base })
     // New client identity — cached snapshots belong to the previous one.
     if (newConnection.active) invalidateConnectionScopeQueries()
+  },
+
+  addLanConnection: async (url, name) => {
+    const id = generateId()
+    const entry: ServerConnection = {
+      id,
+      name: name || url,
+      type: "local",
+      url,
+      discoveredOnLan: true,
+      active: false,
+    }
+    const connections = [...get().connections, entry]
+    await SecureStore.setItemAsync(CONNECTIONS_KEY, JSON.stringify(connections))
+    set({ connections })
+    return id
   },
 
   removeConnection: async (id) => {
@@ -238,10 +268,21 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
     invalidateConnectionScopeQueries()
   },
 
+  logoutAll: async () => {
+    // Sequential: each removeConnection re-reads state and persists, so the
+    // last removal lands on fully cleared client/credentials.
+    for (const id of get().connections.map((c) => c.id)) {
+      await get().removeConnection(id)
+    }
+  },
+
   testConnection: async (connection, password) => {
     try {
       const client = createClient({
-        baseUrl: HARDCODED_SERVER_URL,
+        // Honor the entry's own URL — LAN-discovered connections live on
+        // their scanned address; pinning hardcoded here made LAN login
+        // (and LAN re-tests) authenticate against the wrong server.
+        baseUrl: connection.url,
         directory: connection.directory,
         auth: buildAuth(connection.username, password),
       })
@@ -255,8 +296,11 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
   },
 
   updateConnection: async (id, updates, password) => {
-    // Enforce hardcoded URL — ignore any URL change from UI
-    const sanitizedUpdates = { ...updates, url: HARDCODED_SERVER_URL }
+    const existing = get().connections.find((c) => c.id === id)
+    // Enforce hardcoded URL — ignore any URL change from UI. LAN-discovered
+    // entries are exempt: their custom URL is user-confirmed via discovery.
+    const sanitizedUpdates =
+      existing?.discoveredOnLan && updates.url ? { ...updates } : { ...updates, url: HARDCODED_SERVER_URL }
     const connections = get().connections.map((c) => (c.id === id ? { ...c, ...sanitizedUpdates } : c))
 
     await SecureStore.setItemAsync(CONNECTIONS_KEY, JSON.stringify(connections))

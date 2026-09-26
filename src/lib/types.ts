@@ -15,6 +15,11 @@ export interface ServerConnection {
   lastConnected?: number
   // Is this the active connection?
   active?: boolean
+  // Set for servers found by LAN discovery (opt-in setting). The hardcoded
+  // main server stays the default; a LAN entry lives ALONGSIDE it as a
+  // second connection and keeps its own URL — the hardcode enforcement in
+  // the connections store skips marked entries.
+  discoveredOnLan?: boolean
 }
 
 export interface AppSettings {

@@ -20,6 +20,9 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
   const { t } = useTranslation()
   const activeConnection = useConnections((s) => s.activeConnection)
   const client = useConnections((s) => s.client)
+  // Ping the ACTIVE server (LAN or cloud) — pinging the hardcoded URL while
+  // a LAN connection is active showed the wrong server's latency/reachability.
+  const serverBaseUrl = useConnections((s) => s.clientBase?.baseUrl)
   const authError = useEvents((s) => s.authError)
   const state: BadgeState = authError ? "error" : activeConnection && client ? "connected" : "offline"
   const [visible, setVisible] = useState(false)
@@ -39,7 +42,7 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
     try {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 5000)
-      const res = await fetch(`${HARDCODED_SERVER_URL}/global/health`, {
+      const res = await fetch(`${serverBaseUrl ?? HARDCODED_SERVER_URL}/global/health`, {
         signal: controller.signal,
         headers: { Accept: "application/json" },
       })
@@ -56,7 +59,7 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
       pingInFlight.current = false
       if (!quiet) setPingLoading(false)
     }
-  }, [])
+  }, [serverBaseUrl])
 
   const open = useCallback(() => {
     setVisible(true)

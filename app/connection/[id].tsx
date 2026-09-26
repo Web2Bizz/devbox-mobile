@@ -71,6 +71,11 @@ export default function EditConnectionScreen() {
     )
   }
 
+  // LAN-discovered entries keep their scanned URL everywhere below (test,
+  // diagnostics, save) — pinning hardcoded here would silently re-point (or
+  // break) the second connection on every edit.
+  const effectiveUrl = connection.discoveredOnLan && connection.url ? connection.url : HARDCODED_SERVER_URL
+
   const handleTest = async () => {
     setIsTesting(true)
     const result = await testConnection(
@@ -78,7 +83,7 @@ export default function EditConnectionScreen() {
         id: connection.id,
         name: name || "Test",
         type,
-        url: HARDCODED_SERVER_URL,
+        url: effectiveUrl,
         directory: directory.trim() || undefined,
         username: username.trim() || undefined,
       },
@@ -92,7 +97,7 @@ export default function EditConnectionScreen() {
     }
 
     // Failed: run active diagnostics and offer a shareable report.
-    const report = await probeConnection(HARDCODED_SERVER_URL, buildAuth(username, password))
+    const report = await probeConnection(effectiveUrl, buildAuth(username, password))
     setIsTesting(false)
 
     Alert.alert(
@@ -121,7 +126,7 @@ export default function EditConnectionScreen() {
         {
           name: name.trim(),
           type,
-          url: HARDCODED_SERVER_URL,
+          url: effectiveUrl,
           directory: directory.trim() || undefined,
           username: username.trim() || undefined,
         },
@@ -210,7 +215,7 @@ export default function EditConnectionScreen() {
         onChangeText={setName}
       />
 
-      {/* URL is hardcoded — not shown */}
+      {/* URL is not editable: cloud entries stay hardcoded, LAN entries keep their scanned URL (see effectiveUrl) */}
 
       {/* Directory */}
       <Text style={[styles.label, isDark && styles.labelDark]}>{t("connection.shared.directoryOptional")}</Text>

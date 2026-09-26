@@ -68,8 +68,8 @@ export default function SettingsScreen() {
   const { t } = useTranslation()
 
   const { settings, hasBiometrics, updateSettings, lock } = useAuth()
-  const { notifications, setNotification, locale, setLocale } = useSettings()
-  const { activeConnection, removeConnection } = useConnections()
+  const { notifications, setNotification, locale, setLocale, lanDiscovery, setLanDiscovery } = useSettings()
+  const { activeConnection, logoutAll } = useConnections()
   const [osGranted, setOsGranted] = useState<boolean | null>(null)
 
   // Check OS permission state on first toggle attempt
@@ -117,14 +117,14 @@ export default function SettingsScreen() {
         text: t("settings.logout.button"),
         style: "destructive",
         onPress: async () => {
-          if (activeConnection) {
-            await removeConnection(activeConnection.id)
-          }
+          // Same full logout as the account screen — lands on login, never
+          // bounces back via a leftover second connection.
+          await logoutAll()
           router.replace("/login")
         },
       },
     ])
-  }, [activeConnection, removeConnection, t])
+  }, [logoutAll, t])
 
   // All settings as a single profile-style card list with dividers
   const rows: React.ReactNode[] = [
@@ -175,6 +175,20 @@ export default function SettingsScreen() {
           />,
         ]
       : []),
+    <SettingRow
+      key="lan-discovery"
+      icon="wifi"
+      label={t("lan.settingsLabel")}
+      description={t("lan.settingsDescription")}
+      isDark={isDark}
+      right={
+        <Switch
+          value={lanDiscovery}
+          onValueChange={(value) => setLanDiscovery(value)}
+          trackColor={{ false: "#767577", true: "#22c55e" }}
+        />
+      }
+    />,
     ...categories.map((category) => {
       const meta = categoryMeta[category]
       return (

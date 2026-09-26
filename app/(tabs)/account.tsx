@@ -9,7 +9,7 @@ export default function AccountScreen() {
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
   const { t } = useTranslation()
-  const { activeConnection, removeConnection } = useConnections()
+  const { activeConnection, logoutAll } = useConnections()
 
   const handleLogout = () => {
     Alert.alert(t("settings.logout.confirmTitle"), t("settings.logout.confirmMessage"), [
@@ -18,9 +18,10 @@ export default function AccountScreen() {
         text: t("settings.logout.button"),
         style: "destructive",
         onPress: async () => {
-          if (activeConnection) {
-            await removeConnection(activeConnection.id)
-          }
+          // Full logout (all connections, cloud + LAN): with a remaining
+          // valid connection the auth gate would bounce straight back into
+          // the app instead of showing the login entry choice.
+          await logoutAll()
           router.replace("/login")
         },
       },

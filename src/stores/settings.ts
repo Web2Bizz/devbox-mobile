@@ -11,12 +11,16 @@ interface Settings {
   pageSize: number
   notifications: Record<Category, boolean>
   locale: LocalePreference
+  // Opt-in LAN discovery of self-hosted servers (subnet sweep). Off by
+  // default: no local-network access, no scanning, until the user enables it.
+  lanDiscovery: boolean
 }
 
 const DEFAULTS: Settings = {
   pageSize: 25,
   notifications: { ...defaultPreferences },
   locale: "system",
+  lanDiscovery: false,
 }
 
 interface SettingsState extends Settings {
@@ -25,10 +29,16 @@ interface SettingsState extends Settings {
   setPageSize: (size: number) => Promise<void>
   setNotification: (category: Category, enabled: boolean) => Promise<void>
   setLocale: (locale: LocalePreference) => Promise<void>
+  setLanDiscovery: (enabled: boolean) => Promise<void>
 }
 
 function snapshot(get: () => SettingsState): Settings {
-  return { pageSize: get().pageSize, notifications: get().notifications, locale: get().locale }
+  return {
+    pageSize: get().pageSize,
+    notifications: get().notifications,
+    locale: get().locale,
+    lanDiscovery: get().lanDiscovery,
+  }
 }
 
 async function persist(settings: Settings) {
@@ -76,5 +86,10 @@ export const useSettings = create<SettingsState>((set, get) => ({
     set({ locale })
     setAppLocale(locale) // applies immediately
     await persist({ ...snapshot(get), locale })
+  },
+
+  setLanDiscovery: async (enabled) => {
+    set({ lanDiscovery: enabled })
+    await persist({ ...snapshot(get), lanDiscovery: enabled })
   },
 }))

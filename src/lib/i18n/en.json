@@ -486,5 +486,25 @@
     "retrying": "Retrying…",
     "empty": "No active tasks",
     "emptyHint": "Chats where the agent is working will appear here"
+  },
+  "lan": {
+    "settingsLabel": "LAN server discovery",
+    "settingsDescription": "When enabled, the app may scan your Wi-Fi for self-hosted servers. Off by default.",
+    "findButton": "Find server on LAN",
+    "scanTitle": "Servers on your network",
+    "scanning": "Scanning {{scanned}} of {{total}}…",
+    "none": "No servers found. Make sure the server is running and you're on the same Wi-Fi.",
+    "use": "Use",
+    "stop": "Stop",
+    "rescan": "Rescan",
+    "notOnLan": "Not connected to a private LAN — turn on Wi-Fi and try again.",
+    "unavailable": "LAN access is unavailable on this device.",
+    "needsLogin": "Login required",
+    "alreadyAdded": "Added",
+    "entryAccount": "Account",
+    "entryLocal": "Local server",
+    "localHint": "Log in to a server on your Wi-Fi network.",
+    "enableSearch": "Enable LAN discovery",
+    "findAnother": "Find another server"
   }
 }
