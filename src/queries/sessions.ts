@@ -1,7 +1,9 @@
 // Session list reads + session CRUD mutations on React Query.
 //
-// The query cache owns the session LIST snapshot; the Zustand sessions store
-// keeps only realtime/detail state (currentSession, messages, parts, sending).
+// The query cache owns the session LIST snapshot — merged across ALL
+// connections with credentials (cloud + LAN), each entry tagged with its
+// origin (see ListedSession). The Zustand sessions store keeps only
+// realtime/detail state (currentSession, messages, parts, sending).
 // SSE handlers (events.ts) write server-pushed changes straight into the same
 // cache via setQueryData, and realtime per-session cleanup (status/sending)
 // runs in onSuccess — so the badge, the tasks screen and the project lists,
@@ -13,39 +15,55 @@ import { useEvents } from "../stores/events"
 import { useSessions } from "../stores/sessions"
 import { queryClient } from "../lib/query-client"
 import { queryKeys } from "../lib/query-keys"
+import { mergeSessionLists, type ListedSession } from "../lib/listed-session"
 import type { Client, Session } from "../lib/sdk"
 
-async function fetchSessionsList(): Promise<Session[]> {
+async function fetchSessionsList(): Promise<ListedSession[]> {
   const conn = useConnections.getState()
-  // A directory-less client so the server returns sessions from ALL projects,
-  // not just the one matching the active connection's directory header.
-  const client = conn.clientForDirectory(undefined) ?? conn.client
-  if (!client) throw new Error("No active connection")
-  return client.session.list({ roots: true, limit: 50 })
+  // Every connection with stored credentials contributes its sessions;
+  // entries without credentials (LAN added but not logged in) are skipped
+  // until the user saves credentials — their 401s would only pollute the
+  // merged snapshot.
+  const targets = conn.connections.filter((c) => conn.clientBases[c.id]?.auth)
+  const perServer = await Promise.all(
+    targets.map(async ({ id }) => {
+      try {
+        const client = conn.clientForConnection(id)
+        if (!client) return { connectionId: id, sessions: [] as Session[] }
+        // Roots-shaped per server WITHOUT a limit (the server would truncate
+        // before we filter); the cap applies after the merge below.
+        const sessions = await client.session.list({ roots: true })
+        return { connectionId: id, sessions }
+      } catch {
+        return { connectionId: id, sessions: [] as Session[] }
+      }
+    }),
+  )
+  return mergeSessionLists(perServer)
 }
 
-// Directory-aware client for a session (mirrors the old store helper): a
-// session may belong to a project other than the active connection's.
+// Origin-aware client for a session: resolves against the session's OWN
+// server (from the tagged cache), never assuming the active connection.
 function clientForSession(sessionID: string): Client | null {
   const conn = useConnections.getState()
   const session =
-    queryClient.getQueryData<Session[]>(queryKeys.sessionsList)?.find((s) => s.id === sessionID) ??
+    queryClient.getQueryData<ListedSession[]>(queryKeys.sessionsList)?.find((s) => s.id === sessionID) ??
     (useSessions.getState().currentSession?.id === sessionID
       ? useSessions.getState().currentSession
       : undefined)
   if (!session) return conn.client
-  if (!session.directory) return conn.client
-  const activeDir = conn.activeConnection?.directory
-  if (session.directory === activeDir) return conn.client
-  return conn.clientForDirectory(session.directory) ?? conn.client
+  if (!session.directory) return conn.clientForConnection(session.connectionId) ?? conn.client
+  return conn.clientForDirectory(session.directory, session.connectionId) ?? conn.client
 }
 
 export function useSessionsList() {
-  const client = useConnections((s) => s.client)
+  const hasAuthedConnection = useConnections((s) =>
+    s.connections.some((c) => s.clientBases[c.id]?.auth),
+  )
   const query = useQuery({
     queryKey: queryKeys.sessionsList,
     queryFn: fetchSessionsList,
-    enabled: !!client,
+    enabled: hasAuthedConnection,
   })
   // The fresh list is authoritative about which sessions still exist: drop
   // statuses/sending flags for anything no longer present (deleted elsewhere,
@@ -60,22 +78,30 @@ export function useSessionsList() {
 export function useCreateSession() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (vars?: { directory?: string; title?: string }) => {
+    mutationFn: async (vars?: { directory?: string; title?: string; connectionId?: string }) => {
       const conn = useConnections.getState()
       const dir = vars?.directory?.trim() || undefined
-      const client = dir ? (conn.clientForDirectory(dir) ?? conn.client) : conn.client
+      // Origin: explicit connection (e.g. a LAN project's FAB) or the active
+      // one (the new-session modal).
+      const originClient = vars?.connectionId ? conn.clientForConnection(vars.connectionId) : undefined
+      const client =
+        dir != null
+          ? (conn.clientForDirectory(dir, vars?.connectionId) ?? originClient ?? conn.client)
+          : (originClient ?? conn.client)
       if (!client) throw new Error("No active connection")
-      return client.session.create({ title: vars?.title })
+      const created = await client.session.create({ title: vars?.title })
+      return { created, connectionId: vars?.connectionId ?? conn.activeConnection?.id ?? "" }
     },
-    onSuccess: async (created, vars) => {
+    onSuccess: async ({ created, connectionId }, vars) => {
       // Creating into a custom folder must not mutate the connection's
       // default project — but the folder is worth remembering.
       const dir = vars?.directory?.trim() || undefined
       if (dir) await useConnections.getState().addRecentDirectory(dir)
       // Preserve the old createSession contract: the new session becomes
       // current with a clean slate (the session screen re-selects anyway).
+      // Tag the origin so follow-up ops route to the right server.
       useSessions.setState({
-        currentSession: created,
+        currentSession: { ...created, connectionId },
         messages: [],
         parts: {},
         hasMore: false,
@@ -98,8 +124,8 @@ export function useDeleteSession() {
     // Optimistic: the row disappears immediately; rollback on failure.
     onMutate: async (sessionID) => {
       await qc.cancelQueries({ queryKey: queryKeys.sessionsList })
-      const previous = qc.getQueryData<Session[]>(queryKeys.sessionsList)
-      qc.setQueryData<Session[]>(queryKeys.sessionsList, (old) => (old ?? []).filter((s) => s.id !== sessionID))
+      const previous = qc.getQueryData<ListedSession[]>(queryKeys.sessionsList)
+      qc.setQueryData<ListedSession[]>(queryKeys.sessionsList, (old) => (old ?? []).filter((s) => s.id !== sessionID))
       return { previous }
     },
     onError: (_err, _id, context) => {
@@ -124,11 +150,11 @@ export function useDeleteSession() {
 export function useRenameSession() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (vars: { id: string; title: string; directory?: string }) => {
+    mutationFn: async (vars: { id: string; title: string; directory?: string; connectionId?: string }) => {
       const conn = useConnections.getState()
       const client = vars.directory
-        ? (conn.clientForDirectory(vars.directory) ?? conn.client)
-        : conn.client
+        ? (conn.clientForDirectory(vars.directory, vars.connectionId) ?? conn.client)
+        : (vars.connectionId ? conn.clientForConnection(vars.connectionId) : undefined) ?? conn.client
       if (!client) throw new Error("No active connection")
       await client.session.update(vars.id, { title: vars.title })
       return vars.id

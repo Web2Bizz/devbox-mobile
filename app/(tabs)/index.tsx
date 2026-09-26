@@ -24,9 +24,11 @@ import { useProjectInfo, useServerProjects } from "../../src/queries/project"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
 import type BottomSheet from "@gorhom/bottom-sheet"
-import type { Session, Project } from "../../src/lib/sdk"
+import type { Project } from "../../src/lib/sdk"
 import { DirectorySwitcher, DirectoryBrowserSheet } from "../../src/components/chat"
-import { groupByDirectory } from "../../src/lib/session-grouping"
+import { groupProjects } from "../../src/lib/session-grouping"
+import { lanConnectionIds } from "../../src/lib/listed-session"
+import type { ListedSession } from "../../src/lib/listed-session"
 import { UpdateBanner } from "../../src/components/UpdateBanner"
 import { nameOf } from "../../src/lib/path-utils"
 import { useUi } from "../../src/stores/ui"
@@ -48,11 +50,15 @@ function formatTime(timestamp: number, t: (key: string, opts?: Record<string, un
 
 function ProjectCard({
   directory,
+  connectionId,
+  isLocal,
   count,
   lastUpdated,
   isDark,
 }: {
   directory: string
+  connectionId: string
+  isLocal: boolean
   count: number
   lastUpdated: number
   isDark: boolean
@@ -62,20 +68,27 @@ function ProjectCard({
   const onPress = () => {
     router.push({
       pathname: "/project/[directory]",
-      params: { directory: encodeURIComponent(directory) },
+      params: { directory: encodeURIComponent(directory), connectionId },
     })
   }
   return (
     <TouchableOpacity
       style={[styles.projectCard, isDark && styles.projectCardDark]}
       onPress={onPress}
-      testID={`project-card-${directory}`}
+      testID={`project-card-${connectionId}-${directory}`}
     >
       <View style={styles.projectCardHeader}>
         <Ionicons name="folder" size={22} color={isDark ? colors.accentPale : colors.accentStrong} />
         <Text style={[styles.projectCardTitle, isDark && styles.textDark]} numberOfLines={1}>
           {shortName}
         </Text>
+        {isLocal && (
+          <View style={[styles.localBadge, isDark && styles.localBadgeDark]}>
+            <Text style={[styles.localBadgeText, isDark && styles.localBadgeTextDark]}>
+              {t("project.localBadge")}
+            </Text>
+          </View>
+        )}
         <View style={[styles.countBadge, isDark && styles.countBadgeDark]}>
           <Text style={[styles.countBadgeText, isDark && styles.countBadgeTextDark]}>{count}</Text>
         </View>
@@ -109,7 +122,7 @@ export default function SessionsScreen() {
   const { showNewProject, closeNewProject } = useUi()
   const [customDir, setCustomDir] = useState("")
   const [isCreating, setIsCreating] = useState(false)
-  const [renaming, setRenaming] = useState<Session | null>(null)
+  const [renaming, setRenaming] = useState<ListedSession | null>(null)
   const [renameText, setRenameText] = useState("")
   const renamingInFlight = useRef(false)
   // Synchronous re-entrancy guard: `isCreating` state lags by a render, so a
@@ -137,6 +150,7 @@ export default function SessionsScreen() {
   const renameSession = useRenameSession()
   const {
     activeConnection,
+    connections,
     clientForDirectory,
     switchDirectory,
     recentDirectories,
@@ -165,17 +179,23 @@ export default function SessionsScreen() {
     })
   }, [])
 
-  // Projects = unique directories that have sessions, each as a card
+  // Projects = unique (connection, directory) pairs that have sessions, each
+  // as a card. Same path on two servers is two cards; LAN cards carry the
+  // (local) badge.
+  const lanIds = useMemo(() => lanConnectionIds(connections), [connections])
   const projects = useMemo(() => {
-    const groups = groupByDirectory(sessions)
+    const groups = groupProjects(sessions)
     return groups
       .map((g) => ({
+        key: g.key,
         directory: g.directory,
+        connectionId: g.connectionId,
+        isLocal: lanIds.has(g.connectionId),
         count: g.items.length,
         lastUpdated: Math.max(...g.items.map((s) => s.time.updated), 0),
       }))
       .sort((a, b) => b.lastUpdated - a.lastUpdated)
-  }, [sessions])
+  }, [sessions, lanIds])
 
   const handleSwitchDirectory = useCallback(
     async (dir?: string) => {
@@ -198,7 +218,7 @@ export default function SessionsScreen() {
     }
   }, [refetchSessions, refetchProject])
 
-  const handleRename = useCallback((session: Session) => {
+  const handleRename = useCallback((session: ListedSession) => {
     setRenameText(session.title || "")
     setRenaming(session)
   }, [])
@@ -208,7 +228,7 @@ export default function SessionsScreen() {
     if (!title || !renaming || renamingInFlight.current) return
     renamingInFlight.current = true
     try {
-      await renameSession.mutateAsync({ id: renaming.id, title, directory: renaming.directory })
+      await renameSession.mutateAsync({ id: renaming.id, title, directory: renaming.directory, connectionId: renaming.connectionId })
       setRenaming(null)
       setRenameText("")
     } catch (err) {
@@ -220,7 +240,7 @@ export default function SessionsScreen() {
   }, [renaming, renameText, renameSession, t])
 
   const handleDelete = useCallback(
-    (session: Session) => {
+    (session: ListedSession) => {
       Alert.alert(
         t("sessionsList.alerts.deleteTitle"),
         t("sessionsList.alerts.deleteMessage", { title: session.title || t("sessionsList.untitledSession") }),
@@ -248,10 +268,14 @@ export default function SessionsScreen() {
     if (creatingInFlight.current) return
     creatingInFlight.current = true
     try {
-      const session = await createSession.mutateAsync()
+      const { created: session, connectionId } = await createSession.mutateAsync()
       router.push({
         pathname: `/session/[id]`,
-        params: { id: session.id, ...(session.directory ? { directory: session.directory } : {}) },
+        params: {
+          id: session.id,
+          ...(session.directory ? { directory: session.directory } : {}),
+          connectionId,
+        },
       })
     } catch {
       Alert.alert(t("common.error"), t("sessionsList.alerts.createFailedMessage"))
@@ -270,7 +294,7 @@ export default function SessionsScreen() {
       // A custom directory uses a one-off client for that directory (the
       // mutation handles this via clientForDirectory) so the connection's
       // default project is never mutated.
-      const session = await createSession.mutateAsync(
+      const { created: session, connectionId } = await createSession.mutateAsync(
         dir && dir.trim() ? { directory: dir.trim() } : undefined,
       )
       setShowNewSession(false)
@@ -278,7 +302,11 @@ export default function SessionsScreen() {
       setCustomDir("")
       router.push({
         pathname: `/session/[id]`,
-        params: { id: session.id, ...(session.directory ? { directory: session.directory } : {}) },
+        params: {
+          id: session.id,
+          ...(session.directory ? { directory: session.directory } : {}),
+          connectionId,
+        },
       })
     } catch (error) {
       console.error("Failed to create session in directory:", error)
@@ -417,11 +445,13 @@ export default function SessionsScreen() {
         data={projects}
         key={numColumns}
         numColumns={numColumns}
-        keyExtractor={(item) => item.directory}
+        keyExtractor={(item) => item.key}
         columnWrapperStyle={numColumns > 1 ? styles.projectGridRow : undefined}
         renderItem={({ item }) => (
           <ProjectCard
             directory={item.directory}
+            connectionId={item.connectionId}
+            isLocal={item.isLocal}
             count={item.count}
             lastUpdated={item.lastUpdated}
             isDark={isDark}
@@ -1260,5 +1290,25 @@ const styles = StyleSheet.create({
   },
   countBadgeTextDark: {
     color: "#888888",
+  },
+  localBadge: {
+    backgroundColor: "#dcfce7",
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  localBadgeDark: {
+    backgroundColor: "#052e16",
+    borderColor: "#14532d",
+  },
+  localBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#15803d",
+  },
+  localBadgeTextDark: {
+    color: "#4ade80",
   },
 })

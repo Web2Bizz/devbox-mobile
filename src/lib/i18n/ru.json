@@ -14,7 +14,14 @@
     "sections": {
       "security": "Безопасность",
       "notifications": "Уведомления",
-      "about": "О приложении"
+      "about": "О приложении",
+      "servers": "Серверы"
+    },
+    "servers": {
+      "main": "Основной сервер",
+      "local": "Локальный сервер",
+      "active": "Активен",
+      "needsLogin": "Нужен вход — откройте, чтобы ввести данные"
     },
     "security": {
       "biometricOpen": {
@@ -89,9 +96,16 @@
     },
     "actions": {
       "editMessage": "Edit message",
-      "replace": "Replace"
+      "replace": "Replace",
+      "send": "Send message",
+      "stop": "Stop response",
+      "mic": "Voice input"
     },
     "alerts": {
+      "unknownCommandTitle": "Unknown command",
+      "unknownCommandMessage": "There is no such server command. Your text was kept in the composer.",
+      "pasteTruncatedTitle": "Pasted text truncated",
+      "pasteTruncatedMessage": "The clipboard text exceeds the 10,000 character limit and was cut off.",
       "messageActionsTitle": "Message actions",
       "notSupportedTitle": "Not supported",
       "notSupportedMessage": "Editing sent messages needs a newer devbox server. Please update the server and try again.",
@@ -462,6 +476,7 @@
     "notLoggedIn": "Не авторизован"
   },
   "project": {
+    "localBadge": "(local)",
     "new": {
       "title": "Новый проект",
       "subtitle": "Создайте локальный проект или клонируйте с GitHub",

@@ -14,18 +14,19 @@ import { useConnections } from "../stores/connections"
 import { useEvents, type PermissionRequest, type QuestionRequest } from "../stores/events"
 import { abortedSessions, useSessions } from "../stores/sessions"
 import { queryKeys } from "../lib/query-keys"
-import type { Session } from "../lib/sdk"
+import type { ListedSession } from "../lib/listed-session"
 
 export type RevertResult = ({ ok: true } & PromptFromParts) | { ok: false; reason: "unsupported" | "auth" | "error" }
 
-function activeClientForCurrentSession(): { client: Client; session: Session } {
+function activeClientForCurrentSession(): { client: Client; session: ListedSession } {
   const ses = useSessions.getState()
   const conn = useConnections.getState()
   const session = ses.currentSession
   if (!session) throw new Error("No active session")
+  // Origin routing: the session's own server, never the merely-active one.
   const client = session.directory
-    ? (conn.clientForDirectory(session.directory) ?? conn.client)
-    : conn.client
+    ? conn.clientForDirectory(session.directory, session.connectionId)
+    : conn.clientForConnection(session.connectionId)
   if (!client) throw new Error("No active connection")
   return { client, session }
 }
@@ -57,7 +58,11 @@ export function useRevertSession() {
       try {
         const updated = await client.session.revert(session.id, messageID)
         useSessions.setState((state) => ({
-          currentSession: state.currentSession?.id === session.id ? updated : state.currentSession,
+          // Keep the origin tag (the server copy carries none).
+          currentSession:
+            state.currentSession?.id === session.id
+              ? { ...updated, connectionId: session.connectionId }
+              : state.currentSession,
         }))
         return { ok: true, ...extractPromptFromParts(useSessions.getState().parts[messageID]) }
       } catch (err) {
@@ -70,7 +75,8 @@ export function useRevertSession() {
           if (err.status === 401 || err.status === 403) return { ok: false, reason: "auth" }
         }
         console.error("Failed to revert message:", err)
-        useSessions.setState({ error: "Failed to revert message" })
+        // NOTE: no store error — the caller maps every reason to its own
+        // alert; writing both would double-alert.
         return { ok: false, reason: "error" }
       }
     },
@@ -91,7 +97,10 @@ export function useUnrevertSession() {
       const { client, session } = activeClientForCurrentSession()
       const updated = await client.session.unrevert(session.id)
       useSessions.setState((state) => ({
-        currentSession: state.currentSession?.id === session.id ? updated : state.currentSession,
+        currentSession:
+          state.currentSession?.id === session.id
+            ? { ...updated, connectionId: session.connectionId }
+            : state.currentSession,
       }))
     },
     onError: (err) => {

@@ -134,13 +134,12 @@ export default function EditConnectionScreen() {
         // rotates it in SecureStore.
         password || undefined,
       )
-      // If this was the active connection, the SSE loop may have stopped
-      // retrying after a prior 401 (see events.ts) — reconnect now with the
-      // freshly saved credentials instead of leaving the user stuck until
-      // they relaunch the app.
-      if (useConnections.getState().activeConnection?.id === connection.id) {
-        useEvents.getState().connect()
-      }
+      // Reconnect all streams with the freshly saved credentials: the edited
+      // server's stream may have stopped after a prior 401 (see events.ts),
+      // and connect() skips already-live streams — so this is a no-op for
+      // everything else. Without it a LAN entry saved here would never start
+      // streaming until the next relaunch.
+      useEvents.getState().connect()
       setIsSaving(false)
       router.back()
     } catch {

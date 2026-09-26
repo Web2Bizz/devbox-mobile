@@ -49,9 +49,13 @@ import { useConnections } from "../../src/stores/connections"
 import { useAuth } from "../../src/stores/auth"
 import { useCatalog } from "../../src/stores/catalog"
 import { useSpeech } from "../../src/lib/speech"
-import { composerMaxHeight, keyboardVerticalOffset } from "../../src/lib/session-layout"
+import { composerMaxHeight, keyboardVerticalOffset, COMPOSER_MIN_HEIGHT } from "../../src/lib/session-layout"
 
 // --- Builtin slash commands ---
+// Hard input cap, mirrored in the TextInput's maxLength below. Pastes that
+// would overflow it are still applied (the native field truncates) but warn
+// first — otherwise long logs silently lose their tail.
+const MAX_COMPOSER_LENGTH = 10000
 const BUILTIN_COMMANDS: SlashCommand[] = [
   {
     trigger: "new",
@@ -83,7 +87,11 @@ function getShortDir(dir?: string): string | null {
 }
 
 export default function SessionScreen() {
-  const { id, directory } = useLocalSearchParams<{ id: string; directory?: string }>()
+  const { id, directory, connectionId } = useLocalSearchParams<{
+    id: string
+    directory?: string
+    connectionId?: string
+  }>()
   const router = useRouter()
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
@@ -120,8 +128,15 @@ export default function SessionScreen() {
 
   const inputMaxHeight = composerMaxHeight(Platform.OS, windowHeight, keyboardY, insets.top, fontScale)
   // Controlled field height: grow with content, snap back to the floor on reset.
-  // Must mirror s.input.minHeight (80).
-  const composerFieldHeight = Math.max(80, Math.min(composerHeight ?? 80, inputMaxHeight))
+  // The floor is COMPOSER_MIN_HEIGHT (88 = one text line + the input's vertical
+  // padding), NOT 80: a lower floor clips the first line inside the fixed box
+  // (paddingTop 12 + line ~24 + paddingBottom 52 for the overlay buttons), and
+  // the field only looked right again once a newline grew the measurement past
+  // the deficit. Must mirror s.input.minHeight.
+  const composerFieldHeight = Math.max(
+    COMPOSER_MIN_HEIGHT,
+    Math.min(composerHeight ?? COMPOSER_MIN_HEIGHT, inputMaxHeight),
+  )
 
   const {
     currentSession,
@@ -158,17 +173,28 @@ export default function SessionScreen() {
   const { authenticateForMessage } = useAuth()
   const { client, clientForDirectory } = useConnections()
 
-  // Use directory-aware client for sessions that belong to a project other than the active one
+  // Origin-aware client: the open session's own server (cloud or LAN), never
+  // just the active connection.
   const sessionClient = useMemo(
-    () => (currentSession?.directory ? (clientForDirectory(currentSession.directory) ?? client) : client),
-    [currentSession?.directory, clientForDirectory, client],
+    () =>
+      currentSession?.directory
+        ? (clientForDirectory(currentSession.directory, currentSession.connectionId) ?? client)
+        : currentSession
+          ? (clientForDirectory(undefined, currentSession.connectionId) ?? client)
+          : client,
+    [currentSession?.directory, currentSession?.connectionId, clientForDirectory, client],
   )
 
-  // Catalog lists from the React Query cache; the agent/model/variant
-  // SELECTIONS stay local (Zustand) and are seeded from each fresh snapshot.
-  const { data: catalogData } = useCatalogData()
+  // Catalog lists from the React Query cache, scoped to the open session's
+  // server; the agent/model/variant SELECTIONS stay local (Zustand) and are
+  // seeded from each fresh snapshot.
+  const { data: catalogData } = useCatalogData(currentSession?.connectionId)
   useEffect(() => {
-    if (catalogData) useCatalog.getState().reseed(catalogData)
+    // Skip empty snapshots (e.g. a server that answered 401): reseeding from
+    // nothing would wipe a still-valid selection.
+    if (catalogData && (catalogData.agents.length > 0 || catalogData.providers.length > 0)) {
+      useCatalog.getState().reseed(catalogData)
+    }
   }, [catalogData])
   const agents = catalogData?.agents ?? []
   const serverCommands = catalogData?.commands ?? []
@@ -209,6 +235,17 @@ export default function SessionScreen() {
     if (!speech.error) return
     Alert.alert(t("session.alerts.speechErrorTitle"), `${t("session.alerts.speechErrorMessage")}\n\n${speech.error}`)
   }, [speech.error, t])
+
+  // One-time surface for store-level action failures that have no call-site
+  // alert (abort, unrevert). Send/revert failures alert at their call sites
+  // and never write the store flag, so this can't double-alert.
+  const sessionError = useSessions((s) => s.error)
+  const clearSessionError = useSessions((s) => s.clearError)
+  useEffect(() => {
+    if (!sessionError) return
+    Alert.alert(t("common.error"), sessionError)
+    clearSessionError()
+  }, [sessionError, clearSessionError, t])
 
   // Slash command state
   const slashActive = input.startsWith("/") && !input.includes(" ")
@@ -334,14 +371,18 @@ export default function SessionScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!id) return
-      selectSession(id, directory).then(() => {
+      selectSession(id, directory, connectionId).then(() => {
         // Re-fetch pending permissions/questions from the server to recover from
         // missed SSE events or failed optimistic removals
         const connState = useConnections.getState()
-        const c = directory ? (connState.clientForDirectory(directory) ?? connState.client) : connState.client
+        const c = directory
+          ? (connState.clientForDirectory(directory, connectionId) ?? connState.client)
+          : connectionId
+            ? (connState.clientForConnection(connectionId) ?? connState.client)
+            : connState.client
         if (c) refreshPending(c, id)
       })
-    }, [id, directory]),
+    }, [id, directory, connectionId]),
   )
 
   // Sync model chip from latest assistant message
@@ -495,12 +536,15 @@ export default function SessionScreen() {
     if (hasText) {
       const text = await Clipboard.getStringAsync()
       if (text) {
+        if (input.length + text.length > MAX_COMPOSER_LENGTH) {
+          Alert.alert(t("session.alerts.pasteTruncatedTitle"), t("session.alerts.pasteTruncatedMessage"))
+        }
         setInput((prev) => prev + text)
         return
       }
     }
     Alert.alert(t("session.alerts.emptyClipboardTitle"), t("session.alerts.emptyClipboardMessage"))
-  }, [t])
+  }, [input, t])
 
   const removeAttachment = useCallback((index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index))
@@ -527,15 +571,26 @@ export default function SessionScreen() {
       const [cmdName, ...args] = text.split(" ")
       const name = cmdName.slice(1)
       const match = serverCommands.find((c) => c.name === name)
-      if (match && sessionClient && currentSession) {
-        sessionClient.session
-          .command(currentSession.id, {
+      if (!match) {
+        // Not a known server command — keep the text instead of firing it
+        // as a literal prompt.
+        setInput(text)
+        Alert.alert(t("session.alerts.unknownCommandTitle"), t("session.alerts.unknownCommandMessage"))
+        return
+      }
+      if (sessionClient && currentSession) {
+        try {
+          await sessionClient.session.command(currentSession.id, {
             command: name,
             arguments: args.join(" "),
             agent,
             model: model ? `${model.providerID}/${model.modelID}` : undefined,
           })
-          .catch((err) => console.error("Command failed:", err))
+        } catch (err) {
+          console.error("Command failed:", err)
+          setInput(text)
+          Alert.alert(t("session.alerts.sendFailedTitle"), t("session.alerts.sendFailedMessage"))
+        }
         return
       }
     }
@@ -708,12 +763,17 @@ export default function SessionScreen() {
             <Text style={s.bannerText}>{t("session.banners.reverted")}</Text>
               <TouchableOpacity
                 onPress={() => {
-                  unrevertMutation.mutate()
-                  // The composer was prefilled with the reverted message's text/
-                  // attachments (see applyRevertResult) — clear it so Undo doesn't
-                  // leave a stale draft that could be sent as a duplicate.
-                  setAttachments([])
-                  clearComposer()
+                  // Clear the composer only after the server confirms the
+                  // unrevert — on failure the prefilled draft must survive.
+                  unrevertMutation.mutate(undefined, {
+                    onSuccess: () => {
+                      // The composer was prefilled with the reverted message's text/
+                      // attachments (see applyRevertResult) — clear it so Undo doesn't
+                      // leave a stale draft that could be sent as a duplicate.
+                      setAttachments([])
+                      clearComposer()
+                    },
+                  })
                 }}
                 hitSlop={8}
               >
@@ -848,7 +908,7 @@ export default function SessionScreen() {
               editable={!speech.listening}
               multiline
               scrollEnabled
-              maxLength={10000}
+              maxLength={MAX_COMPOSER_LENGTH}
               testID="chat-message-input"
             />
             {/* Overlay control bar: bottom row over the input.
@@ -873,7 +933,11 @@ export default function SessionScreen() {
               </View>
               <View style={s.overlayGroup}>
                 {!isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
-                  <TouchableOpacity style={s.overlayBtn} onPress={speech.start}>
+                  <TouchableOpacity
+                    style={s.overlayBtn}
+                    onPress={speech.start}
+                    accessibilityLabel={t("session.actions.mic")}
+                  >
                     <Ionicons name="mic" size={24} color={isDark ? "#888888" : "#666666"} />
                   </TouchableOpacity>
                 )}
@@ -884,13 +948,22 @@ export default function SessionScreen() {
                 )}
                 {/* Stop button: only when busy and no input */}
                 {isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
-                  <TouchableOpacity style={s.overlayBtn} onPress={() => abortMutation.mutate()}>
+                  <TouchableOpacity
+                    style={s.overlayBtn}
+                    onPress={() => abortMutation.mutate()}
+                    accessibilityLabel={t("session.actions.stop")}
+                  >
                     <Ionicons name="stop" size={24} color="#ef4444" />
                   </TouchableOpacity>
                 )}
                 {/* Send button: when there's input */}
                 {!speech.listening && (input.trim() || attachments.length > 0) && (
-                  <TouchableOpacity style={s.overlayBtn} onPress={handleSend} testID="chat-send-button">
+                  <TouchableOpacity
+                    style={s.overlayBtn}
+                    onPress={handleSend}
+                    testID="chat-send-button"
+                    accessibilityLabel={t("session.actions.send")}
+                  >
                     <Ionicons name="send" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
                   </TouchableOpacity>
                 )}
@@ -1021,7 +1094,7 @@ const s = StyleSheet.create({
     paddingLeft: COMPOSER_PADDING,
     paddingRight: COMPOSER_PADDING,
     fontSize: 16,
-    minHeight: 80,
+    minHeight: COMPOSER_MIN_HEIGHT,
     maxHeight: 240,
     color: "#0a0a0a",
   },
