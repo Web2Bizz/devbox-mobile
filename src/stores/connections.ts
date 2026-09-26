@@ -2,10 +2,11 @@ import { create } from "zustand"
 import * as SecureStore from "expo-secure-store"
 import * as Crypto from "expo-crypto"
 import type { ServerConnection, ConnectionType } from "../lib/types"
-import { createClient, type Client, type Project } from "../lib/sdk"
+import { createClient, type Client } from "../lib/sdk"
 import { buildAuth } from "../lib/auth"
 import { stripTrailingSlash } from "../lib/path-utils"
 import { HARDCODED_SERVER_URL } from "../lib/server-config"
+import { invalidateConnectionScopeQueries } from "../lib/query-invalidate"
 
 const CONNECTIONS_KEY = "opencode_connections"
 const PASSWORDS_PREFIX = "opencode_password_"
@@ -29,8 +30,9 @@ interface ConnectionsState {
   activeConnection: ServerConnection | null
   client: Client | null
   clientBase: ClientBase | null
-  currentProject: Project | null
-  serverHome: string | null // Home directory on the server machine (for ~ expansion)
+  // NOTE: no currentProject/serverHome here by design — project info is a
+  // React Query snapshot (useProjectInfo()), invalidated on every change
+  // below. Mirroring it in Zustand was a second source of truth.
   recentDirectories: string[]
   isLoading: boolean
   error: string | null
@@ -45,7 +47,6 @@ interface ConnectionsState {
     password?: string,
   ) => Promise<{ ok: boolean; error?: string }>
   updateConnection: (id: string, updates: Partial<ServerConnection>, password?: string) => Promise<void>
-  refreshProject: () => Promise<void>
   // Create a one-off client pointing at a specific directory (for cross-project operations).
   // Pass undefined to get a directory-less client that queries the server without project scope.
   clientForDirectory: (directory?: string) => Client | null
@@ -74,8 +75,6 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
   activeConnection: null,
   client: null,
   clientBase: null,
-  serverHome: null,
-  currentProject: null,
   recentDirectories: [],
   isLoading: true,
   error: null,
@@ -123,25 +122,14 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
       // Create client for active connection
       let client: Client | null = null
       let base: ClientBase | null = null
-      let project: Project | null = null
-      let home: string | null = null
       if (active) {
         const password = await SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${active.id}`)
         const auth = buildAuth(active.username, password)
         const built = buildClient(active.url, active.directory, auth)
         client = built.client
         base = built.base
-        // Fetch current project info and server paths
-        try {
-          const [proj, paths] = await Promise.all([
-            client.project.current().catch(() => null),
-            client.path.get().catch(() => null),
-          ])
-          project = proj
-          home = paths?.home || null
-        } catch {
-          // Server might be offline
-        }
+        // Project info is NOT prefetched here — useProjectInfo() fetches it
+        // through the query cache as soon as a screen mounts.
       }
 
       set({
@@ -149,8 +137,6 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
         activeConnection: active,
         client,
         clientBase: base,
-        currentProject: project,
-        serverHome: home,
         recentDirectories,
         isLoading: false,
       })
@@ -183,31 +169,17 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
     let base = get().clientBase
     let activeConnection = get().activeConnection
 
-    let project = get().currentProject
-    let serverHome = get().serverHome
-
     if (newConnection.active) {
       activeConnection = newConnection
       const auth = buildAuth(newConnection.username, password)
       const built = buildClient(newConnection.url, newConnection.directory, auth)
       client = built.client
       base = built.base
-
-      // Fetch server metadata so loadSessions can use clientForDirectory(serverHome)
-      // immediately after the connection is added (same as setActiveConnection does).
-      try {
-        const [proj, paths] = await Promise.all([
-          client.project.current().catch(() => null),
-          client.path.get().catch(() => null),
-        ])
-        project = proj
-        serverHome = paths?.home || null
-      } catch {
-        // Server might be unreachable; proceed without metadata
-      }
     }
 
-    set({ connections, activeConnection, client, clientBase: base, currentProject: project, serverHome })
+    set({ connections, activeConnection, client, clientBase: base })
+    // New client identity — cached snapshots belong to the previous one.
+    if (newConnection.active) invalidateConnectionScopeQueries()
   },
 
   removeConnection: async (id) => {
@@ -232,6 +204,7 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
       } else {
         set({ connections, activeConnection: null, client: null, clientBase: null })
       }
+      invalidateConnectionScopeQueries()
     } else {
       set({ connections })
     }
@@ -248,8 +221,6 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
     const active = connections.find((c) => c.id === id) || null
     let client: Client | null = null
     let base: ClientBase | null = null
-    let project: Project | null = null
-    let home: string | null = null
 
     if (active) {
       const password = await SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${active.id}`)
@@ -258,23 +229,13 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
       client = built.client
       base = built.base
 
-      try {
-        const [proj, paths] = await Promise.all([
-          client.project.current().catch(() => null),
-          client.path.get().catch(() => null),
-        ])
-        project = proj
-        home = paths?.home || null
-      } catch {
-        // Server might be offline
-      }
-
       // Update last connected time
       active.lastConnected = Date.now()
       await SecureStore.setItemAsync(CONNECTIONS_KEY, JSON.stringify(connections))
     }
 
-    set({ connections, activeConnection: active, client, clientBase: base, currentProject: project, serverHome: home })
+    set({ connections, activeConnection: active, client, clientBase: base })
+    invalidateConnectionScopeQueries()
   },
 
   testConnection: async (connection, password) => {
@@ -314,42 +275,18 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
       const password = await SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${id}`)
       const auth = buildAuth(active.username, password)
       const built = buildClient(active.url, active.directory, auth)
-      try {
-        const [project, paths] = await Promise.all([
-          built.client.project.current().catch(() => null),
-          built.client.path.get().catch(() => null),
-        ])
-        set({
-          connections,
-          activeConnection: active,
-          client: built.client,
-          clientBase: built.base,
-          currentProject: project,
-          serverHome: paths?.home || null,
-        })
-      } catch {
-        set({
-          connections,
-          activeConnection: active,
-          client: built.client,
-          clientBase: built.base,
-          currentProject: null,
-        })
-      }
+      set({
+        connections,
+        activeConnection: active,
+        client: built.client,
+        clientBase: built.base,
+      })
+      // New client identity (directory/auth may have changed) — drop stale
+      // snapshots; mounted hooks refetch (this covers switchDirectory too,
+      // which funnels through here).
+      invalidateConnectionScopeQueries()
     } else {
       set({ connections })
-    }
-  },
-
-  refreshProject: async () => {
-    const client = get().client
-    if (!client) return
-
-    try {
-      const project = await client.project.current()
-      set({ currentProject: project })
-    } catch {
-      set({ currentProject: null })
     }
   },
 

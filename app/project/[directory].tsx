@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from "react"
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, useColorScheme, ActivityIndicator, Alert } from "react-native"
-import { Stack, useLocalSearchParams, router, useFocusEffect } from "expo-router"
+import { Stack, useLocalSearchParams, router } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
-import { useSessions } from "../../src/stores/sessions"
+import { useSessionsList, useCreateSession, useDeleteSession } from "../../src/queries/sessions"
 import { useConnections } from "../../src/stores/connections"
 import { colors } from "../../src/lib/theme"
 
@@ -24,8 +24,11 @@ export default function ProjectSessionsScreen() {
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
   const { t } = useTranslation()
-  const { sessions, isLoading, loadSessions, deleteSession } = useSessions()
-  const { client, activeConnection } = useConnections()
+  const { data: sessionsData, isLoading } = useSessionsList()
+  const sessions = sessionsData ?? []
+  const deleteSession = useDeleteSession()
+  const createSession = useCreateSession()
+  const { activeConnection } = useConnections()
 
   const projectSessions = useMemo(
     () => sessions.filter((s) => (s.directory || "") === decodedDir),
@@ -33,12 +36,6 @@ export default function ProjectSessionsScreen() {
   )
 
   const shortName = decodedDir.split("/").filter(Boolean).pop() || decodedDir || "—"
-
-  useFocusEffect(
-    useCallback(() => {
-      if (client) loadSessions()
-    }, [client, loadSessions]),
-  )
 
   const handleDelete = useCallback(
     (session: (typeof sessions)[number]) => {
@@ -52,7 +49,7 @@ export default function ProjectSessionsScreen() {
             style: "destructive",
             onPress: async () => {
               try {
-                await deleteSession(session.id)
+                await deleteSession.mutateAsync(session.id)
               } catch {
                 Alert.alert(t("sessionsList.alerts.deleteFailedTitle"), t("sessionsList.alerts.deleteFailedMessage"))
               }
@@ -134,11 +131,9 @@ export default function ProjectSessionsScreen() {
         <TouchableOpacity
           style={[styles.fab, isDark && styles.fabDark]}
           onPress={async () => {
-            const dirClient = activeConnection ? useConnections.getState().clientForDirectory(decodedDir) : null
-            const clientToUse = dirClient || useConnections.getState().client
-            if (!clientToUse) return
+            if (!activeConnection) return
             try {
-              const session = await clientToUse.session.create({})
+              const session = await createSession.mutateAsync({ directory: decodedDir })
               router.push({
                 pathname: "/session/[id]",
                 params: { id: session.id, ...(session.directory ? { directory: session.directory } : { directory: decodedDir }) },

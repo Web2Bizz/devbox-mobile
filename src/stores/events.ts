@@ -7,10 +7,36 @@ import { statusFromPart } from "../lib/status-labels"
 import { recordSuccessfulSession } from "../lib/store-review"
 import { isAuthError } from "../lib/api-error"
 import { isSessionActuallyIdle } from "../lib/session-status-reconcile"
+import { queryClient } from "../lib/query-client"
+import { queryKeys } from "../lib/query-keys"
 import type { Client, Part, Session, Message } from "../lib/sdk"
 
 // Session status from the server
 type SessionStatus = { type: "idle" } | { type: "busy" } | { type: "retry"; attempt: number; message: string }
+
+// Pending tool-permission prompt for a session (mirrors the server shape).
+export interface PermissionRequest {
+  id: string
+  sessionID: string
+  permission: string
+  patterns: string[]
+  metadata: Record<string, unknown>
+  tool?: { messageID: string; callID: string }
+}
+
+// Pending clarifying question for a session (mirrors the server shape).
+export interface QuestionRequest {
+  id: string
+  sessionID: string
+  questions: Array<{
+    question: string
+    header: string
+    options: Array<{ label: string; description: string }>
+    multiple?: boolean
+    custom?: boolean
+  }>
+  tool?: { messageID: string; callID: string }
+}
 
 interface EventsState {
   connected: boolean
@@ -26,35 +52,25 @@ interface EventsState {
   sessionStatus: Record<string, SessionStatus>
   statusText: Record<string, string>
   // Permissions & questions (pending per session)
-  permissions: Record<
-    string,
-    Array<{
-      id: string
-      sessionID: string
-      permission: string
-      patterns: string[]
-      metadata: Record<string, unknown>
-      tool?: { messageID: string; callID: string }
-    }>
-  >
-  questions: Record<
-    string,
-    Array<{
-      id: string
-      sessionID: string
-      questions: Array<{
-        question: string
-        header: string
-        options: Array<{ label: string; description: string }>
-        multiple?: boolean
-        custom?: boolean
-      }>
-      tool?: { messageID: string; callID: string }
-    }>
-  >
+  permissions: Record<string, PermissionRequest[]>
+  questions: Record<string, QuestionRequest[]>
 
   connect: () => void
   disconnect: () => void
+  // Drop all per-session state (status, status text, sending flag, pending
+  // prompts) for a session that no longer exists. Without this, deleting a
+  // busy session leaves a stale busy entry in `sessionStatus` forever: the
+  // server never sends the busy -> idle transition for a deleted session, so
+  // the Navbar badge kept counting it while the Tasks screen (which
+  // intersects statuses with the loaded sessions list) did not — the "3 in
+  // the badge, 2 on the screen" divergence.
+  removeSessionState: (sessionID: string) => void
+  // Same as above, in bulk: forget every session ID not in `validIDs`.
+  // Called after loadSessions() replaces the list, so statuses for sessions
+  // deleted elsewhere (or fallen outside the list limit) can't linger.
+  // The currently open session is always treated as valid — it may legitimately
+  // be absent from the list briefly (e.g. just created, list not refreshed yet).
+  pruneStaleSessionStates: (validIDs: Set<string>) => void
 }
 
 let controller: AbortController | null = null
@@ -72,10 +88,15 @@ const PROLONGED_DISCONNECT_MS = 30_000
 
 // Re-fetch pending permissions and questions from the server for a session.
 // Called when entering a session to recover from missed SSE events or failed
-// optimistic removals.
+// optimistic removals. Goes through the query cache (keyed per session) like
+// every other server read; the result syncs into realtime prompt state below.
 export async function refreshPending(client: Client, sessionID: string) {
   try {
-    const [perms, questions] = await Promise.all([client.permission.list(), client.question.list()])
+    const [perms, questions] = await queryClient.fetchQuery({
+      queryKey: queryKeys.sessionPending(sessionID),
+      queryFn: () => Promise.all([client.permission.list(), client.question.list()]),
+      staleTime: 0,
+    })
     const sessionPerms = (perms || []).filter((p: Record<string, unknown>) => p.sessionID === sessionID)
     const sessionQuestions = (questions || []).filter((q: Record<string, unknown>) => q.sessionID === sessionID)
     useEvents.setState((state) => ({
@@ -87,7 +108,51 @@ export async function refreshPending(client: Client, sessionID: string) {
   }
 }
 
-// Re-sync any session currently marked "busy" against the server after an
+// sdk.ts's request() surfaces non-auth HTTP failures (e.g. 404) as a generic
+// Error shaped `API Error: <status> - <body>` (see api-error.ts), so there is
+// no `.status` field to branch on — parse it back out of the message.
+function isNotFoundError(err: unknown): boolean {
+  if (typeof err === "object" && err !== null && "status" in err && (err as { status: unknown }).status === 404)
+    return true
+  const message = err instanceof Error ? err.message : String(err)
+  return /API Error:\s*404\b/.test(message)
+}
+
+// Clear every per-session bit for sessionID across both stores. `sending`
+// lives in the sessions store while the rest lives here — both must go,
+// otherwise a deleted-while-sending session leaks an optimistic flag that the
+// Tasks screen would keep rendering (SSE never clears it: no idle event ever
+// comes for a deleted session).
+function clearSessionStateEverywhere(sessionID: string) {
+  erroredSessions.delete(sessionID)
+  abortedSessions.delete(sessionID)
+  useEvents.setState((state) => {
+    if (
+      !(sessionID in state.sessionStatus) &&
+      !(sessionID in state.statusText) &&
+      !(state.permissions[sessionID]?.length) &&
+      !(state.questions[sessionID]?.length)
+    )
+      return state
+    const sessionStatus = { ...state.sessionStatus }
+    const statusText = { ...state.statusText }
+    const permissions = { ...state.permissions }
+    const questions = { ...state.questions }
+    delete sessionStatus[sessionID]
+    delete statusText[sessionID]
+    delete permissions[sessionID]
+    delete questions[sessionID]
+    return { sessionStatus, statusText, permissions, questions }
+  })
+  useSessions.setState((state) => {
+    if (!(sessionID in state.sending)) return state
+    const sending = { ...state.sending }
+    delete sending[sessionID]
+    return { sending }
+  })
+}
+
+// Re-sync any session currently marked busy/retry against the server after an
 // SSE reconnect. sessionStatus/sending are SSE-driven and there is normally
 // no other path to idle — if the server's busy -> idle `session.status`
 // event fired while the network was down, SSE reconnect resumes the stream
@@ -95,14 +160,17 @@ export async function refreshPending(client: Client, sessionID: string) {
 // flag would never clear and the UI would show a stuck 'processing' spinner
 // forever (issue #123).
 //
-// Only ever CLEARS a busy flag the server confirms is stale via
+// Only ever CLEARS a flag the server confirms is stale via
 // isSessionActuallyIdle — it never marks a session busy, so it can't
 // clobber a genuinely still-busy session. Also re-checks sessionStatus right
 // before writing, so a real session.status event that lands while the fetch
 // is in flight (e.g. the session went busy again) wins over this resync.
+// A 404 from the messages fetch means the session was deleted server-side
+// (idle event will never come) — drop its state entirely instead of leaving
+// a stale badge count behind.
 async function resyncBusySessions() {
   const busySessionIDs = Object.entries(useEvents.getState().sessionStatus)
-    .filter(([, status]) => status.type === "busy")
+    .filter(([, status]) => status.type === "busy" || status.type === "retry")
     .map(([sessionID]) => sessionID)
   if (busySessionIDs.length === 0) return
 
@@ -111,7 +179,7 @@ async function resyncBusySessions() {
       try {
         const sessionsState = useSessions.getState()
         const session =
-          sessionsState.sessions.find((s) => s.id === sessionID) ??
+          queryClient.getQueryData<Session[]>(queryKeys.sessionsList)?.find((s) => s.id === sessionID) ??
           (sessionsState.currentSession?.id === sessionID ? sessionsState.currentSession : undefined)
         const connState = useConnections.getState()
         const client = session?.directory
@@ -126,7 +194,8 @@ async function resyncBusySessions() {
         // A fresh session.status event may have landed on the SSE stream
         // while this fetch was in flight — that's authoritative, don't
         // stomp on it.
-        if (useEvents.getState().sessionStatus[sessionID]?.type !== "busy") return
+        const current = useEvents.getState().sessionStatus[sessionID]?.type
+        if (current !== "busy" && current !== "retry") return
 
         useEvents.setState((state) => ({
           sessionStatus: { ...state.sessionStatus, [sessionID]: { type: "idle" } },
@@ -137,6 +206,19 @@ async function resyncBusySessions() {
           useSessions.getState().refreshMessages()
         }
       } catch (err) {
+        if (isNotFoundError(err)) {
+          // Session is gone server-side — the busy -> idle event will never
+          // arrive, so clear the stale flag instead of counting a ghost task.
+          clearSessionStateEverywhere(sessionID)
+          const cached = queryClient.getQueryData<Session[]>(queryKeys.sessionsList)
+          if (cached && cached.some((s) => s.id === sessionID)) {
+            queryClient.setQueryData<Session[]>(
+              queryKeys.sessionsList,
+              cached.filter((s) => s.id !== sessionID),
+            )
+          }
+          return
+        }
         console.warn("[Events] Failed to resync session status for", sessionID, err)
       }
     }),
@@ -274,7 +356,9 @@ export const useEvents = create<EventsState>((set, get) => ({
                 // here via busy→idle). Without this guard the user gets a
                 // misleading — or duplicate, contradictory — completion push.
                 if (!aborted && !erroredSessions.has(sessionID)) {
-                  const match = useSessions.getState().sessions.find((s) => s.id === sessionID)
+                  const match = queryClient
+                    .getQueryData<Session[]>(queryKeys.sessionsList)
+                    ?.find((s) => s.id === sessionID)
                   notify({
                     category: "completed",
                     title: "Task completed",
@@ -317,6 +401,15 @@ export const useEvents = create<EventsState>((set, get) => ({
             case "session.updated": {
               const info = props.info as Session | undefined
               if (!info) break
+              // List snapshot: patch the entry in the query cache (the open
+              // session's own copy is refreshed via handleEvent below).
+              const current = queryClient.getQueryData<Session[]>(queryKeys.sessionsList)
+              if (current && current.some((s) => s.id === info.id)) {
+                queryClient.setQueryData<Session[]>(
+                  queryKeys.sessionsList,
+                  current.map((s) => (s.id === info.id ? info : s)),
+                )
+              }
               useSessions.getState().handleEvent({ type, properties: { info } } as any)
               break
             }
@@ -324,12 +417,34 @@ export const useEvents = create<EventsState>((set, get) => ({
             case "session.created": {
               const info = props.info as Session | undefined
               if (!info) break
-              // Add to sessions list
-              useSessions.setState((state) => {
-                const exists = state.sessions.some((s) => s.id === info.id)
-                if (exists) return {}
-                return { sessions: [info, ...state.sessions] }
-              })
+              // Add to the cached list snapshot (only if one exists — never
+              // fabricate a partial list that would suppress the real fetch).
+              const current = queryClient.getQueryData<Session[]>(queryKeys.sessionsList)
+              if (current && !current.some((s) => s.id === info.id)) {
+                queryClient.setQueryData<Session[]>(queryKeys.sessionsList, [info, ...current])
+              }
+              break
+            }
+
+            case "session.deleted": {
+              const deletedID = (props.sessionID as string) ?? (props.info as Session | undefined)?.id
+              if (!deletedID) break
+              // The server will never send busy -> idle for a deleted session,
+              // so without this its status/sending entries would linger and
+              // the Navbar badge would keep counting a ghost task.
+              clearSessionStateEverywhere(deletedID)
+              const cached = queryClient.getQueryData<Session[]>(queryKeys.sessionsList)
+              if (cached && cached.some((s) => s.id === deletedID)) {
+                queryClient.setQueryData<Session[]>(
+                  queryKeys.sessionsList,
+                  cached.filter((s) => s.id !== deletedID),
+                )
+              }
+              useSessions.setState((state) => ({
+                currentSession: state.currentSession?.id === deletedID ? null : state.currentSession,
+                messages: state.currentSession?.id === deletedID ? [] : state.messages,
+                parts: state.currentSession?.id === deletedID ? {} : state.parts,
+              }))
               break
             }
 
@@ -471,6 +586,10 @@ export const useEvents = create<EventsState>((set, get) => ({
     controller = null
     erroredSessions.clear()
     abortedSessions.clear()
+    // The connection identity may be changing (logout, switch, reconnect
+    // with new credentials) — no cached server snapshot can be trusted.
+    // Mounted queries refetch automatically once the new client is set.
+    queryClient.clear()
     set({
       connected: false,
       authError: false,
@@ -480,6 +599,35 @@ export const useEvents = create<EventsState>((set, get) => ({
       statusText: {},
       permissions: {},
       questions: {},
+    })
+  },
+
+  removeSessionState: (sessionID) => {
+    clearSessionStateEverywhere(sessionID)
+  },
+
+  pruneStaleSessionStates: (validIDs) => {
+    const currentID = useSessions.getState().currentSession?.id
+    useEvents.setState((state) => {
+      const stale = Object.keys(state.sessionStatus).filter((id) => !validIDs.has(id) && id !== currentID)
+      const staleText = Object.keys(state.statusText).filter((id) => !validIDs.has(id) && id !== currentID)
+      if (stale.length === 0 && staleText.length === 0) return state
+      const sessionStatus = { ...state.sessionStatus }
+      const statusText = { ...state.statusText }
+      for (const id of stale) {
+        delete sessionStatus[id]
+        erroredSessions.delete(id)
+        abortedSessions.delete(id)
+      }
+      for (const id of staleText) delete statusText[id]
+      return { sessionStatus, statusText }
+    })
+    useSessions.setState((state) => {
+      const stale = Object.keys(state.sending).filter((id) => !validIDs.has(id) && id !== currentID)
+      if (stale.length === 0) return state
+      const sending = { ...state.sending }
+      for (const id of stale) sending[id] = false
+      return { sending }
     })
   },
 }))

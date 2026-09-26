@@ -1,10 +1,12 @@
-import { useCallback, useMemo } from "react"
+import { useMemo } from "react"
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, useColorScheme } from "react-native"
-import { router, useFocusEffect } from "expo-router"
+import { router } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import { useSessions } from "../../src/stores/sessions"
+import { useSessionsList } from "../../src/queries/sessions"
 import { useEvents } from "../../src/stores/events"
+import { selectActiveSessions } from "../../src/lib/active-tasks"
 import { colors } from "../../src/lib/theme"
 import type { Session } from "../../src/lib/sdk"
 
@@ -13,21 +15,14 @@ import type { Session } from "../../src/lib/sdk"
 export default function TasksScreen() {
   const isDark = useColorScheme() === "dark"
   const { t } = useTranslation()
-  const { sessions, loadSessions } = useSessions()
+  // Server snapshot from the React Query cache (auto-fetched, SSE-synced,
+  // refetched on foreground) — the single source the badge counts too.
+  const { data: sessions } = useSessionsList()
   const sessionStatus = useEvents((s) => s.sessionStatus)
   const statusText = useEvents((s) => s.statusText)
   const sending = useSessions((s) => s.sending)
 
-  useFocusEffect(
-    useCallback(() => {
-      loadSessions()
-    }, [loadSessions]),
-  )
-
-  const active = sessions.filter((session) => {
-    const st = sessionStatus[session.id]
-    return st?.type === "busy" || st?.type === "retry" || sending[session.id]
-  })
+  const active = selectActiveSessions(sessions ?? [], sessionStatus, sending)
 
   // Group by project directory — only projects with ≥1 active task appear
   // (inactive sessions never enter `active`, so empty groups can't exist).

@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react"
 import { Stack, router, useSegments } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { useColorScheme, View, ActivityIndicator, AppState } from "react-native"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClientProvider } from "@tanstack/react-query"
+import { queryClient, setupQueryFocusManager } from "../src/lib/query-client"
+import { queryKeys } from "../src/lib/query-keys"
+import { fetchCatalogData } from "../src/queries/catalog"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet"
 import { I18nextProvider, useTranslation } from "react-i18next"
@@ -10,7 +13,6 @@ import i18n from "../src/lib/i18n/config"
 import { useAuth } from "../src/stores/auth"
 import { useConnections } from "../src/stores/connections"
 import { useEvents } from "../src/stores/events"
-import { useCatalog } from "../src/stores/catalog"
 import { useSettings } from "../src/stores/settings"
 import { AuthGate } from "../src/components/AuthGate"
 import { ErrorBoundary } from "../src/components/ErrorBoundary"
@@ -19,8 +21,6 @@ import { flushPendingSignups } from "../src/lib/waitlist-queue-storage"
 import * as SplashScreen from "expo-splash-screen"
 
 SplashScreen.preventAutoHideAsync().catch(() => {})
-
-const queryClient = new QueryClient()
 
 function RootLayout() {
   const colorScheme = useColorScheme()
@@ -36,6 +36,8 @@ function RootLayout() {
     initAuth()
     loadConnections()
     useSettings.getState().load()
+    // Foreground refetch for all mounted queries (sessions, catalog, ...).
+    setupQueryFocusManager()
 
     // Connect notification preferences to the notification module
     notifications.configure(() => useSettings.getState().notifications)
@@ -94,7 +96,9 @@ function RootLayout() {
     if (client && !sseStarted.current) {
       sseStarted.current = true
       useEvents.getState().connect()
-      useCatalog.getState().load()
+      // Warm the catalog cache so the session screen (agent/model pickers,
+      // slash commands) renders instantly on first open.
+      void queryClient.prefetchQuery({ queryKey: queryKeys.catalog, queryFn: fetchCatalogData })
       // Request OS notification permission once we have a live connection —
       // the in-context moment the user will start running agent tasks they'll
       // want to be pinged about. Previously this was only ever requested when

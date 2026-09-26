@@ -35,6 +35,16 @@ import {
 } from "../../src/components/chat"
 import { useSessions } from "../../src/stores/sessions"
 import { useEvents, refreshPending } from "../../src/stores/events"
+import { useCatalogData } from "../../src/queries/catalog"
+import {
+  useAbortSession,
+  useRevertSession,
+  useUnrevertSession,
+  usePermissionReply,
+  useQuestionReply,
+  useQuestionReject,
+  type RevertResult,
+} from "../../src/queries/session-ops"
 import { useConnections } from "../../src/stores/connections"
 import { useAuth } from "../../src/stores/auth"
 import { useCatalog } from "../../src/stores/catalog"
@@ -120,11 +130,16 @@ export default function SessionScreen() {
     hasMore,
     selectSession,
     sendMessage,
-    abortSession,
     loadOlderMessages,
-    revertToMessage,
-    unrevertSession,
   } = useSessions()
+  // Discrete server ops as React Query mutations (optimistic UI + rollback
+  // inside, alerts stay at the call sites).
+  const abortMutation = useAbortSession()
+  const revertMutation = useRevertSession()
+  const unrevertMutation = useUnrevertSession()
+  const permissionMutation = usePermissionReply()
+  const questionMutation = useQuestionReply()
+  const questionRejectMutation = useQuestionReject()
 
   // Busy = optimistic sending flag OR SSE-reported status. The optimistic
   // flag alone is not enough: it only bridges the gap between tap and SSE
@@ -147,17 +162,22 @@ export default function SessionScreen() {
     [currentSession?.directory, clientForDirectory, client],
   )
 
-  // Catalog
-  const catalog = useCatalog()
-  const agents = Array.isArray(catalog.agents) ? catalog.agents : []
-  const serverCommands = Array.isArray(catalog.commands) ? catalog.commands : []
-  const providers = Array.isArray(catalog.providers) ? catalog.providers : []
-  const agent = catalog.agent || ""
-  const model = catalog.model
-  const setModel = catalog.setModel
-  const variant = catalog.variant
-  const setVariant = catalog.setVariant
-  const setAgent = catalog.setAgent
+  // Catalog lists from the React Query cache; the agent/model/variant
+  // SELECTIONS stay local (Zustand) and are seeded from each fresh snapshot.
+  const { data: catalogData } = useCatalogData()
+  useEffect(() => {
+    if (catalogData) useCatalog.getState().reseed(catalogData)
+  }, [catalogData])
+  const agents = catalogData?.agents ?? []
+  const serverCommands = catalogData?.commands ?? []
+  const providers = catalogData?.providers ?? []
+  const agent = useCatalog((s) => s.agent) || ""
+  const model = useCatalog((s) => s.model)
+  const setModel = useCatalog((s) => s.setModel)
+  const variant = useCatalog((s) => s.variant)
+  const setVariant = useCatalog((s) => s.setVariant)
+  const setAgentInStore = useCatalog((s) => s.setAgent)
+  const setAgent = useCallback((name: string) => setAgentInStore(name, agents), [setAgentInStore, agents])
 
   // Permission & question state
   const sessionID = currentSession?.id
@@ -232,26 +252,29 @@ export default function SessionScreen() {
   const inputRef = useRef(input)
   inputRef.current = input
 
-  const applyRevertResult = useCallback((result: Awaited<ReturnType<typeof revertToMessage>>) => {
-    if (!result.ok) {
-      if (result.reason === "unsupported") {
-        Alert.alert(t("session.alerts.notSupportedTitle"), t("session.alerts.notSupportedMessage"))
-      } else if (result.reason === "auth") {
-        Alert.alert(t("session.alerts.revertAuthFailedTitle"), t("session.alerts.revertAuthFailedMessage"))
-      } else {
-        Alert.alert(t("session.alerts.editFailedTitle"), t("session.alerts.editFailedMessage"))
+  const applyRevertResult = useCallback(
+    (result: RevertResult) => {
+      if (!result.ok) {
+        if (result.reason === "unsupported") {
+          Alert.alert(t("session.alerts.notSupportedTitle"), t("session.alerts.notSupportedMessage"))
+        } else if (result.reason === "auth") {
+          Alert.alert(t("session.alerts.revertAuthFailedTitle"), t("session.alerts.revertAuthFailedMessage"))
+        } else {
+          Alert.alert(t("session.alerts.editFailedTitle"), t("session.alerts.editFailedMessage"))
+        }
+        return
       }
-      return
-    }
-    setInput(result.text)
-    // Restore attachments in the same shape the composer's own picker
-    // functions (pickFromLibrary/pickFromCamera/pasteFromClipboard) use.
-    setAttachments(
-      result.files
-        .filter((f): f is typeof f & { url: string; mime: string } => !!f.url && !!f.mime)
-        .map((f) => ({ uri: f.url, mime: f.mime, filename: f.filename })),
-    )
-  }, [t])
+      setInput(result.text)
+      // Restore attachments in the same shape the composer's own picker
+      // functions (pickFromLibrary/pickFromCamera/pasteFromClipboard) use.
+      setAttachments(
+        result.files
+          .filter((f): f is typeof f & { url: string; mime: string } => !!f.url && !!f.mime)
+          .map((f) => ({ uri: f.url, mime: f.mime, filename: f.filename })),
+      )
+    },
+    [t],
+  )
 
   // Stable across renders (reads fresh state via getState() rather than
   // closing over props) so MessageBubble's custom memo comparator can bail
@@ -263,7 +286,7 @@ export default function SessionScreen() {
         text: t("session.actions.editMessage"),
         onPress: () => {
           const doRevert = async () => {
-            const result = await useSessions.getState().revertToMessage(messageID)
+            const result = await revertMutation.mutateAsync(messageID)
             applyRevertResult(result)
           }
           // Editing overwrites the composer — don't silently clobber an
@@ -284,7 +307,7 @@ export default function SessionScreen() {
         },
       },
     ])
-  }, [applyRevertResult, t])
+  }, [applyRevertResult, revertMutation, t])
 
   const scrollToBottom = useCallback((animated = true) => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated })
@@ -529,63 +552,32 @@ export default function SessionScreen() {
 
   const handlePermissionReply = async (requestID: string, reply: "once" | "always" | "reject") => {
     if (!sessionClient || !sessionID) return
-    // Snapshot for rollback
-    const snapshot = useEvents.getState().permissions[sessionID] || []
-    // Optimistically remove from UI
-    useEvents.setState((state) => ({
-      permissions: {
-        ...state.permissions,
-        [sessionID]: snapshot.filter((p) => p.id !== requestID),
-      },
-    }))
+    // Optimistic removal + rollback live inside the mutation; a rejection
+    // here only surfaces the retry alert.
     try {
-      await sessionClient.permission.reply(requestID, reply)
+      await permissionMutation.mutateAsync({ client: sessionClient, sessionID, requestID, reply })
     } catch (err) {
       console.error("Permission reply failed:", err)
-      // Restore the prompt so the user can retry
-      useEvents.setState((state) => ({
-        permissions: { ...state.permissions, [sessionID]: snapshot },
-      }))
       Alert.alert(t("session.alerts.replyFailedTitle"), t("session.alerts.replyFailedMessage"))
     }
   }
 
   const handleQuestionReply = async (requestID: string, answers: string[][]) => {
     if (!sessionClient || !sessionID) return
-    const snapshot = useEvents.getState().questions[sessionID] || []
-    useEvents.setState((state) => ({
-      questions: {
-        ...state.questions,
-        [sessionID]: snapshot.filter((q) => q.id !== requestID),
-      },
-    }))
     try {
-      await sessionClient.question.reply(requestID, answers)
+      await questionMutation.mutateAsync({ client: sessionClient, sessionID, requestID, answers })
     } catch (err) {
       console.error("Question reply failed:", err)
-      useEvents.setState((state) => ({
-        questions: { ...state.questions, [sessionID]: snapshot },
-      }))
       Alert.alert(t("session.alerts.replyFailedTitle"), t("session.alerts.replyFailedMessage"))
     }
   }
 
   const handleQuestionReject = async (requestID: string) => {
     if (!sessionClient || !sessionID) return
-    const snapshot = useEvents.getState().questions[sessionID] || []
-    useEvents.setState((state) => ({
-      questions: {
-        ...state.questions,
-        [sessionID]: snapshot.filter((q) => q.id !== requestID),
-      },
-    }))
     try {
-      await sessionClient.question.reject(requestID)
+      await questionRejectMutation.mutateAsync({ client: sessionClient, sessionID, requestID })
     } catch (err) {
       console.error("Question reject failed:", err)
-      useEvents.setState((state) => ({
-        questions: { ...state.questions, [sessionID]: snapshot },
-      }))
       Alert.alert(t("session.alerts.rejectFailedTitle"), t("session.alerts.rejectFailedMessage"))
     }
   }
@@ -678,18 +670,18 @@ export default function SessionScreen() {
         {revertMessageID && (
           <View style={[s.banner, s.bannerRevert]}>
             <Text style={s.bannerText}>{t("session.banners.reverted")}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                unrevertSession()
-                // The composer was prefilled with the reverted message's text/
-                // attachments (see applyRevertResult) — clear it so Undo doesn't
-                // leave a stale draft that could be sent as a duplicate.
-                setInput("")
-                setAttachments([])
-                setComposerHeight(null)
-              }}
-              hitSlop={8}
-            >
+              <TouchableOpacity
+                onPress={() => {
+                  unrevertMutation.mutate()
+                  // The composer was prefilled with the reverted message's text/
+                  // attachments (see applyRevertResult) — clear it so Undo doesn't
+                  // leave a stale draft that could be sent as a duplicate.
+                  setInput("")
+                  setAttachments([])
+                  setComposerHeight(null)
+                }}
+                hitSlop={8}
+              >
               <Text style={s.bannerAction}>{t("session.banners.undo")}</Text>
             </TouchableOpacity>
           </View>
@@ -841,7 +833,7 @@ export default function SessionScreen() {
                 )}
                 {/* Stop button: only when busy and no input */}
                 {isSending && !input.trim() && attachments.length === 0 && !speech.listening && (
-                  <TouchableOpacity style={s.overlayBtn} onPress={abortSession}>
+                  <TouchableOpacity style={s.overlayBtn} onPress={() => abortMutation.mutate()}>
                     <Ionicons name="stop" size={24} color="#ef4444" />
                   </TouchableOpacity>
                 )}

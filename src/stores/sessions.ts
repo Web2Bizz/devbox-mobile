@@ -1,10 +1,20 @@
 import { create } from "zustand"
-import { ApiError, type Session, type Message, type Part, type Event, type MessageWithParts, type Client } from "../lib/sdk"
+import { type Session, type Message, type Part, type Event, type MessageWithParts, type Client } from "../lib/sdk"
 import { useConnections } from "./connections"
 import { useSettings } from "./settings"
-import { extractPromptFromParts, type PromptFromParts } from "../lib/prompt-from-parts"
 import { mergeIncomingMessage } from "../lib/message-merge"
 import { isColdSessionLoad, isLiveEventForSession } from "../lib/session-load-reconcile"
+import { queryClient } from "../lib/query-client"
+import { queryKeys } from "../lib/query-keys"
+
+// State split with React Query (see src/queries/):
+// - React Query owns SERVER SNAPSHOTS: the session list, catalogs, project
+//   info (fetch + cache + dedup + invalidation).
+// - This store owns REALTIME / DETAIL state: the open session, its messages
+//   and parts with live SSE merging, optimistic sending flags, pagination.
+// Snapshots seed this store (selectSession/refreshMessages fetch through the
+// query cache), and SSE handlers write server-pushed changes back into the
+// cache — one source of truth per concern, no mirrors.
 
 // Helper to convert API response to our internal format
 function parseMessages(response: MessageWithParts[]): { messages: Message[]; parts: Record<string, Part[]> } {
@@ -24,7 +34,6 @@ function pageSize(): number {
 }
 
 interface SessionsState {
-  sessions: Session[]
   currentSession: Session | null
   messages: Message[]
   parts: Record<string, Part[]>
@@ -36,11 +45,12 @@ interface SessionsState {
   error: string | null
 
   // Actions
-  loadSessions: () => Promise<void>
   selectSession: (sessionID: string, directory?: string) => Promise<void>
   loadOlderMessages: () => Promise<void>
-  createSession: (title?: string) => Promise<Session | null>
-  deleteSession: (sessionID: string) => Promise<void>
+  // Fire-and-forget prompt: the "response" arrives as streamed SSE events,
+  // not as an HTTP response, so useMutation's request/response model does not
+  // fit — the orchestration (optimistic message, sending flag, error + retry)
+  // stays here while status/message updates flow through SSE as before.
   sendMessage: (
     text: string,
     model?: { providerID: string; modelID: string },
@@ -48,18 +58,11 @@ interface SessionsState {
     files?: Array<{ uri: string; mime: string; filename?: string; base64?: string }>,
     variant?: string,
   ) => Promise<void>
-  abortSession: () => Promise<void>
   refreshMessages: () => Promise<void>
-
-  // Revert (edit sent message) / unrevert (undo the pending revert)
-  revertToMessage: (messageID: string) => Promise<RevertResult>
-  unrevertSession: () => Promise<void>
 
   // Event handling
   handleEvent: (event: Event) => void
 }
-
-export type RevertResult = ({ ok: true } & PromptFromParts) | { ok: false; reason: "unsupported" | "auth" | "error" }
 
 // Sessions the user aborted since they last went busy. Mirrors events.ts's
 // erroredSessions: SessionStatus has no "aborted" variant — an aborted run
@@ -85,7 +88,6 @@ function clientFor(directory?: string): Client | null {
 }
 
 export const useSessions = create<SessionsState>((set, get) => ({
-  sessions: [],
   currentSession: null,
   messages: [],
   parts: {},
@@ -94,27 +96,6 @@ export const useSessions = create<SessionsState>((set, get) => ({
   loadingMore: false,
   hasMore: false,
   error: null,
-
-  loadSessions: async () => {
-    const connState = useConnections.getState()
-    // Use a directory-less client so the server returns sessions from ALL projects,
-    // not just the one matching the active connection's directory header.
-    const client = connState.clientForDirectory(undefined) || connState.client
-    if (!client) {
-      set({ error: "No active connection" })
-      return
-    }
-
-    try {
-      set({ isLoading: true, error: null })
-      // A directory-less list includes sessions across projects. Each row carries
-      // its own directory into the session route so subsequent operations stay scoped.
-      const sessions = await client.session.list({ roots: true, limit: 50 })
-      set({ sessions, isLoading: false })
-    } catch (error) {
-      set({ error: "Failed to load sessions", isLoading: false })
-    }
-  },
 
   selectSession: async (sessionID, directory) => {
     // Use directory-specific client if the session belongs to a different project
@@ -150,9 +131,18 @@ export const useSessions = create<SessionsState>((set, get) => ({
         loadingMore: false,
       }))
 
+      // Seeded through the query cache: re-entering a recently seen session
+      // resolves from cache (inside staleTime) instead of flashing a spinner
+      // and hammering the server — live SSE updates continue on top.
       const [session, messagesResponse] = await Promise.all([
-        client.session.get(sessionID),
-        client.session.messages(sessionID, { limit: pageSize() }),
+        queryClient.fetchQuery({
+          queryKey: queryKeys.sessionDetail(sessionID),
+          queryFn: () => client.session.get(sessionID),
+        }),
+        queryClient.fetchQuery({
+          queryKey: queryKeys.sessionMessages(sessionID),
+          queryFn: () => client.session.messages(sessionID, { limit: pageSize() }),
+        }),
       ])
 
       // A newer selectSession started while we were fetching — discard this
@@ -186,7 +176,10 @@ export const useSessions = create<SessionsState>((set, get) => ({
     try {
       set({ loadingMore: true })
 
-      // Fetch ALL messages for this session
+      // Full-history escape hatch: fetches ALL messages bypassing the paged
+      // cache entry (a different shape — unpaged) and merges locally with any
+      // optimistic temp messages. Deliberately not cached: it exists to
+      // collapse pagination, and the next selectSession seeds from cache.
       const response = await client.session.messages(session.id)
       const { messages: all, parts: allParts } = parseMessages(response)
 
@@ -204,53 +197,6 @@ export const useSessions = create<SessionsState>((set, get) => ({
     } catch (error) {
       console.error("Failed to load older messages:", error)
       set({ loadingMore: false })
-    }
-  },
-
-  createSession: async (title) => {
-    const connState = useConnections.getState()
-    const client = connState.client
-    if (!client) {
-      set({ error: "No active connection" })
-      return null
-    }
-
-    try {
-      const created = await client.session.create({ title })
-      // Don't optimistically add to sessions list — let loadSessions() handle it
-      // to avoid duplicate key errors from race conditions
-      set({
-        currentSession: created,
-        messages: [],
-        parts: {},
-        hasMore: false,
-        loadingMore: false,
-      })
-      return created
-    } catch (error) {
-      set({ error: "Failed to create session" })
-      return null
-    }
-  },
-
-  deleteSession: async (sessionID) => {
-    const session = get().sessions.find((s) => s.id === sessionID)
-    const client = clientFor(session?.directory)
-    if (!client) {
-      set({ error: "No active connection" })
-      return
-    }
-
-    try {
-      await client.session.delete(sessionID)
-      set((state) => ({
-        sessions: state.sessions.filter((s) => s.id !== sessionID),
-        currentSession: state.currentSession?.id === sessionID ? null : state.currentSession,
-        messages: state.currentSession?.id === sessionID ? [] : state.messages,
-        parts: state.currentSession?.id === sessionID ? {} : state.parts,
-      }))
-    } catch (error) {
-      set({ error: "Failed to delete session" })
     }
   },
 
@@ -333,81 +279,23 @@ export const useSessions = create<SessionsState>((set, get) => ({
     }
   },
 
-  abortSession: async () => {
-    const client = clientFor(get().currentSession?.directory)
-    const session = get().currentSession
-    if (!client || !session) return
-
-    try {
-      await client.session.abort(session.id)
-      // Mark only after the abort request succeeded — if it failed, the run
-      // continues and any eventual completion is a genuine response.
-      abortedSessions.add(session.id)
-      set((state) => ({ sending: { ...state.sending, [session.id]: false } }))
-    } catch {
-      set({ error: "Failed to abort session" })
-    }
-  },
-
   refreshMessages: async () => {
     const client = clientFor(get().currentSession?.directory)
     const session = get().currentSession
     if (!client || !session) return
 
     try {
-      const response = await client.session.messages(session.id)
+      // Explicit refresh — bypass the stale window so error/completion paths
+      // always reconcile against the live server state.
+      const response = await queryClient.fetchQuery({
+        queryKey: queryKeys.sessionMessages(session.id),
+        queryFn: () => client.session.messages(session.id),
+        staleTime: 0,
+      })
       const { messages, parts } = parseMessages(response)
       set({ messages, parts })
     } catch (error) {
       set({ error: "Failed to refresh messages" })
-    }
-  },
-
-  // Marks messageID (and everything after it) as pending revert, so the
-  // user can re-edit and resend it. The server keeps the underlying
-  // messages until the next prompt runs cleanup, or unrevertSession() below
-  // undoes it — so this only flips session.revert, it doesn't delete
-  // anything itself. Returns the reverted message's text/files so the
-  // caller can prefill the composer.
-  revertToMessage: async (messageID) => {
-    const client = clientFor(get().currentSession?.directory)
-    const session = get().currentSession
-    if (!client || !session) return { ok: false, reason: "error" }
-
-    try {
-      const updated = await client.session.revert(session.id, messageID)
-      set((state) => ({
-        currentSession: state.currentSession?.id === session.id ? updated : state.currentSession,
-      }))
-      return { ok: true, ...extractPromptFromParts(get().parts[messageID]) }
-    } catch (err) {
-      if (err instanceof ApiError) {
-        // Older servers (pre session.revert) 404 on this route — degrade
-        // gracefully instead of surfacing a generic error.
-        if (err.status === 404) return { ok: false, reason: "unsupported" }
-        // Expired/invalid credentials — distinct from a generic failure so
-        // the caller can point the user at reconnecting rather than "retry".
-        if (err.status === 401 || err.status === 403) return { ok: false, reason: "auth" }
-      }
-      console.error("Failed to revert message:", err)
-      set({ error: "Failed to revert message" })
-      return { ok: false, reason: "error" }
-    }
-  },
-
-  unrevertSession: async () => {
-    const client = clientFor(get().currentSession?.directory)
-    const session = get().currentSession
-    if (!client || !session) return
-
-    try {
-      const updated = await client.session.unrevert(session.id)
-      set((state) => ({
-        currentSession: state.currentSession?.id === session.id ? updated : state.currentSession,
-      }))
-    } catch (err) {
-      console.error("Failed to unrevert session:", err)
-      set({ error: "Failed to restore reverted messages" })
     }
   },
 
@@ -471,8 +359,9 @@ export const useSessions = create<SessionsState>((set, get) => ({
         const session = (props.info || props) as Session | undefined
         if (!session?.id) return
 
+        // The list snapshot lives in the React Query cache (updated there by
+        // events.ts) — here only the open session's own copy is refreshed.
         set((state) => ({
-          sessions: state.sessions.map((s) => (s.id === session.id ? session : s)),
           currentSession: state.currentSession?.id === session.id ? session : state.currentSession,
           isLoading: isLiveEventForSession(session.id, state.currentSession?.id) ? false : state.isLoading,
         }))

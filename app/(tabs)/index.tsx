@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useRef, useEffect } from "react"
+import { useCallback, useMemo, useState, useRef } from "react"
 import {
   View,
   Text,
@@ -16,13 +16,13 @@ import {
   Platform,
   Linking,
 } from "react-native"
-import { router, useFocusEffect } from "expo-router"
+import { router } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
-import { useSessions } from "../../src/stores/sessions"
+import { useSessionsList, useCreateSession, useDeleteSession, useRenameSession } from "../../src/queries/sessions"
+import { useProjectInfo, useServerProjects } from "../../src/queries/project"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
-import { useCatalog } from "../../src/stores/catalog"
 import type BottomSheet from "@gorhom/bottom-sheet"
 import type { Session, Project } from "../../src/lib/sdk"
 import { DirectorySwitcher, DirectoryBrowserSheet } from "../../src/components/chat"
@@ -116,23 +116,33 @@ export default function SessionsScreen() {
   // fast double-tap on the FAB / "Use this folder" would fire two session
   // creates before the disabled state lands. This blocks the second call.
   const creatingInFlight = useRef(false)
-  const [serverProjects, setServerProjects] = useState<Project[]>([])
-
-  const { sessions, isLoading, error, loadSessions, createSession, deleteSession } = useSessions()
+  // Server snapshots from the React Query cache: auto-fetched when the client
+  // appears, SSE-synced, refetched on foreground and on pull-to-refresh.
+  // No imperative loadSessions()/refreshProject() calls anymore.
+  const {
+    data: sessionsData,
+    isLoading,
+    error: sessionsError,
+    refetch: refetchSessions,
+  } = useSessionsList()
+  const sessions = sessionsData ?? []
+  const { data: projectInfo, refetch: refetchProject } = useProjectInfo()
+  const currentProject = projectInfo?.project ?? null
+  const serverHome = projectInfo?.home ?? null
+  // Server-known projects load only while the new-session UI is open.
+  const { data: serverProjectsData } = useServerProjects(showNewSession || showNewProject)
+  const serverProjects = serverProjectsData ?? []
+  const createSession = useCreateSession()
+  const deleteSession = useDeleteSession()
+  const renameSession = useRenameSession()
   const {
     activeConnection,
-    client,
-    currentProject,
-    serverHome,
-    refreshProject,
     clientForDirectory,
     switchDirectory,
-    addRecentDirectory,
     recentDirectories,
   } = useConnections()
   const authError = useEvents((s) => s.authError)
   const reconnect = useEvents((s) => s.connect)
-  const loadCatalog = useCatalog((s) => s.load)
   const dirSheetRef = useRef<BottomSheet>(null)
   const browserSheetRef = useRef<BottomSheet>(null)
   const [browseStartDir, setBrowseStartDir] = useState<string | null>(null)
@@ -167,44 +177,26 @@ export default function SessionsScreen() {
       .sort((a, b) => b.lastUpdated - a.lastUpdated)
   }, [sessions])
 
-  // Fetch server-known projects when the new session modal opens
-  useEffect(() => {
-    if ((!showNewSession && !showNewProject) || !client) return
-    client.project
-      .list()
-      .then(setServerProjects)
-      .catch(() => setServerProjects([]))
-  }, [showNewSession, showNewProject, client])
-
   const handleSwitchDirectory = useCallback(
     async (dir?: string) => {
+      // switchDirectory swaps the client, which invalidates every
+      // connection-scoped query (sessions, catalog, project info) — mounted
+      // hooks refetch against the new client on their own.
       await switchDirectory(dir)
-      loadSessions()
-      refreshProject()
-      loadCatalog()
     },
-    [switchDirectory, loadSessions, refreshProject, loadCatalog],
-  )
-
-  useFocusEffect(
-    useCallback(() => {
-      if (client) {
-        loadSessions()
-        refreshProject()
-      }
-    }, [client, loadSessions, refreshProject]),
+    [switchDirectory],
   )
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     try {
-      await Promise.all([loadSessions(), refreshProject()])
+      await Promise.all([refetchSessions(), refetchProject()])
     } catch (err) {
       console.error("Refresh failed:", err)
     } finally {
       setRefreshing(false)
     }
-  }, [loadSessions, refreshProject])
+  }, [refetchSessions, refetchProject])
 
   const handleRename = useCallback((session: Session) => {
     setRenameText(session.title || "")
@@ -214,21 +206,18 @@ export default function SessionsScreen() {
   const submitRename = useCallback(async () => {
     const title = renameText.trim()
     if (!title || !renaming || renamingInFlight.current) return
-    const renameClient = renaming.directory ? (clientForDirectory(renaming.directory) ?? client) : client
-    if (!renameClient) return
     renamingInFlight.current = true
     try {
-      await renameClient.session.update(renaming.id, { title })
+      await renameSession.mutateAsync({ id: renaming.id, title, directory: renaming.directory })
       setRenaming(null)
       setRenameText("")
-      loadSessions()
     } catch (err) {
       console.error("Rename failed:", err)
       Alert.alert(t("sessionsList.alerts.renameFailedTitle"), t("sessionsList.alerts.renameFailedMessage"))
     } finally {
       renamingInFlight.current = false
     }
-  }, [renaming, renameText, client, clientForDirectory, loadSessions, t])
+  }, [renaming, renameText, renameSession, t])
 
   const handleDelete = useCallback(
     (session: Session) => {
@@ -242,7 +231,7 @@ export default function SessionsScreen() {
             style: "destructive",
             onPress: async () => {
               try {
-                await deleteSession(session.id)
+                await deleteSession.mutateAsync(session.id)
               } catch (err) {
                 console.error("Delete failed:", err)
                 Alert.alert(t("sessionsList.alerts.deleteFailedTitle"), t("sessionsList.alerts.deleteFailedMessage"))
@@ -259,15 +248,13 @@ export default function SessionsScreen() {
     if (creatingInFlight.current) return
     creatingInFlight.current = true
     try {
-      const session = await createSession()
-      if (session) {
-        router.push({
-          pathname: `/session/[id]`,
-          params: { id: session.id, ...(session.directory ? { directory: session.directory } : {}) },
-        })
-      } else {
-        Alert.alert(t("common.error"), t("sessionsList.alerts.createFailedMessage"))
-      }
+      const session = await createSession.mutateAsync()
+      router.push({
+        pathname: `/session/[id]`,
+        params: { id: session.id, ...(session.directory ? { directory: session.directory } : {}) },
+      })
+    } catch {
+      Alert.alert(t("common.error"), t("sessionsList.alerts.createFailedMessage"))
     } finally {
       creatingInFlight.current = false
     }
@@ -280,42 +267,22 @@ export default function SessionsScreen() {
     setIsCreating(true)
 
     try {
-      // If a custom directory is specified, use a one-off client for that directory
-      // so we don't mutate the connection's default project
-      if (dir && dir.trim()) {
-        const dirClient = clientForDirectory(dir.trim())
-        if (!dirClient) return
-        try {
-          const session = await dirClient.session.create({})
-          addRecentDirectory(dir.trim())
-          setShowNewSession(false)
-          closeNewProject()
-          setCustomDir("")
-          if (session) {
-            router.push({
-              pathname: `/session/[id]`,
-              params: { id: session.id, ...(session.directory ? { directory: session.directory } : {}) },
-            })
-          }
-        } catch (error) {
-          console.error("Failed to create session in directory:", error)
-          Alert.alert(t("common.error"), t("sessionsList.alerts.createFailedMessage"))
-        }
-        return
-      }
-
-      const session = await createSession()
+      // A custom directory uses a one-off client for that directory (the
+      // mutation handles this via clientForDirectory) so the connection's
+      // default project is never mutated.
+      const session = await createSession.mutateAsync(
+        dir && dir.trim() ? { directory: dir.trim() } : undefined,
+      )
       setShowNewSession(false)
       closeNewProject()
       setCustomDir("")
-      if (session) {
-        router.push({
-          pathname: `/session/[id]`,
-          params: { id: session.id, ...(session.directory ? { directory: session.directory } : {}) },
-        })
-      } else {
-        Alert.alert(t("common.error"), t("sessionsList.alerts.createFailedMessage"))
-      }
+      router.push({
+        pathname: `/session/[id]`,
+        params: { id: session.id, ...(session.directory ? { directory: session.directory } : {}) },
+      })
+    } catch (error) {
+      console.error("Failed to create session in directory:", error)
+      Alert.alert(t("common.error"), t("sessionsList.alerts.createFailedMessage"))
     } finally {
       creatingInFlight.current = false
       setIsCreating(false)
@@ -436,9 +403,11 @@ export default function SessionsScreen() {
         </TouchableOpacity>
       ) : null}
 
-      {error && (
+      {sessionsError && (
         <View style={styles.errorBar}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>
+            {sessionsError instanceof Error ? sessionsError.message : String(sessionsError)}
+          </Text>
         </View>
       )}
 
