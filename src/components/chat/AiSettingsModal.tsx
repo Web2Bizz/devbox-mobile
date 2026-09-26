@@ -1,12 +1,16 @@
-import { useState, useCallback, useMemo } from "react"
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
+import { useState, useMemo } from "react"
 import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetSectionList,
-  BottomSheetTextInput,
-} from "@gorhom/bottom-sheet"
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  TextInput,
+  SectionList,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native"
+import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import { colors } from "../../lib/theme"
 
@@ -30,6 +34,7 @@ interface Provider {
 }
 
 interface Props {
+  visible: boolean
   agents: AgentItem[]
   selectedAgent: string
   providers: Provider[]
@@ -40,13 +45,15 @@ interface Props {
   onSelectAgent: (name: string) => void
   onSelectModel: (providerID: string, modelID: string) => void
   onSelectVariant: (variant: string | null) => void
-  sheetRef: React.RefObject<BottomSheetModal | null>
+  onClose: () => void
 }
 
-// Single AI settings sheet: agent + model + reasoning effort, all selectable
-// in one place. Model selection closes the sheet; agent/effort stay open so
-// several settings can be changed in one go.
-export function AiSettingsSheet({
+// Single AI settings dialog: agent + model + reasoning effort, all selectable
+// in one place. Plain RN Modal (no bottom-sheet deps): guaranteed to open
+// regardless of layout measurement. Model selection closes the dialog;
+// agent/effort stay open so several settings can change in one go.
+export function AiSettingsModal({
+  visible,
   agents,
   selectedAgent,
   providers,
@@ -57,7 +64,7 @@ export function AiSettingsSheet({
   onSelectAgent,
   onSelectModel,
   onSelectVariant,
-  sheetRef,
+  onClose,
 }: Props) {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
@@ -122,29 +129,31 @@ export function AiSettingsSheet({
     return result
   }, [providers, search, selectedModel])
 
-  const handleSelectModel = useCallback(
-    (providerID: string, modelID: string) => {
-      onSelectModel(providerID, modelID)
-      setSearch("")
-      sheetRef.current?.dismiss()
-    },
-    [onSelectModel, sheetRef],
-  )
+  const closeAndReset = () => {
+    setSearch("")
+    onClose()
+  }
 
   const header = (
     <View>
-      <View style={s.header}>
-        <Text style={[s.title, isDark && s.textWhite]}>{t("chat.aiSettings.title")}</Text>
-        <BottomSheetTextInput
-          style={[s.search, isDark && s.searchDark]}
-          placeholder={t("chat.modelPicker.searchPlaceholder")}
-          placeholderTextColor={isDark ? "#666666" : "#999999"}
-          value={search}
-          onChangeText={setSearch}
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
+      <View style={s.handleRow}>
+        <View style={[s.handle, isDark && s.handleDark]} />
       </View>
+      <View style={s.titleRow}>
+        <Text style={[s.title, isDark && s.textWhite]}>{t("chat.aiSettings.title")}</Text>
+        <TouchableOpacity onPress={closeAndReset} hitSlop={12} testID="ai-settings-close">
+          <Ionicons name="close" size={22} color={isDark ? "#888888" : "#666666"} />
+        </TouchableOpacity>
+      </View>
+      <TextInput
+        style={[s.search, isDark && s.searchDark]}
+        placeholder={t("chat.modelPicker.searchPlaceholder")}
+        placeholderTextColor={isDark ? "#666666" : "#999999"}
+        value={search}
+        onChangeText={setSearch}
+        autoCorrect={false}
+        autoCapitalize="none"
+      />
 
       <Text style={[s.sectionLabel, isDark && s.metaDark]}>{t("chat.aiSettings.agentLabel")}</Text>
       {agents.map((a) => {
@@ -206,62 +215,82 @@ export function AiSettingsSheet({
   )
 
   return (
-    <BottomSheetModal
-      ref={sheetRef}
-      index={0}
-      snapPoints={["60%", "90%"]}
-      enableDynamicSizing={false}
-      enablePanDownToClose
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-      backgroundStyle={isDark ? s.sheetDark : s.sheet}
-      handleIndicatorStyle={{ backgroundColor: isDark ? "#666666" : "#cccccc" }}
-      backdropComponent={(props) => (
-        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-      )}
-      onChange={(idx) => {
-        if (idx === -1) setSearch("")
-      }}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={closeAndReset}
     >
-      <BottomSheetSectionList
-        sections={sections}
-        ListHeaderComponent={header}
-        keyExtractor={(item: ModelItem) => `${item.providerID}/${item.modelID}`}
-        renderSectionHeader={({ section }: { section: { title: string } }) => (
-          <View style={[s.sectionHeader, isDark && s.sectionHeaderDark]}>
-            <Text style={[s.sectionTitle, isDark && s.metaDark]}>{section.title}</Text>
-          </View>
-        )}
-        renderItem={({ item }: { item: ModelItem }) => {
-          const active = selectedModel?.providerID === item.providerID && selectedModel?.modelID === item.modelID
-          return (
-            <TouchableOpacity
-              style={[s.row, isDark && s.rowDark, active && (isDark ? s.rowSelectedDark : s.rowSelected)]}
-              onPress={() => handleSelectModel(item.providerID, item.modelID)}
-              testID={`model-option-${item.providerID}-${item.modelID}`}
-            >
-              <View style={s.rowText}>
-                <Text style={[s.rowName, isDark && s.textWhite]} numberOfLines={1}>
-                  {item.modelName || item.modelID}
-                </Text>
-                <Text style={[s.rowProvider, isDark && s.metaDark]}>{item.providerName || item.providerID}</Text>
+      <View style={s.overlay}>
+        <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={closeAndReset} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={[s.sheet, isDark && s.sheetDark]}
+        >
+          <SectionList
+            sections={sections}
+            ListHeaderComponent={header}
+            keyExtractor={(item: ModelItem) => `${item.providerID}/${item.modelID}`}
+            renderSectionHeader={({ section }: { section: { title: string } }) => (
+              <View style={[s.sectionHeader, isDark && s.sectionHeaderDark]}>
+                <Text style={[s.sectionTitle, isDark && s.metaDark]}>{section.title}</Text>
               </View>
-              {active && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
-            </TouchableOpacity>
-          )
-        }}
-        contentContainerStyle={s.content}
-        stickySectionHeadersEnabled
-      />
-    </BottomSheetModal>
+            )}
+            renderItem={({ item }: { item: ModelItem }) => {
+              const active =
+                selectedModel?.providerID === item.providerID && selectedModel?.modelID === item.modelID
+              return (
+                <TouchableOpacity
+                  style={[s.row, isDark && s.rowDark, active && (isDark ? s.rowSelectedDark : s.rowSelected)]}
+                  onPress={() => {
+                    onSelectModel(item.providerID, item.modelID)
+                    closeAndReset()
+                  }}
+                  testID={`model-option-${item.providerID}-${item.modelID}`}
+                >
+                  <View style={s.rowText}>
+                    <Text style={[s.rowName, isDark && s.textWhite]} numberOfLines={1}>
+                      {item.modelName || item.modelID}
+                    </Text>
+                    <Text style={[s.rowProvider, isDark && s.metaDark]}>{item.providerName || item.providerID}</Text>
+                  </View>
+                  {active && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
+                </TouchableOpacity>
+              )
+            }}
+            contentContainerStyle={s.content}
+            stickySectionHeadersEnabled
+            keyboardShouldPersistTaps="handled"
+          />
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
   )
 }
 
 const s = StyleSheet.create({
-  sheet: { backgroundColor: "#ffffff" },
+  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" },
+  backdrop: { flex: 1 },
+  sheet: {
+    maxHeight: "90%",
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    overflow: "hidden",
+  },
   sheetDark: { backgroundColor: "#1a1a1a" },
-  header: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
+  handleRow: { alignItems: "center", paddingVertical: 4 },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#cccccc" },
+  handleDark: { backgroundColor: "#666666" },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
   title: { fontSize: 18, fontWeight: "700", color: "#0a0a0a" },
   textWhite: { color: "#ffffff" },
   search: {
@@ -271,6 +300,8 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 15,
     color: "#0a0a0a",
+    marginHorizontal: 16,
+    marginBottom: 4,
   },
   searchDark: { backgroundColor: "#2a2a2a", color: "#ffffff" },
   content: { paddingBottom: 40 },
@@ -281,7 +312,7 @@ const s = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 12,
     paddingBottom: 4,
   },
   sectionHeader: {

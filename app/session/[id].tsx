@@ -21,14 +21,13 @@ import { useTranslation } from "react-i18next"
 import * as ImagePicker from "expo-image-picker"
 import * as ImageManipulator from "expo-image-manipulator"
 import * as Clipboard from "expo-clipboard"
-import type { BottomSheetModal } from "@gorhom/bottom-sheet"
 import {
   MessageBubble,
   PermissionPrompt,
   QuestionPrompt,
   StatusIndicator,
   SlashPopover,
-  AiSettingsSheet,
+  AiSettingsModal,
   ImageAttachments,
   SessionInfo,
   type SlashCommand,
@@ -83,7 +82,7 @@ export default function SessionScreen() {
   const { t } = useTranslation()
 
   const flatListRef = useRef<FlatList>(null)
-  const aiSheetRef = useRef<BottomSheetModal>(null)
+  const [aiModalVisible, setAiModalVisible] = useState(false)
   const [input, setInput] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
   // Explicit composer height: the native multiline measurement doesn't reliably
@@ -347,7 +346,7 @@ export default function SessionScreen() {
           case "model":
           case "agent":
             setInput("")
-            aiSheetRef.current?.present()
+            setAiModalVisible(true)
             return
         }
       }
@@ -781,7 +780,7 @@ export default function SessionScreen() {
         <View style={[s.toolbar, isDark && s.toolbarDark]}>
           <TouchableOpacity
             style={[s.aiChip, isDark && s.aiChipDark]}
-            onPress={() => aiSheetRef.current?.present()}
+            onPress={() => setAiModalVisible(true)}
             testID="ai-settings-button"
           >
             <Ionicons name="options-outline" size={14} color={isDark ? "#888888" : "#666666"} />
@@ -863,9 +862,9 @@ export default function SessionScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* AI settings bottom sheet (agent + model + reasoning effort) */}
-      <AiSettingsSheet
-        sheetRef={aiSheetRef}
+      {/* AI settings dialog (agent + model + reasoning effort) */}
+      <AiSettingsModal
+        visible={aiModalVisible}
         agents={agents}
         selectedAgent={agent}
         providers={providers}
@@ -876,6 +875,7 @@ export default function SessionScreen() {
         onSelectAgent={setAgent}
         onSelectModel={(providerID, modelID) => setModel({ providerID, modelID })}
         onSelectVariant={setVariant}
+        onClose={() => setAiModalVisible(false)}
       />
     </>
   )
