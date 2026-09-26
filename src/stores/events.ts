@@ -9,6 +9,7 @@ import { isAuthError } from "../lib/api-error"
 import { isSessionActuallyIdle } from "../lib/session-status-reconcile"
 import { queryClient } from "../lib/query-client"
 import { queryKeys } from "../lib/query-keys"
+import type { ListedSession } from "../lib/listed-session"
 import type { Client, Part, Session, Message } from "../lib/sdk"
 
 // Session status from the server
@@ -49,6 +50,11 @@ interface EventsState {
   authError: boolean
   reconnectAttempts: number
   lastDisconnectAt: number | null
+  // Connections whose stream stopped on 401/403 (bad credentials), by id.
+  // Unlike the global authError (active connection → login gate), background
+  // servers must not kill app state — their streams just stop until connect()
+  // runs again with fresh credentials. Surfaced in the settings server list.
+  unauthorizedConnections: string[]
   sessionStatus: Record<string, SessionStatus>
   statusText: Record<string, string>
   // Permissions & questions (pending per session)
@@ -57,6 +63,9 @@ interface EventsState {
 
   connect: () => void
   disconnect: () => void
+  // Stop a single connection's stream (connection removed). The merged list
+  // refetch drops its sessions; prune clears their statuses.
+  dropConnectionStream: (connectionId: string) => void
   // Drop all per-session state (status, status text, sending flag, pending
   // prompts) for a session that no longer exists. Without this, deleting a
   // busy session leaves a stale busy entry in `sessionStatus` forever: the
@@ -73,8 +82,10 @@ interface EventsState {
   pruneStaleSessionStates: (validIDs: Set<string>) => void
 }
 
-let controller: AbortController | null = null
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+// One live SSE stream per connection (cloud + LAN in parallel), keyed by
+// connection id, plus that stream's pending reconnect timer.
+const streamControllers = new Map<string, AbortController>()
+const streamTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 // Sessions that emitted session.error since they last went busy. SessionStatus
 // has no error variant — an errored session still ends with a busy -> idle
@@ -179,11 +190,14 @@ async function resyncBusySessions() {
       try {
         const sessionsState = useSessions.getState()
         const session =
-          queryClient.getQueryData<Session[]>(queryKeys.sessionsList)?.find((s) => s.id === sessionID) ??
+          queryClient.getQueryData<ListedSession[]>(queryKeys.sessionsList)?.find((s) => s.id === sessionID) ??
           (sessionsState.currentSession?.id === sessionID ? sessionsState.currentSession : undefined)
         const connState = useConnections.getState()
-        const client = session?.directory
-          ? connState.clientForDirectory(session.directory) ?? connState.client
+        // Origin routing: probe the session's own server.
+        const client = session
+          ? session.directory
+            ? connState.clientForDirectory(session.directory, session.connectionId)
+            : connState.clientForConnection(session.connectionId)
           : connState.client
         if (!client) return
 
@@ -210,9 +224,9 @@ async function resyncBusySessions() {
           // Session is gone server-side — the busy -> idle event will never
           // arrive, so clear the stale flag instead of counting a ghost task.
           clearSessionStateEverywhere(sessionID)
-          const cached = queryClient.getQueryData<Session[]>(queryKeys.sessionsList)
+          const cached = queryClient.getQueryData<ListedSession[]>(queryKeys.sessionsList)
           if (cached && cached.some((s) => s.id === sessionID)) {
-            queryClient.setQueryData<Session[]>(
+            queryClient.setQueryData<ListedSession[]>(
               queryKeys.sessionsList,
               cached.filter((s) => s.id !== sessionID),
             )
@@ -230,29 +244,42 @@ export const useEvents = create<EventsState>((set, get) => ({
   authError: false,
   reconnectAttempts: 0,
   lastDisconnectAt: null,
+  unauthorizedConnections: [],
   sessionStatus: {},
   statusText: {},
   permissions: {},
   questions: {},
 
   connect: () => {
-    controller?.abort()
-    controller = null
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer)
-      reconnectTimer = null
+    const connState = useConnections.getState()
+    // Every connection with stored credentials gets a stream (cloud + LAN in
+    // parallel); entries without credentials are skipped until the user saves
+    // them — their 401s would only pollute the merged state.
+    const targets = connState.connections.filter((c) => connState.clientBases[c.id]?.auth)
+    if (targets.length === 0) return
+    // Explicit (re)connect: past per-server auth failures get one fresh attempt
+    // with current credentials; still-bad servers re-mark themselves below.
+    if (get().unauthorizedConnections.length > 0) set({ unauthorizedConnections: [] })
+    for (const target of targets) {
+      if (streamControllers.has(target.id)) continue // already live
+      const targetClient = connState.clientForConnection(target.id)
+      if (!targetClient) continue
+      runStream(target.id, targetClient)
     }
 
-    const client = useConnections.getState().client
-    if (!client) return
+    // One SSE stream per connection. Nested here (not module-level) so the
+    // loop body below closes over the store's get/set.
+    function runStream(connectionId: string, client: Client) {
+      const currentController = new AbortController()
+      streamControllers.set(connectionId, currentController)
+      set({ connected: true })
+      // Clearing the global gate only makes sense for the active connection —
+      // a background stream must never open it.
+      if (connectionId === useConnections.getState().activeConnection?.id) set({ authError: false })
+      console.log(`[SSE] Connecting to event stream (${connectionId})...`)
 
-    controller = new AbortController()
-    const currentController = controller
-    set({ connected: true, authError: false })
-    console.log("[SSE] Connecting to event stream...")
-
-    // Run in background
-    ;(async () => {
+      // Run in background
+      ;(async () => {
       let reconnectScheduled = false
       // True if this connect() call is resuming after a prior disconnect —
       // gates the one-time busy-session resync below so a cold app start
@@ -269,11 +296,14 @@ export const useEvents = create<EventsState>((set, get) => ({
       const scheduleReconnect = (reason: unknown) => {
         if (reconnectScheduled || currentController.signal.aborted) return
         reconnectScheduled = true
+        // This stream is down — drop it from the live set (the timer below
+        // re-adds it) so `connected` reflects the remaining streams.
+        streamControllers.delete(connectionId)
         const state = get()
         const reconnectAttempts = state.reconnectAttempts + 1
         const lastDisconnectAt = state.lastDisconnectAt ?? Date.now()
         const disconnectedFor = Date.now() - lastDisconnectAt
-        set({ connected: false, reconnectAttempts, lastDisconnectAt })
+        set({ connected: streamControllers.size > 0, reconnectAttempts, lastDisconnectAt })
 
         if (disconnectedFor >= PROLONGED_DISCONNECT_MS) {
           notify({
@@ -288,11 +318,17 @@ export const useEvents = create<EventsState>((set, get) => ({
 
         const baseDelay = RECONNECT_DELAYS_MS[Math.min(reconnectAttempts - 1, RECONNECT_DELAYS_MS.length - 1)]
         const jitteredDelay = Math.min(15_000, Math.round(baseDelay * (0.75 + Math.random() * 0.5)))
-        console.warn(`[SSE] Connection lost, reconnecting in ${jitteredDelay}ms:`, reason)
-        reconnectTimer = setTimeout(() => {
-          reconnectTimer = null
-          get().connect()
-        }, jitteredDelay)
+        console.warn(`[SSE] Connection lost (${connectionId}), reconnecting in ${jitteredDelay}ms:`, reason)
+        streamTimers.set(
+          connectionId,
+          setTimeout(() => {
+            streamTimers.delete(connectionId)
+            streamControllers.delete(connectionId)
+            // Rebuild the client on retry so saved credentials apply.
+            const fresh = useConnections.getState().clientForConnection(connectionId)
+            if (fresh) runStream(connectionId, fresh)
+          }, jitteredDelay),
+        )
       }
 
       try {
@@ -357,7 +393,7 @@ export const useEvents = create<EventsState>((set, get) => ({
                 // misleading — or duplicate, contradictory — completion push.
                 if (!aborted && !erroredSessions.has(sessionID)) {
                   const match = queryClient
-                    .getQueryData<Session[]>(queryKeys.sessionsList)
+                    .getQueryData<ListedSession[]>(queryKeys.sessionsList)
                     ?.find((s) => s.id === sessionID)
                   notify({
                     category: "completed",
@@ -402,12 +438,13 @@ export const useEvents = create<EventsState>((set, get) => ({
               const info = props.info as Session | undefined
               if (!info) break
               // List snapshot: patch the entry in the query cache (the open
-              // session's own copy is refreshed via handleEvent below).
-              const current = queryClient.getQueryData<Session[]>(queryKeys.sessionsList)
+              // session's own copy is refreshed via handleEvent below),
+              // keeping its origin tag.
+              const current = queryClient.getQueryData<ListedSession[]>(queryKeys.sessionsList)
               if (current && current.some((s) => s.id === info.id)) {
-                queryClient.setQueryData<Session[]>(
+                queryClient.setQueryData<ListedSession[]>(
                   queryKeys.sessionsList,
-                  current.map((s) => (s.id === info.id ? info : s)),
+                  current.map((s) => (s.id === info.id ? { ...info, connectionId } : s)),
                 )
               }
               useSessions.getState().handleEvent({ type, properties: { info } } as any)
@@ -418,10 +455,14 @@ export const useEvents = create<EventsState>((set, get) => ({
               const info = props.info as Session | undefined
               if (!info) break
               // Add to the cached list snapshot (only if one exists — never
-              // fabricate a partial list that would suppress the real fetch).
-              const current = queryClient.getQueryData<Session[]>(queryKeys.sessionsList)
+              // fabricate a partial list that would suppress the real fetch),
+              // tagged with the stream's server.
+              const current = queryClient.getQueryData<ListedSession[]>(queryKeys.sessionsList)
               if (current && !current.some((s) => s.id === info.id)) {
-                queryClient.setQueryData<Session[]>(queryKeys.sessionsList, [info, ...current])
+                queryClient.setQueryData<ListedSession[]>(queryKeys.sessionsList, [
+                  { ...info, connectionId },
+                  ...current,
+                ])
               }
               break
             }
@@ -433,9 +474,9 @@ export const useEvents = create<EventsState>((set, get) => ({
               // so without this its status/sending entries would linger and
               // the Navbar badge would keep counting a ghost task.
               clearSessionStateEverywhere(deletedID)
-              const cached = queryClient.getQueryData<Session[]>(queryKeys.sessionsList)
+              const cached = queryClient.getQueryData<ListedSession[]>(queryKeys.sessionsList)
               if (cached && cached.some((s) => s.id === deletedID)) {
-                queryClient.setQueryData<Session[]>(
+                queryClient.setQueryData<ListedSession[]>(
                   queryKeys.sessionsList,
                   cached.filter((s) => s.id !== deletedID),
                 )
@@ -558,32 +599,45 @@ export const useEvents = create<EventsState>((set, get) => ({
         scheduleReconnect(new Error("Event stream closed"))
       } catch (err) {
         if (isAuthError(err) && !currentController.signal.aborted) {
-          // Bad credentials, not a transient failure — retrying forever just
-          // drains the battery with zero path to recovery (issue #76: 309
-          // events / 65 users). Stop and surface a distinct state instead; the sessions screen offers a link to fix
-          // credentials, which reconnects via connect() once saved.
-          console.warn("[SSE] Authentication failed — stopping reconnect loop:", err)
-          set({ connected: false, authError: true })
+          streamControllers.delete(connectionId)
+          if (connectionId === useConnections.getState().activeConnection?.id) {
+            // Bad credentials, not a transient failure — retrying forever just
+            // drains the battery with zero path to recovery (issue #76: 309
+            // events / 65 users). Stop and surface a distinct state instead; the sessions screen offers a link to fix
+            // credentials, which reconnects via connect() once saved.
+            console.warn("[SSE] Authentication failed — stopping reconnect loop:", err)
+            set({ connected: streamControllers.size > 0, authError: true })
+          } else {
+            // Background server with bad credentials: same no-retry rule, but
+            // silent — it must not trip the global login gate. Surfaced in
+            // the settings server list until credentials are saved.
+            console.warn(`[SSE] Authentication failed for ${connectionId} — stopping its stream:`, err)
+            set((state) => ({
+              connected: streamControllers.size > 0,
+              unauthorizedConnections: state.unauthorizedConnections.includes(connectionId)
+                ? state.unauthorizedConnections
+                : [...state.unauthorizedConnections, connectionId],
+            }))
+          }
         } else {
           scheduleReconnect(err)
         }
       } finally {
         clearTimeout(stableTimer)
         if (currentController.signal.aborted) {
-          console.log("[SSE] Disconnected (aborted)")
+          console.log(`[SSE] Disconnected (aborted) (${connectionId})`)
         }
       }
-    })()
+      })()
+    }
   },
 
   disconnect: () => {
     console.log("[SSE] Disconnecting")
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer)
-      reconnectTimer = null
-    }
-    controller?.abort()
-    controller = null
+    for (const timer of streamTimers.values()) clearTimeout(timer)
+    streamTimers.clear()
+    for (const c of streamControllers.values()) c.abort()
+    streamControllers.clear()
     erroredSessions.clear()
     abortedSessions.clear()
     // The connection identity may be changing (logout, switch, reconnect
@@ -595,11 +649,26 @@ export const useEvents = create<EventsState>((set, get) => ({
       authError: false,
       reconnectAttempts: 0,
       lastDisconnectAt: null,
+      unauthorizedConnections: [],
       sessionStatus: {},
       statusText: {},
       permissions: {},
       questions: {},
     })
+  },
+
+  dropConnectionStream: (connectionId) => {
+    const timer = streamTimers.get(connectionId)
+    if (timer) {
+      clearTimeout(timer)
+      streamTimers.delete(connectionId)
+    }
+    const c = streamControllers.get(connectionId)
+    if (c) {
+      c.abort()
+      streamControllers.delete(connectionId)
+    }
+    set({ connected: streamControllers.size > 0 })
   },
 
   removeSessionState: (sessionID) => {

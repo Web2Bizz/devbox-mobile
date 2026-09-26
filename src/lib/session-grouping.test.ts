@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { groupByDirectory } from "./session-grouping.ts"
+import { groupByDirectory, groupProjects } from "./session-grouping.ts"
 
 test("groupByDirectory: buckets items by directory, preserving item order within a bucket", () => {
   const items = [
@@ -40,4 +40,23 @@ test("groupByDirectory: single directory yields a single group with all items", 
   const groups = groupByDirectory(items)
   assert.equal(groups.length, 1)
   assert.equal(groups[0].items.length, 2)
+})
+
+test("groupProjects: same directory on two servers yields two cards", () => {
+  const items = [
+    { id: "1", directory: "/a", connectionId: "cloud" },
+    { id: "2", directory: "/a", connectionId: "lan" },
+    { id: "3", directory: "/a", connectionId: "cloud" },
+  ]
+  const groups = groupProjects(items)
+  assert.equal(groups.length, 2)
+  assert.equal(groups[0].key, "cloud::/a")
+  assert.equal(groups[0].connectionId, "cloud")
+  assert.deepEqual(groups[0].items.map((i) => i.id), ["1", "3"])
+  assert.equal(groups[1].key, "lan::/a")
+  assert.deepEqual(groups[1].items.map((i) => i.id), ["2"])
+})
+
+test("groupProjects: empty input returns no groups", () => {
+  assert.deepEqual(groupProjects([]), [])
 })

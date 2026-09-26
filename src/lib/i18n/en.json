@@ -14,7 +14,14 @@
     "sections": {
       "security": "Security",
       "notifications": "Notifications",
-      "about": "About"
+      "about": "About",
+      "servers": "Servers"
+    },
+    "servers": {
+      "main": "Main server",
+      "local": "Local server",
+      "active": "Active",
+      "needsLogin": "Login required — open to enter credentials"
     },
     "security": {
       "biometricOpen": {
@@ -89,9 +96,16 @@
     },
     "actions": {
       "editMessage": "Edit message",
-      "replace": "Replace"
+      "replace": "Replace",
+      "send": "Send message",
+      "stop": "Stop response",
+      "mic": "Voice input"
     },
     "alerts": {
+      "unknownCommandTitle": "Unknown command",
+      "unknownCommandMessage": "There is no such server command. Your text was kept in the composer.",
+      "pasteTruncatedTitle": "Pasted text truncated",
+      "pasteTruncatedMessage": "The clipboard text exceeds the 10,000 character limit and was cut off.",
       "messageActionsTitle": "Message actions",
       "notSupportedTitle": "Not supported",
       "notSupportedMessage": "Editing sent messages needs a newer devbox server. Please update the server and try again.",
@@ -462,6 +476,7 @@
     "notLoggedIn": "Not logged in"
   },
   "project": {
+    "localBadge": "(local)",
     "new": {
       "title": "New project",
       "subtitle": "Create a local project or clone from GitHub",

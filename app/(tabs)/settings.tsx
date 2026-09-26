@@ -16,6 +16,10 @@ import { router } from "expo-router"
 import { useAuth } from "../../src/stores/auth"
 import { useSettings } from "../../src/stores/settings"
 import { useConnections } from "../../src/stores/connections"
+import { useEvents } from "../../src/stores/events"
+import { LanDiscoveryModal } from "../../src/components/LanDiscoveryModal"
+import type { LanCandidate } from "../../src/lib/lan-discover"
+import type { ServerConnection } from "../../src/lib/types"
 
 const logoXml = `<svg width="1672" height="200" viewBox="0 0 1672 200" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M360 40V59.2L400 99.2V160L360 200H280V160H360V120L320 80V40H280V0H320L360 40Z" fill="#F8FAFF"/><path d="M200 72L160 112V200H120V91.2L160 51.2V0H200V72Z" fill="url(#paint0_linear_33_49)"/><path d="M280 108.8L240 148.8V200H200V128L240 88V0H280V108.8Z" fill="url(#paint1_linear_33_49)"/><path d="M80 60.8L40 100.8V160H120V200H40L0 160V80L80 0V60.8Z" fill="#F8FAFF"/><path d="M542.49 199.172L500 52.9655H540.007L567.874 153.655H570.081L599.604 52.9655H630.781L660.58 153.655H662.235L690.102 52.9655H730.661L688.171 199.172H644.301L615.882 105.103H614.779L586.36 199.172H542.49Z" fill="white"/><path d="M808.866 200C763.893 200 728.852 173.793 729.68 124.966C729.956 80 761.41 51.5862 805.004 51.8621C855.219 52.4138 875.637 89.3793 874.257 131.862V140.138H769.135C770.791 160 789.553 168.276 810.798 168.552C826.801 168.552 846.39 164.69 857.151 160.276L866.532 189.793C851.908 196.966 830.663 200 808.866 200ZM769.411 110.069H836.457C833.422 92.1379 821.007 83.0345 803.348 83.0345C785.69 83.3104 771.619 92.1379 769.411 110.069Z" fill="white"/><path d="M960.399 199.724C948.259 199.724 930.601 196.69 920.668 188.414L916.806 199.172H888.387V5.79311H927.29V57.931C937.499 54.069 950.467 51.8621 961.227 51.8621C1005.65 51.8621 1036.55 80 1036.55 124.966C1036.55 170.207 1004.27 199.724 960.399 199.724ZM960.399 169.103C985.783 169.103 997.647 149.241 997.647 124.966C997.647 96.8276 982.748 84.6897 963.434 83.8621C951.57 83.0345 936.395 86.069 927.29 94.3448V156.138C935.292 164.414 949.087 169.103 960.399 169.103Z" fill="white"/><path d="M1045.23 199.172V170.207C1071.17 146.759 1132.69 100.966 1132.97 63.1724C1133.25 46.3448 1120 40.2759 1104.55 40C1087.72 38.8966 1067.3 45.2414 1057.1 50.4828L1042.2 19.8621C1060.13 10.7586 1083.31 5.24139 1105.66 5.24139C1141.8 5.51725 1175.46 20.9655 1175.18 63.1724C1174.91 102.897 1131.04 139.31 1101.79 163.586H1177.67V199.172H1045.23Z" fill="white"/><path d="M1263.56 199.724C1251.42 199.724 1233.76 196.69 1223.82 188.414L1219.96 199.172H1191.54V5.79311H1230.45V57.931C1240.66 54.069 1253.62 51.8621 1264.38 51.8621C1308.8 51.8621 1339.71 80 1339.71 124.966C1339.71 170.207 1307.43 199.724 1263.56 199.724ZM1263.56 169.103C1288.94 169.103 1300.8 149.241 1300.8 124.966C1300.8 96.8276 1285.9 84.6897 1266.59 83.8621C1254.73 83.0345 1239.55 86.069 1230.45 94.3448V156.138C1238.45 164.414 1252.24 169.103 1263.56 169.103Z" fill="white"/><path d="M1356.66 199.172V52.9655H1395.57V199.172H1356.66ZM1376.25 43.8621C1364.39 43.8621 1353.63 35.3103 1353.63 22.069C1353.63 8.55173 1364.39 0 1376.25 0C1387.29 0 1398.33 8.55173 1398.33 22.069C1398.33 35.3103 1387.29 43.8621 1376.25 43.8621Z" fill="white"/><path d="M1412.12 199.172V169.655L1487.17 84.6897H1412.12V52.9655H1537.94V81.3793L1462.06 166.897H1537.94V199.172H1412.12Z" fill="white"/><path d="M1546.18 199.172V169.655L1621.23 84.6897H1546.18V52.9655H1672V81.3793L1596.12 166.897H1672V199.172H1546.18Z" fill="white"/><defs><linearGradient id="paint0_linear_33_49" x1="200" y1="-17.0667" x2="200" y2="221.867" gradientUnits="userSpaceOnUse"><stop stop-color="#25CD94"/><stop offset="1" stop-color="#188AFF"/></linearGradient><linearGradient id="paint1_linear_33_49" x1="200" y1="-17.0667" x2="200" y2="221.867" gradientUnits="userSpaceOnUse"><stop stop-color="#25CD94"/><stop offset="1" stop-color="#188AFF"/></linearGradient></defs></svg>`
 import {
@@ -62,6 +66,58 @@ function SettingRow({
   return content
 }
 
+function ServerRow({
+  connection,
+  isActive,
+  needsLogin,
+  isDark,
+  onActivate,
+  onEdit,
+}: {
+  connection: ServerConnection
+  isActive: boolean
+  needsLogin: boolean
+  isDark: boolean
+  onActivate: () => void
+  onEdit: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <View style={styles.serverRow}>
+      <TouchableOpacity
+        style={styles.serverMain}
+        onPress={onActivate}
+        disabled={isActive}
+        testID={`server-row-${connection.id}`}
+      >
+        <Ionicons
+          name={connection.discoveredOnLan ? "wifi" : "cloud-outline"}
+          size={20}
+          color={isDark ? "#888888" : "#666666"}
+        />
+        <View style={styles.settingContent}>
+          <Text style={[styles.settingLabel, isDark && styles.textDark]} numberOfLines={1}>
+            {connection.name}
+          </Text>
+          <Text style={[styles.settingDescription, isDark && styles.metaDark]} numberOfLines={1}>
+            {needsLogin ? t("settings.servers.needsLogin") : connection.url}
+          </Text>
+        </View>
+        {isActive && (
+          <View style={[styles.activeBadge, isDark && styles.activeBadgeDark]}>
+            <Text style={[styles.activeBadgeText, isDark && styles.activeBadgeTextDark]}>
+              {t("settings.servers.active")}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onEdit} hitSlop={8} testID={`server-edit-${connection.id}`}>
+        <Ionicons name="create-outline" size={20} color={isDark ? "#666666" : "#999999"} />
+      </TouchableOpacity>
+    </View>
+  )
+}
+
 export default function SettingsScreen() {
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
@@ -69,7 +125,9 @@ export default function SettingsScreen() {
 
   const { settings, hasBiometrics, updateSettings, lock } = useAuth()
   const { notifications, setNotification, locale, setLocale, lanDiscovery, setLanDiscovery } = useSettings()
-  const { activeConnection, logoutAll } = useConnections()
+  const { activeConnection, connections, logoutAll, setActiveConnection, addLanConnection } = useConnections()
+  const unauthorized = useEvents((s) => s.unauthorizedConnections)
+  const [lanVisible, setLanVisible] = useState(false)
   const [osGranted, setOsGranted] = useState<boolean | null>(null)
 
   // Check OS permission state on first toggle attempt
@@ -125,6 +183,30 @@ export default function SettingsScreen() {
       },
     ])
   }, [logoutAll, t])
+
+  // LAN discovery pick from settings: same scenario as the login page —
+  // the found server is added as a second entry, then the edit screen opens
+  // so the user can enter credentials (reads/streams start after save).
+  const handlePickLan = useCallback(
+    async (candidate: LanCandidate) => {
+      const store = useConnections.getState()
+      const existing = store.connections.find((c) => c.discoveredOnLan && c.url === candidate.url)
+      const id = existing ? existing.id : await store.addLanConnection(candidate.url, `LAN · ${candidate.host}`)
+      setLanVisible(false)
+      router.push({ pathname: "/connection/[id]", params: { id } })
+    },
+    [],
+  )
+
+  const handleActivate = useCallback(
+    (id: string) => {
+      void useConnections.getState().setActiveConnection(id)
+    },
+    [],
+  )
+
+  const mainConnections = connections.filter((c) => !c.discoveredOnLan)
+  const lanConnections = connections.filter((c) => c.discoveredOnLan)
 
   // All settings as a single profile-style card list with dividers
   const rows: React.ReactNode[] = [
@@ -245,6 +327,67 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* Servers: main and LAN connections side by side. Tap a row to make
+          it active; the pencil opens credentials. LAN entries are added via
+          discovery below (same flow as the login page). */}
+      <Text style={[styles.sectionHeader, isDark && styles.textDark]}>{t("settings.sections.servers")}</Text>
+
+      <Text style={[styles.subHeader, isDark && styles.metaDark]}>{t("settings.servers.main")}</Text>
+      <View style={[styles.card, isDark && styles.cardDark]}>
+        {mainConnections.map((c, i) => (
+          <Fragment key={c.id}>
+            {i > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
+            <ServerRow
+              connection={c}
+              isActive={activeConnection?.id === c.id}
+              needsLogin={unauthorized.includes(c.id)}
+              isDark={isDark}
+              onActivate={() => handleActivate(c.id)}
+              onEdit={() => router.push({ pathname: "/connection/[id]", params: { id: c.id } })}
+            />
+          </Fragment>
+        ))}
+      </View>
+
+      <Text style={[styles.subHeader, isDark && styles.metaDark]}>{t("settings.servers.local")}</Text>
+      <View style={[styles.card, isDark && styles.cardDark]}>
+        {lanConnections.map((c, i) => (
+          <Fragment key={c.id}>
+            {i > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
+            <ServerRow
+              connection={c}
+              isActive={activeConnection?.id === c.id}
+              needsLogin={unauthorized.includes(c.id)}
+              isDark={isDark}
+              onActivate={() => handleActivate(c.id)}
+              onEdit={() => router.push({ pathname: "/connection/[id]", params: { id: c.id } })}
+            />
+          </Fragment>
+        ))}
+        <TouchableOpacity
+          style={[styles.discoverButton, isDark && styles.discoverButtonDark]}
+          onPress={() => setLanVisible(true)}
+          disabled={!lanDiscovery}
+          testID="settings-lan-discover-button"
+        >
+          <Ionicons
+            name="wifi-outline"
+            size={20}
+            color={!lanDiscovery ? (isDark ? "#444444" : "#cccccc") : isDark ? "#ffffff" : "#0a0a0a"}
+          />
+          <Text
+            style={[
+              styles.discoverButtonText,
+              isDark && styles.textDark,
+              !lanDiscovery && styles.discoverButtonTextDisabled,
+            ]}
+          >
+            {t("lan.findButton")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <LanDiscoveryModal visible={lanVisible} onClose={() => setLanVisible(false)} onPick={handlePickLan} />
+
       {activeConnection && (
         <View style={styles.logoutContainer}>
           <TouchableOpacity
@@ -294,6 +437,77 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   cardDark: { backgroundColor: "#1a1a1a" },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    color: "#0a0a0a",
+    marginTop: 24,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  subHeader: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#666666",
+    marginTop: 12,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  serverRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  serverMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  activeBadge: {
+    backgroundColor: "#dcfce7",
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activeBadgeDark: {
+    backgroundColor: "#052e16",
+    borderColor: "#14532d",
+  },
+  activeBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#15803d",
+  },
+  activeBadgeTextDark: {
+    color: "#4ade80",
+  },
+  discoverButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  discoverButtonDark: {
+    borderColor: "#2a2a2a",
+  },
+  discoverButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0a0a0a",
+  },
+  discoverButtonTextDisabled: {
+    color: "#999999",
+  },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -6,6 +6,7 @@ import { mergeIncomingMessage } from "../lib/message-merge"
 import { isColdSessionLoad, isLiveEventForSession } from "../lib/session-load-reconcile"
 import { queryClient } from "../lib/query-client"
 import { queryKeys } from "../lib/query-keys"
+import type { ListedSession } from "../lib/listed-session"
 
 // State split with React Query (see src/queries/):
 // - React Query owns SERVER SNAPSHOTS: the session list, catalogs, project
@@ -34,7 +35,9 @@ function pageSize(): number {
 }
 
 interface SessionsState {
-  currentSession: Session | null
+  // The open session, tagged with its origin server — every follow-up op
+  // (prompt/abort/revert/messages) routes through that connection.
+  currentSession: ListedSession | null
   messages: Message[]
   parts: Record<string, Part[]>
   isLoading: boolean
@@ -45,7 +48,7 @@ interface SessionsState {
   error: string | null
 
   // Actions
-  selectSession: (sessionID: string, directory?: string) => Promise<void>
+  selectSession: (sessionID: string, directory?: string, connectionId?: string) => Promise<void>
   loadOlderMessages: () => Promise<void>
   // Fire-and-forget prompt: the "response" arrives as streamed SSE events,
   // not as an HTTP response, so useMutation's request/response model does not
@@ -60,6 +63,11 @@ interface SessionsState {
   ) => Promise<void>
   refreshMessages: () => Promise<void>
 
+  // Clear a surfaced store error (abort/unrevert failures). The session
+  // screen shows it once via alert, then clears — without this the flag
+  // would re-alert on every remount.
+  clearError: () => void
+
   // Event handling
   handleEvent: (event: Event) => void
 }
@@ -72,15 +80,26 @@ interface SessionsState {
 // checks them on busy -> idle.
 export const abortedSessions = new Set<string>()
 
+// Monotonic suffix for optimistic ids: two sends within the same
+// millisecond must never share a `temp-` id — duplicate FlatList keys corrupt
+// rendering and message merging.
+let tempSeq = 0
+
 // Monotonic token guarding selectSession against out-of-order resolution: a
 // slow fetch for a session the user has already navigated away from must not
 // overwrite the messages/currentSession of a newer selection. Each call takes
 // the next value and only commits its result if still the latest.
 let selectSeq = 0
 
-// Get the right client for a session's directory
-function clientFor(directory?: string): Client | null {
+// Get the right client for a session's directory on a given connection.
+// Falls back to the active connection (legacy single-server behavior); an
+// explicit but unknown connectionId yields null (no silent wrong-server).
+function clientFor(directory?: string, connectionId?: string): Client | null {
   const connState = useConnections.getState()
+  if (connectionId) {
+    if (!directory) return connState.clientForConnection(connectionId)
+    return connState.clientForDirectory(directory, connectionId)
+  }
   if (!directory) return connState.client
   const connDir = connState.activeConnection?.directory
   if (directory !== connDir) return connState.clientForDirectory(directory)
@@ -97,11 +116,16 @@ export const useSessions = create<SessionsState>((set, get) => ({
   hasMore: false,
   error: null,
 
-  selectSession: async (sessionID, directory) => {
-    // Use directory-specific client if the session belongs to a different project
-    const connState = useConnections.getState()
-    const client = directory ? connState.clientForDirectory(directory) : connState.client
-    if (!client) {
+  selectSession: async (sessionID, directory, connectionId) => {
+    // Resolve the origin server: explicit param (navigation) → tagged cache
+    // (notifications, deep links) → active connection (legacy fallback).
+    const resolvedConnectionId =
+      connectionId ??
+      queryClient.getQueryData<ListedSession[]>(queryKeys.sessionsList)?.find((s) => s.id === sessionID)
+        ?.connectionId ??
+      useConnections.getState().activeConnection?.id
+    const client = clientFor(directory, resolvedConnectionId)
+    if (!client || !resolvedConnectionId) {
       set({ error: "No active connection" })
       return
     }
@@ -153,7 +177,8 @@ export const useSessions = create<SessionsState>((set, get) => ({
       const { messages, parts } = parseMessages(messagesResponse)
 
       set({
-        currentSession: session,
+        // Tag the origin so every follow-up op routes to the right server.
+        currentSession: { ...session, connectionId: resolvedConnectionId },
         messages,
         parts,
         isLoading: false,
@@ -168,7 +193,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
   },
 
   loadOlderMessages: async () => {
-    const client = clientFor(get().currentSession?.directory)
+    const client = clientFor(get().currentSession?.directory, get().currentSession?.connectionId)
     const session = get().currentSession
     if (!client || !session) return
     if (get().loadingMore || !get().hasMore) return
@@ -201,7 +226,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
   },
 
   sendMessage: async (text, model, agent, files, variant) => {
-    const client = clientFor(get().currentSession?.directory)
+    const client = clientFor(get().currentSession?.directory, get().currentSession?.connectionId)
     const session = get().currentSession
     if (!client || !session) {
       set({ error: "No active session" })
@@ -213,8 +238,9 @@ export const useSessions = create<SessionsState>((set, get) => ({
 
       // Add user message optimistically
       const ts = Date.now()
+      const seq = tempSeq++
       const userMessage: Message = {
-        id: `temp-${ts}`,
+        id: `temp-${ts}-${seq}`,
         sessionID: session.id,
         role: "user",
         time: { created: ts },
@@ -224,7 +250,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
       const optimisticParts: Part[] = []
       if (text) {
         optimisticParts.push({
-          id: `temp-part-text-${ts}`,
+          id: `temp-part-text-${ts}-${seq}`,
           messageID: userMessage.id,
           type: "text",
           text,
@@ -234,7 +260,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
         for (let i = 0; i < files.length; i++) {
           const f = files[i]
           optimisticParts.push({
-            id: `temp-part-file-${ts}-${i}`,
+            id: `temp-part-file-${ts}-${seq}-${i}`,
             messageID: userMessage.id,
             type: "file",
             mime: f.mime,
@@ -270,8 +296,10 @@ export const useSessions = create<SessionsState>((set, get) => ({
     } catch (err) {
       console.error("[sendMessage] error:", err)
       const stillCurrent = get().currentSession?.id === session.id
+      // NOTE: no store error here — the caller surfaces its own alert, and a
+      // separate error effect in the session screen owns the store flag.
+      // Writing both would double-alert.
       set((state) => ({
-        ...(stillCurrent ? { error: String(err) } : {}),
         sending: { ...state.sending, [session.id]: false },
       }))
       if (stillCurrent) get().refreshMessages()
@@ -280,7 +308,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
   },
 
   refreshMessages: async () => {
-    const client = clientFor(get().currentSession?.directory)
+    const client = clientFor(get().currentSession?.directory, get().currentSession?.connectionId)
     const session = get().currentSession
     if (!client || !session) return
 
@@ -295,8 +323,15 @@ export const useSessions = create<SessionsState>((set, get) => ({
       const { messages, parts } = parseMessages(response)
       set({ messages, parts })
     } catch (error) {
-      set({ error: "Failed to refresh messages" })
+      // Background refresh — stays silent (no store error): failures here are
+      // transient noise, and the store error flag is reserved for user-facing
+      // action failures (abort/unrevert) surfaced once by the session screen.
+      console.error("Failed to refresh messages:", error)
     }
+  },
+
+  clearError: () => {
+    set({ error: null })
   },
 
   handleEvent: (event) => {
@@ -360,9 +395,13 @@ export const useSessions = create<SessionsState>((set, get) => ({
         if (!session?.id) return
 
         // The list snapshot lives in the React Query cache (updated there by
-        // events.ts) — here only the open session's own copy is refreshed.
+        // events.ts) — here only the open session's own copy is refreshed,
+        // keeping its origin tag (the event carries no connection).
         set((state) => ({
-          currentSession: state.currentSession?.id === session.id ? session : state.currentSession,
+          currentSession:
+            state.currentSession?.id === session.id
+              ? { ...session, connectionId: state.currentSession.connectionId }
+              : state.currentSession,
           isLoading: isLiveEventForSession(session.id, state.currentSession?.id) ? false : state.isLoading,
         }))
         break

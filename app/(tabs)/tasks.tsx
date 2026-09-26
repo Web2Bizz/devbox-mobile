@@ -8,7 +8,7 @@ import { useSessionsList } from "../../src/queries/sessions"
 import { useEvents } from "../../src/stores/events"
 import { selectActiveSessions } from "../../src/lib/active-tasks"
 import { colors } from "../../src/lib/theme"
-import type { Session } from "../../src/lib/sdk"
+import type { ListedSession } from "../../src/lib/listed-session"
 
 // Tasks = sessions where the agent is currently doing something:
 // SSE sessionStatus busy/retry, plus optimistic sending (tap → SSE busy gap).
@@ -27,7 +27,7 @@ export default function TasksScreen() {
   // Group by project directory — only projects with ≥1 active task appear
   // (inactive sessions never enter `active`, so empty groups can't exist).
   const groups = useMemo(() => {
-    const byDir = new Map<string, Session[]>()
+    const byDir = new Map<string, ListedSession[]>()
     for (const session of active) {
       const key = session.directory || ""
       const list = byDir.get(key)
@@ -43,7 +43,7 @@ export default function TasksScreen() {
       .sort((a, b) => a.shortName.localeCompare(b.shortName))
   }, [active])
 
-  const renderTask = (item: Session) => {
+  const renderTask = (item: ListedSession) => {
     const st = sessionStatus[item.id]
     const isRetry = st?.type === "retry"
     const text = statusText[item.id] || t("tasks.working")
@@ -53,7 +53,11 @@ export default function TasksScreen() {
         onPress={() =>
           router.push({
             pathname: "/session/[id]",
-            params: { id: item.id, ...(item.directory ? { directory: item.directory } : {}) },
+            params: {
+              id: item.id,
+              ...(item.directory ? { directory: item.directory } : {}),
+              connectionId: item.connectionId,
+            },
           })
         }
         testID={`task-item-${item.id}`}

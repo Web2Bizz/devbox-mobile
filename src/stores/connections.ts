@@ -7,6 +7,7 @@ import { buildAuth } from "../lib/auth"
 import { stripTrailingSlash } from "../lib/path-utils"
 import { HARDCODED_SERVER_URL } from "../lib/server-config"
 import { invalidateConnectionScopeQueries } from "../lib/query-invalidate"
+import { useEvents } from "./events"
 
 const CONNECTIONS_KEY = "opencode_connections"
 const PASSWORDS_PREFIX = "opencode_password_"
@@ -23,9 +24,7 @@ const CONNECTION_TEST_TIMEOUT_MS = 12_000
 interface ClientBase {
   baseUrl: string
   auth?: { username: string; password: string }
-}
-
-interface ConnectionsState {
+}interface ConnectionsState {
   connections: ServerConnection[]
   activeConnection: ServerConnection | null
   client: Client | null
@@ -33,6 +32,14 @@ interface ConnectionsState {
   // NOTE: no currentProject/serverHome here by design — project info is a
   // React Query snapshot (useProjectInfo()), invalidated on every change
   // below. Mirroring it in Zustand was a second source of truth.
+  //
+  // Multi-server: one entry per connection so ANY server's data can be
+  // fetched with its own credentials (unified cloud+LAN lists, per-origin
+  // action routing, parallel SSE streams). `client`/`clientBase` above stay
+  // as the ACTIVE aliases. A base with `auth` set means stored credentials
+  // exist for that connection; bases without auth are skipped by reads and
+  // streams until the user saves credentials.
+  clientBases: Record<string, ClientBase>
   recentDirectories: string[]
   isLoading: boolean
   error: string | null
@@ -59,7 +66,14 @@ interface ConnectionsState {
   updateConnection: (id: string, updates: Partial<ServerConnection>, password?: string) => Promise<void>
   // Create a one-off client pointing at a specific directory (for cross-project operations).
   // Pass undefined to get a directory-less client that queries the server without project scope.
-  clientForDirectory: (directory?: string) => Client | null
+  // With connectionId, the client targets THAT connection (any server, any
+  // credentials); without it, the active connection (legacy behavior).
+  clientForDirectory: (directory?: string, connectionId?: string) => Client | null
+  // Directory-less client for a connection by id (reads, SSE streams).
+  // Null when the connection is unknown (removed) — callers treat that as
+  // "skip this server". NOTE: the client carries whatever auth is cached;
+  // servers without stored credentials 401, and callers handle that.
+  clientForConnection: (connectionId: string) => Client | null
   // Switch the active connection's directory and reload
   switchDirectory: (directory?: string) => Promise<void>
   // Record a directory as recently used
@@ -85,6 +99,7 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
   activeConnection: null,
   client: null,
   clientBase: null,
+  clientBases: {},
   recentDirectories: [],
   isLoading: true,
   error: null,
@@ -130,13 +145,23 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
       // Find active connection
       const active = connections.find((c) => c.active) || null
 
-      // Create client for active connection
+      // Create clients for the active connection
       let client: Client | null = null
       let base: ClientBase | null = null
+      // Bases for EVERY connection (passwords are read for all, not just the
+      // active one) so background reads/streams can target any server.
+      const clientBases: Record<string, ClientBase> = {}
+      if (connections.length > 0) {
+        const passwords = await Promise.all(
+          connections.map((c) => SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${c.id}`)),
+        )
+        connections.forEach((c, i) => {
+          const auth = buildAuth(c.username, passwords[i])
+          clientBases[c.id] = { baseUrl: c.url, auth }
+        })
+      }
       if (active) {
-        const password = await SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${active.id}`)
-        const auth = buildAuth(active.username, password)
-        const built = buildClient(active.url, active.directory, auth)
+        const built = buildClient(active.url, active.directory, clientBases[active.id].auth)
         client = built.client
         base = built.base
         // Project info is NOT prefetched here — useProjectInfo() fetches it
@@ -148,6 +173,7 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
         activeConnection: active,
         client,
         clientBase: base,
+        clientBases,
         recentDirectories,
         isLoading: false,
       })
@@ -191,7 +217,13 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
       base = built.base
     }
 
-    set({ connections, activeConnection, client, clientBase: base })
+    set({
+      connections,
+      activeConnection,
+      client,
+      clientBase: base,
+      clientBases: { ...get().clientBases, [id]: { baseUrl: hardcodedConnection.url, auth: buildAuth(hardcodedConnection.username, password) } },
+    })
     // New client identity — cached snapshots belong to the previous one.
     if (newConnection.active) invalidateConnectionScopeQueries()
   },
@@ -208,7 +240,9 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
     }
     const connections = [...get().connections, entry]
     await SecureStore.setItemAsync(CONNECTIONS_KEY, JSON.stringify(connections))
-    set({ connections })
+    // No credentials yet — base without auth; reads/streams skip this server
+    // until the user saves credentials (edit screen), which rebuilds it.
+    set({ connections, clientBases: { ...get().clientBases, [id]: { baseUrl: url } } })
     return id
   },
 
@@ -218,9 +252,14 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
     // Remove stored password
     await SecureStore.deleteItemAsync(`${PASSWORDS_PREFIX}${id}`)
     await SecureStore.setItemAsync(CONNECTIONS_KEY, JSON.stringify(connections))
+    // Stop that server's SSE stream (its sessions leave the merged snapshot
+    // via the invalidation below; prune clears their statuses).
+    useEvents.getState().dropConnectionStream(id)
 
     // If removing active connection, clear client
     const wasActive = get().activeConnection?.id === id
+    const clientBases = { ...get().clientBases }
+    delete clientBases[id]
     if (wasActive) {
       const newActive = connections[0] || null
       if (newActive) {
@@ -230,13 +269,13 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
         const password = await SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${newActive.id}`)
         const auth = buildAuth(newActive.username, password)
         const built = buildClient(newActive.url, newActive.directory, auth)
-        set({ connections, activeConnection: newActive, client: built.client, clientBase: built.base })
+        set({ connections, activeConnection: newActive, client: built.client, clientBase: built.base, clientBases })
       } else {
-        set({ connections, activeConnection: null, client: null, clientBase: null })
+        set({ connections, activeConnection: null, client: null, clientBase: null, clientBases })
       }
       invalidateConnectionScopeQueries()
     } else {
-      set({ connections })
+      set({ connections, clientBases })
     }
   },
 
@@ -264,7 +303,9 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
       await SecureStore.setItemAsync(CONNECTIONS_KEY, JSON.stringify(connections))
     }
 
-    set({ connections, activeConnection: active, client, clientBase: base })
+    const clientBases = { ...get().clientBases }
+    if (active && base) clientBases[active.id] = base
+    set({ connections, activeConnection: active, client, clientBase: base, clientBases })
     invalidateConnectionScopeQueries()
   },
 
@@ -316,8 +357,8 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
     // If updating active connection, recreate client
     if (get().activeConnection?.id === id) {
       const active = connections.find((c) => c.id === id)!
-      const password = await SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${id}`)
-      const auth = buildAuth(active.username, password)
+      const storedPassword = await SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${id}`)
+      const auth = buildAuth(active.username, storedPassword)
       const built = buildClient(active.url, active.directory, auth)
       set({
         connections,
@@ -325,22 +366,47 @@ export const useConnections = create<ConnectionsState>((set, get) => ({
         client: built.client,
         clientBase: built.base,
       })
-      // New client identity (directory/auth may have changed) — drop stale
-      // snapshots; mounted hooks refetch (this covers switchDirectory too,
-      // which funnels through here).
-      invalidateConnectionScopeQueries()
     } else {
       set({ connections })
     }
+    // Refresh the cached base for the edited entry (any server — this is how
+    // an inactive LAN entry picks up freshly saved credentials) and drop
+    // stale snapshots; mounted hooks refetch. Covers switchDirectory too.
+    const edited = connections.find((c) => c.id === id)
+    if (edited) {
+      const storedPassword = await SecureStore.getItemAsync(`${PASSWORDS_PREFIX}${id}`)
+      set({
+        clientBases: {
+          ...get().clientBases,
+          [id]: { baseUrl: edited.url, auth: buildAuth(edited.username, storedPassword) },
+        },
+      })
+    }
+    invalidateConnectionScopeQueries()
   },
 
-  clientForDirectory: (directory) => {
-    const base = get().clientBase
+  clientForDirectory: (directory, connectionId) => {
+    const st = get()
+    // Origin-aware: an explicit connectionId NEVER falls back to the active
+    // server — a wrong-server request is worse than an explicit null (which
+    // surfaces the "no connection" error instead of corrupting data).
+    if (connectionId) {
+      const base = st.clientBases[connectionId]
+      if (!base) return null
+      return createClient({ baseUrl: base.baseUrl, directory, auth: base.auth })
+    }
+    const base = st.clientBase
     if (!base) return null
-    // Reuse current client if directory matches
-    const active = get().activeConnection
-    if (active?.directory === directory) return get().client
+    // Reuse current client if directory matches (active scope only)
+    const active = st.activeConnection
+    if (active?.directory === directory) return st.client
     return createClient({ baseUrl: base.baseUrl, directory, auth: base.auth })
+  },
+
+  clientForConnection: (connectionId) => {
+    const base = get().clientBases[connectionId]
+    if (!base) return null
+    return createClient({ baseUrl: base.baseUrl, directory: undefined, auth: base.auth })
   },
 
   switchDirectory: async (directory) => {

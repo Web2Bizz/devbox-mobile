@@ -97,8 +97,9 @@ function RootLayout() {
       sseStarted.current = true
       useEvents.getState().connect()
       // Warm the catalog cache so the session screen (agent/model pickers,
-      // slash commands) renders instantly on first open.
-      void queryClient.prefetchQuery({ queryKey: queryKeys.catalog, queryFn: fetchCatalogData })
+      // slash commands) renders instantly on first open. Key must match
+      // useCatalogData()'s default ("active") scope.
+      void queryClient.prefetchQuery({ queryKey: [...queryKeys.catalog, "active"], queryFn: () => fetchCatalogData() })
       // Request OS notification permission once we have a live connection —
       // the in-context moment the user will start running agent tasks they'll
       // want to be pinged about. Previously this was only ever requested when

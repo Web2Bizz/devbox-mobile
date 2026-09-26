@@ -19,7 +19,7 @@ function formatTime(timestamp: number, t: (key: string, opts?: Record<string, un
 }
 
 export default function ProjectSessionsScreen() {
-  const { directory } = useLocalSearchParams<{ directory: string }>()
+  const { directory, connectionId } = useLocalSearchParams<{ directory: string; connectionId?: string }>()
   const decodedDir = directory ? decodeURIComponent(directory) : ""
   const colorScheme = useColorScheme()
   const isDark = colorScheme === "dark"
@@ -31,15 +31,15 @@ export default function ProjectSessionsScreen() {
   const { activeConnection } = useConnections()
 
   const projectSessions = useMemo(
-    () => sessions.filter((s) => (s.directory || "") === decodedDir),
-    [sessions, decodedDir],
+    () =>
+      sessions.filter((s) => (s.directory || "") === decodedDir && (!connectionId || s.connectionId === connectionId)),
+    [sessions, decodedDir, connectionId],
   )
 
   const shortName = decodedDir.split("/").filter(Boolean).pop() || decodedDir || "—"
 
   const handleDelete = useCallback(
-    (session: (typeof sessions)[number]) => {
-      Alert.alert(
+    (session: (typeof sessions)[number]) => {      Alert.alert(
         t("sessionsList.alerts.deleteTitle"),
         t("sessionsList.alerts.deleteMessage", { title: session.title || t("sessionsList.untitledSession") }),
         [
@@ -91,7 +91,11 @@ export default function ProjectSessionsScreen() {
               onPress={() =>
                 router.push({
                   pathname: "/session/[id]",
-                  params: { id: item.id, ...(item.directory ? { directory: item.directory } : {}) },
+                  params: {
+                    id: item.id,
+                    ...(item.directory ? { directory: item.directory } : {}),
+                    connectionId: item.connectionId,
+                  },
                 })
               }
               onLongPress={() =>
@@ -131,12 +135,20 @@ export default function ProjectSessionsScreen() {
         <TouchableOpacity
           style={[styles.fab, isDark && styles.fabDark]}
           onPress={async () => {
-            if (!activeConnection) return
+            // Origin-aware: a LAN project's sessions are created on ITS server.
+            if (!activeConnection && !connectionId) return
             try {
-              const session = await createSession.mutateAsync({ directory: decodedDir })
+              const { created: session, connectionId: createdConn } = await createSession.mutateAsync({
+                directory: decodedDir,
+                connectionId,
+              })
               router.push({
                 pathname: "/session/[id]",
-                params: { id: session.id, ...(session.directory ? { directory: session.directory } : { directory: decodedDir }) },
+                params: {
+                  id: session.id,
+                  ...(session.directory ? { directory: session.directory } : { directory: decodedDir }),
+                  ...(createdConn ? { connectionId: createdConn } : {}),
+                },
               })
             } catch {
               Alert.alert(t("common.error"), t("sessionsList.alerts.createFailedMessage"))

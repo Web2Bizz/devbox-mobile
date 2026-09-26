@@ -17,25 +17,27 @@ import type { Agent, Command } from "../lib/sdk"
 // in app/_layout.tsx — reads the current client lazily so it never closes
 // over a stale one. Individual list failures degrade to empty (same tolerance
 // the old store-level Promise.all(...).catch() had).
-export async function fetchCatalogData(): Promise<ParsedCatalog> {
-  const client = useConnections.getState().client
-  if (!client) throw new Error("No active connection")
+export async function fetchCatalogData(connectionId?: string): Promise<ParsedCatalog> {
+  const conn = useConnections.getState()
+  const client = connectionId ? conn.clientForConnection(connectionId) : undefined
+  const effective = client ?? (connectionId ? null : conn.client)
+  if (!effective) throw new Error("No active connection")
   const [agentResult, commandResult, providerResult] = await Promise.all([
-    client.agent.list().catch(() => [] as Agent[]),
-    client.command.list().catch(() => [] as Command[]),
-    client.provider.list().catch(() => null as RawProviderList | null),
+    effective.agent.list().catch(() => [] as Agent[]),
+    effective.command.list().catch(() => [] as Command[]),
+    effective.provider.list().catch(() => null as RawProviderList | null),
   ])
   return parseCatalogResponse(agentResult, commandResult, providerResult)
 }
 
-export function useCatalogData() {
-  const client = useConnections((s) => s.client)
+export function useCatalogData(connectionId?: string) {
+  const ready = useConnections((s) => (connectionId ? !!s.clientBases[connectionId] : !!s.client))
   return useQuery({
-    queryKey: queryKeys.catalog,
-    queryFn: fetchCatalogData,
+    queryKey: [...queryKeys.catalog, connectionId ?? "active"],
+    queryFn: () => fetchCatalogData(connectionId),
     // Model/agent availability changes rarely; connection switches and
     // reconnects invalidate explicitly.
     staleTime: 5 * 60_000,
-    enabled: !!client,
+    enabled: ready,
   })
 }
