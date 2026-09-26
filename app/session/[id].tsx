@@ -370,10 +370,29 @@ export default function SessionScreen() {
   // - setComposerHeight(null) alone snaps the box but not the scroll.
   // Selection 0 forces the native scroll to the top synchronously, before
   // the async clear lands — either order ends at offset 0.
+  // clearedRef marks the stale-measurement window opened here: while it is
+  // set AND the committed text is still empty, contentSize events are
+  // pre-clear echoes and must be ignored. Any real text — user-typed (which
+  // clears the flag via handleChangeText even before its render commits) or
+  // programmatic (prefill/paste/restore, which never fire onChangeText but
+  // land in inputRef) — takes the normal path, so fresh measurements for
+  // long inserted text are never swallowed and the box can't get stuck at
+  // the floor with scrolled content.
+  const clearedRef = useRef(false)
   const clearComposer = useCallback(() => {
+    clearedRef.current = true
     setInput("")
     setComposerHeight(null)
     fieldRef.current?.setNativeProps({ selection: { start: 0, end: 0 } })
+  }, [])
+
+  // User-typed text closes the stale-measurement window immediately (even
+  // before its render commits, so a contentSize racing ahead of the render
+  // still takes the normal path). Clearing to empty keeps it open — the
+  // manual backspace-to-empty case behaves like a programmatic clear.
+  const handleChangeText = useCallback((text: string) => {
+    clearedRef.current = text.length === 0
+    setInput(text)
   }, [])
 
   // Slash command handler
@@ -809,18 +828,18 @@ export default function SessionScreen() {
               }
               placeholderTextColor={speech.listening ? "#ef4444" : isDark ? "#666666" : "#999999"}
               value={speech.listening ? speech.transcript : input}
-              onChangeText={speech.listening ? undefined : setInput}
+              onChangeText={speech.listening ? undefined : handleChangeText}
               onContentSizeChange={(e) => {
-                // Ignore measurements for already-cleared text: on Android a
-                // contentSize event for the pre-clear content can arrive AFTER
-                // the reset above and would otherwise resurrect a tall box (or
-                // poison the floor) under empty text. Empty always means the
-                // minimum height — setComposerHeight(null) on an already-null
-                // value bails out without a render, so this can't loop.
+                // Stale-window gate (see clearComposer): a contentSize event
+                // landing after a clear while the committed text is still
+                // empty is a pre-clear echo — ignore it so it can't resurrect
+                // a tall box or poison the floor. Empty then always means the
+                // minimum height (the null set below bails out without a
+                // render when already null, so this can't loop).
                 // Voice transcripts render through `value` while `input` stays
                 // empty, so listening mode is exempt — the transcript must
                 // keep growing the box.
-                if (!speech.listening && !inputRef.current) {
+                if (!speech.listening && clearedRef.current && !inputRef.current) {
                   setComposerHeight(null)
                   return
                 }
