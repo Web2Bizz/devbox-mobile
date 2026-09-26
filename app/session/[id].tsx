@@ -776,21 +776,6 @@ export default function SessionScreen() {
           <SlashPopover query={slashQuery} commands={allCommands} isDark={isDark} onSelect={handleSlashSelect} />
         )}
 
-        {/* AI settings — single button opening the agent/model/effort sheet */}
-        <View style={[s.toolbar, isDark && s.toolbarDark]}>
-          <TouchableOpacity
-            style={[s.aiChip, isDark && s.aiChipDark]}
-            onPress={() => setAiModalVisible(true)}
-            testID="ai-settings-button"
-          >
-            <Ionicons name="options-outline" size={14} color={isDark ? "#888888" : "#666666"} />
-            <Text style={[s.aiLabel, isDark && s.metaDark]} numberOfLines={1}>
-              {aiSummary}
-            </Text>
-            <Ionicons name="chevron-up-outline" size={12} color={isDark ? "#888888" : "#666666"} />
-          </TouchableOpacity>
-        </View>
-
         {/* Attachment preview */}
         <ImageAttachments attachments={attachments} isDark={isDark} onRemove={removeAttachment} />
 
@@ -830,6 +815,16 @@ export default function SessionScreen() {
                 {!speech.listening && (
                   <TouchableOpacity style={s.overlayBtn} onPress={pickFromLibrary} onLongPress={pickFromCamera}>
                     <Ionicons name="add-circle-outline" size={24} color={isDark ? "#888888" : "#666666"} />
+                  </TouchableOpacity>
+                )}
+                {!speech.listening && (
+                  <TouchableOpacity
+                    style={s.overlayBtn}
+                    onPress={() => setAiModalVisible(true)}
+                    testID="ai-settings-button"
+                    accessibilityLabel={aiSummary}
+                  >
+                    <Ionicons name="options-outline" size={24} color={isDark ? "#888888" : "#666666"} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -937,31 +932,6 @@ const s = StyleSheet.create({
   emptyHint: { fontSize: 13, color: "#bbbbbb", marginTop: 4 },
   metaDark: { color: "#666666" },
   textWhite: { color: "#ffffff" },
-
-  // Toolbar
-  toolbar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
-    backgroundColor: "#ffffff",
-  },
-  toolbarDark: { borderTopColor: "#1a1a1a", backgroundColor: "#0a0a0a" },
-  aiChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    maxWidth: "100%",
-  },
-  aiChipDark: { backgroundColor: "#1a1a1a" },
-  aiLabel: { flex: 1, fontSize: 12, color: "#666666" },
 
   // Input
   inputContainer: {
