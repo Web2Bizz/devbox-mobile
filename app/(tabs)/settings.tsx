@@ -263,7 +263,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    padding: 24,
+    // Horizontal insets follow the shared container token (16) so the card
+    // list aligns with the header badge and the other tabs' lists — the old
+    // hardcoded 24 made everything here 8pt narrower per side.
+    paddingHorizontal: layout.containerPadding,
+    paddingTop: 24,
     paddingBottom: 32,
     maxWidth: layout.contentMaxWidth,
     alignSelf: "center",

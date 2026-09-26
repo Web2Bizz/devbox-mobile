@@ -94,7 +94,10 @@ const styles = StyleSheet.create({
   containerDark: { backgroundColor: "#0a0a0a" },
   content: {
     flexGrow: 1,
-    padding: 24,
+    // Same shared container token as settings and the tab headers — the old
+    // hardcoded 24 made the card list 8pt narrower per side.
+    paddingHorizontal: layout.containerPadding,
+    paddingVertical: 24,
     maxWidth: layout.contentMaxWidth,
     alignSelf: "center",
     width: "100%",
