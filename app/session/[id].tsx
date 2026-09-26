@@ -100,6 +100,8 @@ export default function SessionScreen() {
   // and drive the field height ourselves (clamped to [minHeight, maxHeight]).
   // null = natural height (floor applies).
   const [composerHeight, setComposerHeight] = useState<number | null>(null)
+  // Native handle for scroll resets (see clearComposer below).
+  const fieldRef = useRef<TextInput | null>(null)
   const [showInfo, setShowInfo] = useState(false)
   const [keyboardY, setKeyboardY] = useState<number | null>(null)
 
@@ -358,6 +360,22 @@ export default function SessionScreen() {
     }
   }, [currentSession?.id, messages?.length])
 
+  // Clear the composer back to its resting geometry: empty text, floor
+  // height, native scroll at the top. All three must move together:
+  // - setInput("") alone is not enough: on Android a contentSize event for
+  //   the pre-clear text can land AFTER the reset (see the gate in
+  //   onContentSizeChange) and resurrect a tall box, and the native scroll
+  //   offset survives the clear — the next typed line then paints shifted
+  //   over the top padding;
+  // - setComposerHeight(null) alone snaps the box but not the scroll.
+  // Selection 0 forces the native scroll to the top synchronously, before
+  // the async clear lands — either order ends at offset 0.
+  const clearComposer = useCallback(() => {
+    setInput("")
+    setComposerHeight(null)
+    fieldRef.current?.setNativeProps({ selection: { start: 0, end: 0 } })
+  }, [])
+
   // Slash command handler
   const handleSlashSelect = useCallback(
     (cmd: SlashCommand) => {
@@ -368,14 +386,14 @@ export default function SessionScreen() {
             return
           case "model":
           case "agent":
-            setInput("")
+            clearComposer()
             setAiModalVisible(true)
             return
         }
       }
       setInput(`/${cmd.trigger} `)
     },
-    [router],
+    [clearComposer, router],
   )
 
   // --- Image picking ---
@@ -480,11 +498,10 @@ export default function SessionScreen() {
 
     const text = input.trim()
     const files = [...attachments]
-    setInput("")
     setAttachments([])
-    // Reset the controlled height together with the text — the native
+    // Reset the controlled geometry together with the text — the native
     // measurement doesn't reliably shrink on its own after a clear.
-    setComposerHeight(null)
+    clearComposer()
 
     // Server slash commands (no attachments for commands)
     if (text.startsWith("/") && files.length === 0) {
@@ -676,9 +693,8 @@ export default function SessionScreen() {
                   // The composer was prefilled with the reverted message's text/
                   // attachments (see applyRevertResult) — clear it so Undo doesn't
                   // leave a stale draft that could be sent as a duplicate.
-                  setInput("")
                   setAttachments([])
-                  setComposerHeight(null)
+                  clearComposer()
                 }}
                 hitSlop={8}
               >
@@ -777,6 +793,7 @@ export default function SessionScreen() {
         >
           <View style={s.inputRow}>
             <TextInput
+              ref={fieldRef}
               style={[
                 s.input,
                 isDark && s.inputDark,
@@ -793,7 +810,22 @@ export default function SessionScreen() {
               placeholderTextColor={speech.listening ? "#ef4444" : isDark ? "#666666" : "#999999"}
               value={speech.listening ? speech.transcript : input}
               onChangeText={speech.listening ? undefined : setInput}
-              onContentSizeChange={(e) => setComposerHeight(e.nativeEvent.contentSize.height)}
+              onContentSizeChange={(e) => {
+                // Ignore measurements for already-cleared text: on Android a
+                // contentSize event for the pre-clear content can arrive AFTER
+                // the reset above and would otherwise resurrect a tall box (or
+                // poison the floor) under empty text. Empty always means the
+                // minimum height — setComposerHeight(null) on an already-null
+                // value bails out without a render, so this can't loop.
+                // Voice transcripts render through `value` while `input` stays
+                // empty, so listening mode is exempt — the transcript must
+                // keep growing the box.
+                if (!speech.listening && !inputRef.current) {
+                  setComposerHeight(null)
+                  return
+                }
+                setComposerHeight(e.nativeEvent.contentSize.height)
+              }}
               editable={!speech.listening}
               multiline
               scrollEnabled
