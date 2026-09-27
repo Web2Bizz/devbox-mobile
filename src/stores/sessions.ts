@@ -3,6 +3,7 @@ import { type Session, type Message, type Part, type Event, type MessageWithPart
 import { useConnections } from "./connections"
 import { useSettings } from "./settings"
 import { mergeIncomingMessage } from "../lib/message-merge"
+import { applyIncomingParts } from "../lib/part-merge"
 import { isColdSessionLoad, isLiveEventForSession } from "../lib/session-load-reconcile"
 import { queryClient } from "../lib/query-client"
 import { queryKeys } from "../lib/query-keys"
@@ -341,12 +342,24 @@ export const useSessions = create<SessionsState>((set, get) => ({
     const props = (event as any).properties || {}
 
     switch (event.type) {
+      // A streaming reply announces its row via message.created and its final
+      // state via message.updated — same merge for both, or text accumulates
+      // invisibly and pops in whole at completion.
+      case "message.created":
       case "message.updated": {
         const message = (props.info || props.message) as Message | undefined
         if (!message || !isLiveEventForSession(message.sessionID, currentSession.id)) return
 
+        // Some servers batch part snapshots into message.updated (or a
+        // part.updated got lost) — merge them so text never waits for a full
+        // refresh to appear. Merge, don't replace: live part.updated rows may
+        // already be newer than this snapshot.
+        const incomingParts = Array.isArray((props as { parts?: unknown }).parts)
+          ? ((props as { parts: Part[] }).parts ?? [])
+          : []
         set((state) => ({
           messages: mergeIncomingMessage(state.messages, message),
+          parts: applyIncomingParts(state.parts, message.id, incomingParts),
           // A live update for the session on screen is proof it has content
           // to show — clear any stuck spinner even if the initial (or a
           // redundant re-focus) GET hasn't resolved yet, or never does
@@ -362,21 +375,12 @@ export const useSessions = create<SessionsState>((set, get) => ({
         // Only handle parts for current session
         if (part.sessionID && part.sessionID !== currentSession.id) return
 
-        set((state) => {
-          const messageParts = state.parts[part.messageID] || []
-          const exists = messageParts.some((p) => p.id === part.id)
-          return {
-            parts: {
-              ...state.parts,
-              [part.messageID]: exists
-                ? messageParts.map((p) => (p.id === part.id ? part : p))
-                : [...messageParts, part],
-            },
-            // See message.updated above — a live part update is just as
-            // much proof of life as a message update.
-            isLoading: false,
-          }
-        })
+        set((state) => ({
+          parts: applyIncomingParts(state.parts, part.messageID, [part]),
+          // See message.updated above — a live part update is just as
+          // much proof of life as a message update.
+          isLoading: false,
+        }))
         break
       }
 

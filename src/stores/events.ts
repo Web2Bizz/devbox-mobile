@@ -411,10 +411,20 @@ export const useEvents = create<EventsState>((set, get) => ({
               break
             }
 
+            // A new row (e.g. the assistant reply starting to stream) arrives
+            // as message.created; the final state as message.updated. Both
+            // carry the same shape — handle identically, or streaming text
+            // accumulates invisibly and pops in whole at completion.
+            case "message.created":
             case "message.updated": {
               const info = props.info as Message | undefined
               if (!info) break
-              useSessions.getState().handleEvent({ type, properties: { info } } as any)
+              // Forward any batched parts — the store merges them into the
+              // live parts map (see handleEvent), so servers that batch parts
+              // into message.updated still stream instead of popping in whole.
+              useSessions
+                .getState()
+                .handleEvent({ type, properties: { info, parts: props.parts } } as any)
               break
             }
 
