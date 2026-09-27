@@ -1,6 +1,5 @@
 import { memo } from "react"
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
 import { Markdown } from "../markdown"
 import { ToolCallCard } from "./ToolCallCard"
 import { ReasoningBlock } from "./ReasoningBlock"
@@ -48,15 +47,6 @@ export const MessageBubble = memo(
         ]}
         testID={`chat-bubble-${message.role}`}
       >
-        {/* Role indicator — only for user, assistant header removed per request */}
-        {isUser && (
-          <View style={s.header}>
-            <Ionicons name="person" size={14} color={isDark ? "#888888" : "#666666"} />
-            <Text style={[s.role, s.roleUser, isDark && s.textWhite]}>You</Text>
-            {message.model && <Text style={[s.modelTag, isDark && s.modelTagDark]}>{message.model.modelID}</Text>}
-          </View>
-        )}
-
         {/* Image attachments */}
         {fileParts.length > 0 && (
           <ScrollView
@@ -149,21 +139,7 @@ const s = StyleSheet.create({
   },
   assistantDark: { backgroundColor: "transparent" },
 
-  header: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  role: { fontSize: 13, fontWeight: "600", color: "#666666" },
-  roleUser: { color: "#0a0a0a" },
   textWhite: { color: "#ffffff" },
-
-  modelTag: {
-    fontSize: 11,
-    color: "#999999",
-    backgroundColor: "#e5e5e5",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  modelTagDark: { backgroundColor: "#2a2a2a", color: "#888888" },
 
   messageText: { fontSize: 15, lineHeight: 22, color: "#0a0a0a" },
   markdownWrap: { marginHorizontal: -4 },
