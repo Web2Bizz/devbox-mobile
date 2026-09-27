@@ -1,9 +1,8 @@
-import { useCallback, useMemo, useState, useRef } from "react"
+import { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import {
   View,
   Text,
   FlatList,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   useColorScheme,
@@ -23,9 +22,13 @@ import { useSessionsList, useCreateSession, useDeleteSession, useRenameSession }
 import { useProjectInfo, useServerProjects } from "../../src/queries/project"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
-import type BottomSheet from "@gorhom/bottom-sheet"
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetScrollView,
+  type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet"
 import type { Project } from "../../src/lib/sdk"
-import { DirectorySwitcher, DirectoryBrowserSheet } from "../../src/components/chat"
+import { DirectorySwitcher, DirectoryBrowserSheet, SheetHandle } from "../../src/components/chat"
 import { groupProjects } from "../../src/lib/session-grouping"
 import { lanConnectionIds } from "../../src/lib/listed-session"
 import type { ListedSession } from "../../src/lib/listed-session"
@@ -120,7 +123,6 @@ export default function SessionsScreen() {
   const { t } = useTranslation()
   const [showNewSession, setShowNewSession] = useState(false)
   const { showNewProject, closeNewProject } = useUi()
-  const [customDir, setCustomDir] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [renaming, setRenaming] = useState<ListedSession | null>(null)
   const [renameText, setRenameText] = useState("")
@@ -159,6 +161,26 @@ export default function SessionsScreen() {
   const reconnect = useEvents((s) => s.connect)
   const dirSheetRef = useRef<BottomSheet>(null)
   const browserSheetRef = useRef<BottomSheet>(null)
+  // New-project bottom sheet (replaces the old RN modal): driven by two
+  // sources — local state (FAB long-press and friends) and the global UI
+  // store (navbar tab). Imperative expand/close keeps it in sync with both.
+  const newSheetRef = useRef<BottomSheet>(null)
+  const newSheetOpen = showNewSession || showNewProject
+  useEffect(() => {
+    if (newSheetOpen) newSheetRef.current?.expand()
+    else newSheetRef.current?.close()
+  }, [newSheetOpen])
+  const closeNewSession = useCallback(() => {
+    setShowNewSession(false)
+    closeNewProject()
+  }, [closeNewProject])
+  const newSheetSnapPoints = useMemo(() => ["70%", "92%"], [])
+  const renderNewSheetBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" opacity={0.5} />
+    ),
+    [],
+  )
   const [browseStartDir, setBrowseStartDir] = useState<string | null>(null)
   // Shared folder browser is opened either to pick a directory for a new
   // session, or to switch the active connection's directory.
@@ -264,27 +286,10 @@ export default function SessionsScreen() {
     [deleteSession, t],
   )
 
-  const onCreateSession = async () => {
-    if (creatingInFlight.current) return
-    creatingInFlight.current = true
-    try {
-      const { created: session, connectionId } = await createSession.mutateAsync()
-      router.push({
-        pathname: `/session/[id]`,
-        params: {
-          id: session.id,
-          ...(session.directory ? { directory: session.directory } : {}),
-          connectionId,
-        },
-      })
-    } catch {
-      Alert.alert(t("common.error"), t("sessionsList.alerts.createFailedMessage"))
-    } finally {
-      creatingInFlight.current = false
-    }
-  }
-
-  const onCreateInDirectory = async (dir?: string) => {
+  // Sessions are only ever created inside an explicitly chosen,
+  // already-downloaded project (recents / server list / folder browser) —
+  // never at the server root and never from a hand-typed path.
+  const onCreateInDirectory = async (dir: string) => {
     if (!activeConnection) return
     if (creatingInFlight.current) return
     creatingInFlight.current = true
@@ -294,12 +299,9 @@ export default function SessionsScreen() {
       // A custom directory uses a one-off client for that directory (the
       // mutation handles this via clientForDirectory) so the connection's
       // default project is never mutated.
-      const { created: session, connectionId } = await createSession.mutateAsync(
-        dir && dir.trim() ? { directory: dir.trim() } : undefined,
-      )
+      const { created: session, connectionId } = await createSession.mutateAsync({ directory: dir.trim() })
       setShowNewSession(false)
       closeNewProject()
-      setCustomDir("")
       router.push({
         pathname: `/session/[id]`,
         params: {
@@ -317,29 +319,19 @@ export default function SessionsScreen() {
     }
   }
 
-  // The browser sheet is a sibling of the New Session <Modal>. A native RN
-  // Modal layers above everything in the React root (including bottom-sheet
-  // portals), so the modal must be closed before the sheet is shown; this ref
-  // remembers to bring it back if the user cancels without picking a folder.
-  const restoreNewSessionOnDismiss = useRef(false)
-
+  // Both pickers are bottom sheets now, so they stack naturally (browser on
+  // top) — no modal juggling and no restore dance needed.
   const openBrowser = useCallback(
     (startDir: string | null, mode: "create" | "switch") => {
       setBrowseStartDir(startDir || serverHome || null)
       setBrowseMode(mode)
-      if (mode === "create" && (showNewSession || showNewProject)) {
-        restoreNewSessionOnDismiss.current = true
-        setShowNewSession(false)
-        closeNewProject()
-      }
       browserSheetRef.current?.expand()
     },
-    [serverHome, showNewSession, showNewProject, closeNewProject],
+    [serverHome],
   )
 
   const onBrowserSelect = useCallback(
     (directory: string) => {
-      restoreNewSessionOnDismiss.current = false
       if (browseMode === "switch") {
         handleSwitchDirectory(directory)
         dirSheetRef.current?.close()
@@ -350,26 +342,8 @@ export default function SessionsScreen() {
     [browseMode, handleSwitchDirectory, onCreateInDirectory],
   )
 
-  const onBrowserDismiss = useCallback(() => {
-    if (restoreNewSessionOnDismiss.current) {
-      restoreNewSessionOnDismiss.current = false
-      // Restore whichever modal was open (new project takes precedence)
-      if (showNewProject) {
-        // Already handled via store — no need to set
-      } else {
-        setShowNewSession(true)
-      }
-    }
-  }, [showNewProject])
-
-  const onFabPress = () => {
-    // Quick create in current project
-    onCreateSession()
-  }
-
   const onFabLongPress = () => {
-    // Show modal with more options
-    setCustomDir("")
+    // Show the new-project sheet with more options
     setShowNewSession(true)
   }
 
@@ -488,61 +462,38 @@ export default function SessionsScreen() {
 
       {/* FAB removed per request */}
 
-      {/* New Session Info Modal — also opened via Navbar New Project button */}
-      <Modal
-        visible={showNewSession || showNewProject}
-        animationType="slide"
-        transparent
-        onRequestClose={() => {
-          setShowNewSession(false)
-          closeNewProject()
+      {/* New Project bottom sheet — also opened via Navbar New Project button.
+          Only already-downloaded projects can be picked here (recents, server
+          list, folder browser): no hand-typed paths and no server-root
+          default, so sessions can never land in the projects root. */}
+      <BottomSheet
+        ref={newSheetRef}
+        index={-1}
+        snapPoints={newSheetSnapPoints}
+        enableDynamicSizing={false}
+        enablePanDownToClose
+        enableHandlePanningGesture
+        handleComponent={SheetHandle}
+        backdropComponent={renderNewSheetBackdrop}
+        backgroundStyle={[styles.sheet, isDark && styles.sheetDark]}
+        onChange={(index) => {
+          if (index === -1) closeNewSession()
         }}
       >
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-          <TouchableOpacity
-            style={styles.modalDismiss}
-            activeOpacity={1}
-            onPress={() => {
-              setShowNewSession(false)
-              closeNewProject()
-            }}
-          />
-          <View style={[styles.modalContent, isDark && styles.modalContentDark]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, isDark && styles.textDark]}>{t("sessionsList.newSessionModal.title")}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowNewSession(false)
-                  closeNewProject()
-                }}
-              >
-                <Ionicons name="close" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
-              </TouchableOpacity>
-            </View>
+        <View style={styles.modalHeader}>
+          <Text style={[styles.modalTitle, isDark && styles.textDark]}>{t("sessionsList.newSessionModal.title")}</Text>
+          <TouchableOpacity onPress={closeNewSession}>
+            <Ionicons name="close" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
+          </TouchableOpacity>
+        </View>
 
-            <ScrollView style={styles.modalScrollBody} keyboardShouldPersistTaps="handled">
-              {/* Current directory — tapping creates session immediately */}
+        <BottomSheetScrollView style={styles.modalScrollBody} contentContainerStyle={styles.modalScrollContent}>
+          {/* Recent projects */}
+          {recentDirectories.length > 0 && (
+            <>
               <Text style={[styles.modalLabel, isDark && styles.metaDark]}>
-                {t("sessionsList.newSessionModal.currentProjectLabel")}
+                {t("sessionsList.newSessionModal.recentProjectsLabel")}
               </Text>
-              <TouchableOpacity
-                style={[styles.modalDirBox, isDark && styles.modalDirBoxDark]}
-                onPress={() => onCreateInDirectory()}
-                disabled={isCreating}
-              >
-                <Ionicons name="folder" size={20} color={isDark ? colors.accentPale : colors.accentStrong} />
-                <Text style={[styles.modalDirText, isDark && styles.textDark]} numberOfLines={2}>
-                  {currentProject?.path?.absolute || activeConnection?.directory || t("sessionsList.newSessionModal.serverDefault")}
-                </Text>
-                <Ionicons name="arrow-forward-circle" size={20} color={isDark ? colors.accentPale : colors.accentStrong} />
-              </TouchableOpacity>
-
-              {/* Recent projects */}
-              {recentDirectories.length > 0 && (
-                <>
-                  <Text style={[styles.modalLabel, isDark && styles.metaDark, { marginTop: 16 }]}>
-                    {t("sessionsList.newSessionModal.recentProjectsLabel")}
-                  </Text>
                   {recentDirectories.map((dir) => {
                     const short = dir.split("/").filter(Boolean).pop() || dir
                     const isCurrent =
@@ -663,93 +614,8 @@ export default function SessionsScreen() {
                 <Ionicons name="chevron-forward" size={16} color={isDark ? "#666666" : "#999999"} />
               </TouchableOpacity>
 
-              {/* Manual path input fallback */}
-              <Text style={[styles.modalLabel, isDark && styles.metaDark, { marginTop: 16 }]}>
-                {t("sessionsList.newSessionModal.enterPathLabel")}
-              </Text>
-              <TextInput
-                style={[styles.modalInput, isDark && styles.modalInputDark]}
-                placeholder={serverHome ? `${serverHome}/...` : "/path/to/project"}
-                placeholderTextColor={isDark ? "#666666" : "#999999"}
-                value={customDir}
-                onChangeText={(text) => {
-                  // Expand ~ to server home directory
-                  if (serverHome && text.startsWith("~/")) {
-                    setCustomDir(serverHome + text.slice(1))
-                  } else if (serverHome && text === "~") {
-                    setCustomDir(serverHome)
-                  } else {
-                    setCustomDir(text)
-                  }
-                }}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              {/* Quick path shortcuts */}
-              {serverHome && (
-                <View style={styles.pathChips}>
-                  <TouchableOpacity
-                    style={[styles.pathChip, isDark && styles.pathChipDark]}
-                    onPress={() => setCustomDir(serverHome)}
-                  >
-                    <Text style={[styles.pathChipText, isDark && styles.pathChipTextDark]}>~</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.pathChip, isDark && styles.pathChipDark]}
-                    onPress={() => setCustomDir(serverHome + "/")}
-                  >
-                    <Text style={[styles.pathChipText, isDark && styles.pathChipTextDark]}>~/</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              {customDir.trim() ? (
-                <TouchableOpacity
-                  style={[
-                    styles.modalButton,
-                    styles.modalButtonPrimary,
-                    isDark && styles.modalButtonPrimaryDark,
-                    styles.modalButtonFull,
-                  ]}
-                  onPress={() => onCreateInDirectory(customDir)}
-                  disabled={isCreating}
-                >
-                  {isCreating ? (
-                    <ActivityIndicator size="small" color={isDark ? "#0a0a0a" : "#ffffff"} />
-                  ) : (
-                    <Text style={[styles.modalButtonTextPrimary, isDark && styles.modalButtonTextPrimaryDark]}>
-                      {t("sessionsList.newSessionModal.createInButton", {
-                        dir: customDir.split("/").filter(Boolean).pop() || customDir,
-                      })}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[
-                    styles.modalButton,
-                    styles.modalButtonPrimary,
-                    isDark && styles.modalButtonPrimaryDark,
-                    styles.modalButtonFull,
-                  ]}
-                  onPress={() => onCreateInDirectory()}
-                  disabled={isCreating}
-                >
-                  {isCreating ? (
-                    <ActivityIndicator size="small" color={isDark ? "#0a0a0a" : "#ffffff"} />
-                  ) : (
-                    <Text style={[styles.modalButtonTextPrimary, isDark && styles.modalButtonTextPrimaryDark]}>
-                      {t("sessionsList.newSessionModal.createSessionButton")}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+            </BottomSheetScrollView>
+      </BottomSheet>
 
       {/* Rename modal */}
       <Modal visible={!!renaming} animationType="fade" transparent>
@@ -811,7 +677,6 @@ export default function SessionsScreen() {
         clientForDirectory={clientForDirectory}
         isDark={isDark}
         onSelect={onBrowserSelect}
-        onDismiss={onBrowserDismiss}
       />
     </View>
   )
@@ -1018,21 +883,20 @@ const styles = StyleSheet.create({
   modalDismiss: {
     flex: 1,
   },
-  modalContent: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 40,
-  },
-  modalContentDark: {
-    backgroundColor: "#1a1a1a",
-  },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+    paddingHorizontal: 16,
+  },
+  sheet: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  sheetDark: {
+    backgroundColor: "#1a1a1a",
   },
   modalTitle: {
     fontSize: 20,
@@ -1044,7 +908,10 @@ const styles = StyleSheet.create({
   },
   modalScrollBody: {
     maxHeight: 420,
-    marginBottom: 16,
+  },
+  modalScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
   projectRow: {
     flexDirection: "row",
@@ -1085,22 +952,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: "uppercase",
   },
-  modalDirBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#f5f5f5",
-    padding: 16,
-    borderRadius: 12,
-  },
-  modalDirBoxDark: {
-    backgroundColor: "#2a2a2a",
-  },
-  modalDirText: {
-    fontSize: 15,
-    color: "#0a0a0a",
-    flex: 1,
-  },
   modalInput: {
     backgroundColor: "#f5f5f5",
     borderRadius: 12,
@@ -1113,51 +964,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#2a2a2a",
     color: "#ffffff",
   },
-  pathChips: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 8,
-  },
-  pathChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: colors.accentChipBg,
-    borderRadius: 16,
-  },
-  pathChipDark: {
-    backgroundColor: colors.accentChipBgDark,
-  },
-  pathChipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.accentStrong,
-  },
-  pathChipTextDark: {
-    color: colors.accentExtraPale,
-  },
   modalHint: {
     fontSize: 13,
     color: "#666666",
     marginTop: 12,
-  },
-  modalActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    padding: 16,
-    borderRadius: 12,
-  },
-  modalButtonSecondary: {
-    backgroundColor: "#f5f5f5",
-  },
-  modalButtonSecondaryDark: {
-    backgroundColor: "#2a2a2a",
   },
   modalButtonPrimary: {
     backgroundColor: "#0a0a0a",
@@ -1177,10 +987,6 @@ const styles = StyleSheet.create({
   },
   modalButtonTextPrimaryDark: {
     color: "#0a0a0a",
-  },
-  modalButtonFull: {
-    flex: 0,
-    width: "100%",
   },
   // Rename modal
   renameCard: {
