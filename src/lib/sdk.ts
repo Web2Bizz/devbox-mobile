@@ -266,6 +266,13 @@ export function createClient(config: ClientConfig) {
         const headers = createHeaders(config)
         // Remove Content-Type for SSE (it's text/event-stream)
         delete (headers as Record<string, string>)["Content-Type"]
+        // Per the SSE spec the client must announce it wants an event stream:
+        // some servers/proxies only switch to streaming mode (no buffering,
+        // correct framing) when they see this. Without it a proxy may buffer
+        // the whole stream and deliver everything in one burst at the end —
+        // which looks exactly like "no streaming, text pops in whole".
+        ;(headers as Record<string, string>)["Accept"] = "text/event-stream"
+        ;(headers as Record<string, string>)["Cache-Control"] = "no-cache"
 
         // Must use expo/fetch for ReadableStream support on native
         const response = await expoFetch(url, { headers, signal })
