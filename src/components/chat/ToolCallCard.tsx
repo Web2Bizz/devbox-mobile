@@ -378,7 +378,11 @@ const s = StyleSheet.create({
     backgroundColor: "transparent",
     padding: 0,
     borderRadius: 0,
-    marginTop: 8,
+    // No margins here by design: spacing between cards (and between text and
+    // cards) is owned by the parent's toolList container (uniform gap), so a
+    // series split across several messages keeps the same rhythm instead of
+    // alternating tight/stacked gaps.
+    marginTop: 0,
     borderWidth: 0,
   },
   cardDark: { backgroundColor: "transparent", borderColor: "transparent" },
