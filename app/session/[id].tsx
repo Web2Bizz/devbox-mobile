@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
 } from "react-native"
 import { useLocalSearchParams, Stack, useRouter, useFocusEffect } from "expo-router"
+import type BottomSheet from "@gorhom/bottom-sheet"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { useTranslation } from "react-i18next"
@@ -100,7 +101,7 @@ export default function SessionScreen() {
   const { t } = useTranslation()
 
   const flatListRef = useRef<FlatList>(null)
-  const [aiModalVisible, setAiModalVisible] = useState(false)
+  const aiSheetRef = useRef<BottomSheet | null>(null)
   const [input, setInput] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
   // Explicit composer height: the native multiline measurement doesn't reliably
@@ -447,7 +448,7 @@ export default function SessionScreen() {
           case "model":
           case "agent":
             clearComposer()
-            setAiModalVisible(true)
+            aiSheetRef.current?.expand()
             return
         }
       }
@@ -923,7 +924,7 @@ export default function SessionScreen() {
                 {!speech.listening && (
                   <TouchableOpacity
                     style={s.overlayBtn}
-                    onPress={() => setAiModalVisible(true)}
+                    onPress={() => aiSheetRef.current?.expand()}
                     testID="ai-settings-button"
                     accessibilityLabel={aiSummary}
                   >
@@ -975,7 +976,7 @@ export default function SessionScreen() {
 
       {/* AI settings dialog (agent + model + reasoning effort) */}
       <AiSettingsModal
-        visible={aiModalVisible}
+        sheetRef={aiSheetRef}
         agents={agents}
         selectedAgent={agent}
         providers={providers}
@@ -986,7 +987,6 @@ export default function SessionScreen() {
         onSelectAgent={setAgent}
         onSelectModel={(providerID, modelID) => setModel({ providerID, modelID })}
         onSelectVariant={setVariant}
-        onClose={() => setAiModalVisible(false)}
       />
     </>
   )

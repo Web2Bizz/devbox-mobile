@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useMemo } from "react"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, {
@@ -24,7 +24,6 @@ interface Provider {
 }
 
 interface Props {
-  visible: boolean
   agents: AgentItem[]
   selectedAgent: string
   providers: Provider[]
@@ -35,7 +34,12 @@ interface Props {
   onSelectAgent: (name: string) => void
   onSelectModel: (providerID: string, modelID: string) => void
   onSelectVariant: (variant: string | null) => void
-  onClose: () => void
+  // Parent-owned ref — the sheet is UNCONTROLLED (no `visible` prop): the
+  // parent opens/closes it imperatively, exactly like the folder sheets.
+  // A controlled `visible` + onChange→close feedback loop proved fragile
+  // here (spurious close commands cancel the opening animation), so this
+  // deliberately keeps no open/close state of its own.
+  sheetRef: React.RefObject<BottomSheet | null>
 }
 
 const MODEL_ID_SEP = "/"
@@ -43,13 +47,13 @@ const MODEL_ID_SEP = "/"
 // Single AI settings sheet: agent + model + reasoning effort as three
 // custom Select dropdowns in app theme. A real bottom sheet (draggable
 // handle, swipe-down to close) built on the SAME proven recipe as the folder
-// sheets (BottomSheet + index -1 + imperative expand/close): BottomSheetModal
-// present()/dismiss() proved unreliable on this stack (upstream portal and
-// dynamic-sizing flakiness in 5.2.x — the sheet silently never opened). The
-// `visible` prop API is kept so callers don't change. Model selection closes
-// the dialog; agent/effort stay open so several settings can change in one go.
+// sheets (BottomSheet + index -1 + imperative expand/close via a parent-owned
+// ref): BottomSheetModal present()/dismiss() proved unreliable on this stack
+// (upstream portal and dynamic-sizing flakiness in 5.2.x — the sheet silently
+// never opened), and a controlled `visible` prop with an onChange→close loop
+// backfires the same way. Model selection closes the dialog; agent/effort
+// stay open so several settings can change in one go.
 export function AiSettingsModal({
-  visible,
   agents,
   selectedAgent,
   providers,
@@ -60,15 +64,9 @@ export function AiSettingsModal({
   onSelectAgent,
   onSelectModel,
   onSelectVariant,
-  onClose,
+  sheetRef,
 }: Props) {
   const { t } = useTranslation()
-  const sheetRef = useRef<BottomSheet>(null)
-
-  useEffect(() => {
-    if (visible) sheetRef.current?.expand()
-    else sheetRef.current?.close()
-  }, [visible])
 
   const snapPoints = useMemo(() => ["60%", "92%"], [])
   const renderBackdrop = useCallback(
@@ -151,19 +149,13 @@ export function AiSettingsModal({
       handleComponent={SheetHandle}
       backdropComponent={renderBackdrop}
       backgroundStyle={[s.sheet, isDark && s.sheetDark]}
-      // Gesture/button dismiss flows back through onClose so the parent's
-      // `visible` stays the single source of truth (closing an already
-      // closed sheet below is a no-op, so this can't loop).
-      onChange={(index) => {
-        if (index === -1) onClose()
-      }}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
       <View style={s.titleRow}>
         <Text style={[s.title, isDark && s.textWhite]}>{t("chat.aiSettings.title")}</Text>
-        <TouchableOpacity onPress={onClose} hitSlop={12} testID="ai-settings-close">
+        <TouchableOpacity onPress={() => sheetRef.current?.close()} hitSlop={12} testID="ai-settings-close">
           <Ionicons name="close" size={22} color={isDark ? "#888888" : "#666666"} />
         </TouchableOpacity>
       </View>
@@ -195,7 +187,7 @@ export function AiSettingsModal({
             if (!id) return
             const sep = id.indexOf(MODEL_ID_SEP)
             onSelectModel(id.slice(0, sep), id.slice(sep + 1))
-            onClose()
+            sheetRef.current?.close()
           }}
           searchPlaceholder={t("chat.modelPicker.searchPlaceholder")}
           testID="model-select"
