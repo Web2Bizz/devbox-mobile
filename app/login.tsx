@@ -63,6 +63,13 @@ export default function LoginScreen() {
     await store.setActiveConnection(id)
     setLanVisible(false)
   }
+
+  // Discovery entry point: the tap itself is consent, so it enables the
+  // setting on the fly instead of forcing a detour through Settings first.
+  const handleFindLan = async () => {
+    if (!lanDiscovery) await setLanDiscovery(true)
+    setLanVisible(true)
+  }
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
       Alert.alert("Ошибка", "Введите логин и пароль")
@@ -167,19 +174,7 @@ export default function LoginScreen() {
           </View>
 
           {entryMode === "local" &&
-            (!lanDiscovery ? (
-              <>
-                <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{t("lan.localHint")}</Text>
-                <TouchableOpacity
-                  style={[styles.lanButton, isDark && styles.lanButtonDark]}
-                  onPress={() => setLanDiscovery(true)}
-                  testID="login-lan-enable-button"
-                >
-                  <Ionicons name="wifi-outline" size={20} color={isDark ? "#ffffff" : "#0a0a0a"} />
-                  <Text style={[styles.lanButtonText, isDark && styles.textDark]}>{t("lan.enableSearch")}</Text>
-                </TouchableOpacity>
-              </>
-            ) : activeConnection?.discoveredOnLan ? (
+            (activeConnection?.discoveredOnLan ? (
               <>
                 <View style={[styles.serverBox, isDark && styles.serverBoxDark]}>
                   <Ionicons name="wifi" size={16} color={isDark ? "#888888" : "#666666"} />
@@ -189,7 +184,7 @@ export default function LoginScreen() {
                 </View>
                 <TouchableOpacity
                   style={[styles.lanButton, isDark && styles.lanButtonDark]}
-                  onPress={() => setLanVisible(true)}
+                  onPress={handleFindLan}
                   testID="login-lan-find-another"
                 >
                   <Ionicons name="search-outline" size={20} color={isDark ? "#ffffff" : "#0a0a0a"} />
@@ -201,7 +196,7 @@ export default function LoginScreen() {
                 <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{t("lan.localHint")}</Text>
                 <TouchableOpacity
                   style={[styles.lanButton, isDark && styles.lanButtonDark]}
-                  onPress={() => setLanVisible(true)}
+                  onPress={handleFindLan}
                   testID="login-lan-find-button"
                 >
                   <Ionicons name="wifi-outline" size={20} color={isDark ? "#ffffff" : "#0a0a0a"} />

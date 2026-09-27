@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
+import { BottomSheetFlatList, BottomSheetTextInput } from "@gorhom/bottom-sheet"
 import { Ionicons } from "@expo/vector-icons"
 import { colors } from "../../lib/theme"
 
@@ -23,7 +24,8 @@ interface Props {
 
 // Custom dropdown in app theme: bordered box, collapsible option list,
 // checkmark on the selected value. Expands inline (accordion) so it works
-// inside any dialog without nested modals.
+// inside any dialog without nested modals. Uses the bottom-sheet gesture
+// variants so scrolling/search keep working inside a BottomSheetModal.
 export function Select({ label, options, selectedId, isDark, onSelect, testID, searchPlaceholder }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [query, setQuery] = useState("")
@@ -113,7 +115,7 @@ export function Select({ label, options, selectedId, isDark, onSelect, testID, s
       {expanded && (
         <View style={s.list}>
           {!!searchPlaceholder && (
-            <TextInput
+            <BottomSheetTextInput
               style={[s.search, isDark && s.searchDark]}
               placeholder={searchPlaceholder}
               placeholderTextColor={isDark ? "#666666" : "#999999"}
@@ -123,10 +125,10 @@ export function Select({ label, options, selectedId, isDark, onSelect, testID, s
               autoCapitalize="none"
             />
           )}
-          <FlatList
+          <BottomSheetFlatList
             style={s.optionsScroll}
             data={rows}
-            keyExtractor={(item) => item.key}
+            keyExtractor={(item: Row) => item.key}
             renderItem={renderRow}
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"

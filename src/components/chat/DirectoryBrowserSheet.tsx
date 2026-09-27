@@ -1,13 +1,19 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetTextInput } from "@gorhom/bottom-sheet"
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetFlatList,
+  BottomSheetTextInput,
+  type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
 import type { Client, FileEntry } from "../../lib/sdk"
 import { parentOf, nameOf, breadcrumbsOf } from "../../lib/path-utils"
 import { normalizeRoots, type FileRoot } from "../../lib/file-roots"
 import { MOCK_HOME, MOCK_ROOTS, listMockDir } from "../../lib/fs-mock"
 import { colors } from "../../lib/theme"
+import { SheetHandle } from "./SheetHandle"
 
 // Fake latency so the mock mode feels like the real API during UI review.
 const MOCK_DELAY_MS = 350
@@ -227,11 +233,21 @@ export function DirectoryBrowserSheet({
 
   const canGoUp = !!browseDir && !!parentOf(browseDir)
 
+  // Memoized for the same reason as in DirectorySwitcher: fresh literals on
+  // every render remount the backdrop and can interrupt an in-progress drag.
+  const snapPoints = useMemo(() => ["65%", "92%"], [])
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+    ),
+    [],
+  )
+
   return (
     <BottomSheet
       ref={sheetRef}
       index={-1}
-      snapPoints={["65%", "92%"]}
+      snapPoints={snapPoints}
       // Static percentage snapPoints are provided above, but @gorhom/bottom-sheet
       // v5 defaults enableDynamicSizing to true, which requires content wrapped
       // in a size-reporting component (BottomSheetView) to ever compute a valid
@@ -241,14 +257,14 @@ export function DirectoryBrowserSheet({
       // explicit snapPoints above are used directly. See GitHub issue #104.
       enableDynamicSizing={false}
       enablePanDownToClose
+      // Explicit (true by default): the handle pill must stay draggable.
+      enableHandlePanningGesture
+      handleComponent={SheetHandle}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
       backgroundStyle={isDark ? s.sheetDark : s.sheet}
-      handleIndicatorStyle={{ backgroundColor: isDark ? "#666666" : "#cccccc" }}
-      backdropComponent={(props) => (
-        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-      )}
+      backdropComponent={renderBackdrop}
       onChange={handleSheetChange}
     >
       <View style={s.header}>
