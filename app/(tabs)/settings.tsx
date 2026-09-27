@@ -82,6 +82,14 @@ function ServerRow({
   onEdit: () => void
 }) {
   const { t } = useTranslation()
+  // Subtitle under a server name: LAN entries show their address (needed to
+  // tell several apart); the main server's domain is never shown. A pending
+  // login warning takes precedence over both.
+  const subtitle = needsLogin
+    ? t("settings.servers.needsLogin")
+    : connection.discoveredOnLan
+      ? connection.url
+      : undefined
   return (
     <View style={styles.serverRow}>
       <TouchableOpacity
@@ -99,9 +107,11 @@ function ServerRow({
           <Text style={[styles.settingLabel, isDark && styles.textDark]} numberOfLines={1}>
             {connection.name}
           </Text>
-          <Text style={[styles.settingDescription, isDark && styles.metaDark]} numberOfLines={1}>
-            {needsLogin ? t("settings.servers.needsLogin") : connection.url}
-          </Text>
+          {subtitle && (
+            <Text style={[styles.settingDescription, isDark && styles.metaDark]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          )}
         </View>
         {isActive && (
           <View style={[styles.activeBadge, isDark && styles.activeBadgeDark]}>
@@ -208,8 +218,9 @@ export default function SettingsScreen() {
   const mainConnections = connections.filter((c) => !c.discoveredOnLan)
   const lanConnections = connections.filter((c) => c.discoveredOnLan)
 
-  // All settings as a single profile-style card list with dividers
-  const rows: React.ReactNode[] = [
+  // Security rows live in their own section below; everything else stays in
+  // the main card.
+  const securityRows: React.ReactNode[] = [
     <SettingRow
       key="biometric-open"
       icon="finger-print"
@@ -257,20 +268,10 @@ export default function SettingsScreen() {
           />,
         ]
       : []),
-    <SettingRow
-      key="lan-discovery"
-      icon="wifi"
-      label={t("lan.settingsLabel")}
-      description={t("lan.settingsDescription")}
-      isDark={isDark}
-      right={
-        <Switch
-          value={lanDiscovery}
-          onValueChange={(value) => setLanDiscovery(value)}
-          trackColor={{ false: "#767577", true: "#22c55e" }}
-        />
-      }
-    />,
+  ]
+
+  // All settings as a single profile-style card list with dividers
+  const rows: React.ReactNode[] = [
     ...categories.map((category) => {
       const meta = categoryMeta[category]
       return (
@@ -327,33 +328,41 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      {/* Servers: main and LAN connections side by side. Tap a row to make
-          it active; the pencil opens credentials. LAN entries are added via
-          discovery below (same flow as the login page). */}
-      <Text style={[styles.sectionHeader, isDark && styles.textDark]}>{t("settings.sections.servers")}</Text>
-
-      <Text style={[styles.subHeader, isDark && styles.metaDark]}>{t("settings.servers.main")}</Text>
+      <Text style={[styles.sectionHeader, isDark && styles.textDark]}>{t("settings.sections.security")}</Text>
       <View style={[styles.card, isDark && styles.cardDark]}>
-        {mainConnections.map((c, i) => (
-          <Fragment key={c.id}>
+        {securityRows.map((row, i) => (
+          <Fragment key={i}>
             {i > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
-            <ServerRow
-              connection={c}
-              isActive={activeConnection?.id === c.id}
-              needsLogin={unauthorized.includes(c.id)}
-              isDark={isDark}
-              onActivate={() => handleActivate(c.id)}
-              onEdit={() => router.push({ pathname: "/connection/[id]", params: { id: c.id } })}
-            />
+            {row}
           </Fragment>
         ))}
       </View>
 
-      <Text style={[styles.subHeader, isDark && styles.metaDark]}>{t("settings.servers.local")}</Text>
+      {/* Servers: main and LAN connections in one mixed list (like the
+          settings rows above — no subdivisions). The LAN discovery toggle
+          lives here too — it gates the discover button below. Tap a row to
+          make it active; the pencil opens credentials. LAN entries are added
+          via discovery (same flow as the login page). */}
+      <Text style={[styles.sectionHeader, isDark && styles.textDark]}>{t("settings.sections.servers")}</Text>
+
       <View style={[styles.card, isDark && styles.cardDark]}>
-        {lanConnections.map((c, i) => (
+        <SettingRow
+          key="lan-discovery"
+          icon="wifi"
+          label={t("lan.settingsLabel")}
+          description={t("lan.settingsDescription")}
+          isDark={isDark}
+          right={
+            <Switch
+              value={lanDiscovery}
+              onValueChange={(value) => setLanDiscovery(value)}
+              trackColor={{ false: "#767577", true: "#22c55e" }}
+            />
+          }
+        />
+        {[...mainConnections, ...lanConnections].map((c) => (
           <Fragment key={c.id}>
-            {i > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
+            <View style={[styles.divider, isDark && styles.dividerDark]} />
             <ServerRow
               connection={c}
               isActive={activeConnection?.id === c.id}
@@ -445,14 +454,6 @@ const styles = StyleSheet.create({
     color: "#0a0a0a",
     marginTop: 24,
     marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  subHeader: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#666666",
-    marginTop: 12,
-    marginBottom: 6,
     paddingHorizontal: 4,
   },
   serverRow: {
