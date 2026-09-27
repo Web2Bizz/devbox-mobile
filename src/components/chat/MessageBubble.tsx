@@ -83,10 +83,15 @@ export const MessageBubble = memo(
             </View>
           ))}
 
-        {/* Tool calls */}
-        {toolParts.map((tool) => (
-          <ToolCallCard key={tool.id} tool={tool} isDark={isDark} />
-        ))}
+        {/* Tool calls — uniform rhythm via the container gap, not per-card
+            margins, so every row in a series sits equally apart */}
+        {toolParts.length > 0 && (
+          <View style={s.toolList}>
+            {toolParts.map((tool) => (
+              <ToolCallCard key={tool.id} tool={tool} isDark={isDark} />
+            ))}
+          </View>
+        )}
 
         {/* Model + tokens/cost for assistant messages — hidden after tool call per request */}
         {!isUser &&
@@ -133,7 +138,8 @@ const s = StyleSheet.create({
     width: "100%",
     marginLeft: 0,
     marginRight: 0,
-    marginBottom: 3,
+    // Breathing room before the next (user) message.
+    marginBottom: 12,
     paddingHorizontal: 0,
     paddingVertical: 8,
   },
@@ -143,6 +149,8 @@ const s = StyleSheet.create({
 
   messageText: { fontSize: 15, lineHeight: 22, color: "#0a0a0a" },
   markdownWrap: { marginHorizontal: -4 },
+  // Tool-call series: one gap value for text→card and card→card alike.
+  toolList: { marginTop: 12, gap: 12 },
 
   tokens: { fontSize: 11, color: "#999999", marginTop: 8 },
   tokensDark: { color: "#666666" },
