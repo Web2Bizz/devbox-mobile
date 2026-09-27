@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from "react"
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
+import { View, Text, StyleSheet } from "react-native"
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -68,7 +67,10 @@ export function AiSettingsModal({
 }: Props) {
   const { t } = useTranslation()
 
-  const snapPoints = useMemo(() => ["60%", "92%"], [])
+  // Single 40% detent: the sheet opens compact (expand() targets the
+  // highest detent, so a second taller one would reopen the too-tall sheet);
+  // the model list scrolls inside. Drag down still closes.
+  const snapPoints = useMemo(() => ["40%"], [])
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" opacity={0.5} />
@@ -155,9 +157,6 @@ export function AiSettingsModal({
     >
       <View style={s.titleRow}>
         <Text style={[s.title, isDark && s.textWhite]}>{t("chat.aiSettings.title")}</Text>
-        <TouchableOpacity onPress={() => sheetRef.current?.close()} hitSlop={12} testID="ai-settings-close">
-          <Ionicons name="close" size={22} color={isDark ? "#888888" : "#666666"} />
-        </TouchableOpacity>
       </View>
       <BottomSheetScrollView contentContainerStyle={s.content}>
         <Select
