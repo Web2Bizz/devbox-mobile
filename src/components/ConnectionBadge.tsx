@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react"
 import { View, Text, Modal, TouchableOpacity, ActivityIndicator, AppState } from "react-native"
+import { useFocusEffect } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import { useConnections } from "../stores/connections"
@@ -66,12 +67,16 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
     void doPing()
   }, [doPing])
 
-  // Keep the badge fresh: ping on mount, re-validate on a timer and every
-  // time the app comes back to the foreground (the most likely moment for
-  // the network — and therefore the badge — to be stale). Interval pings are
-  // quiet: they update the value without flashing the modal spinner.
+  // Re-validate on every navigation focus (tab switches, stack pushes/pops
+  // where the header badge shows) so the status is fresh immediately.
+  // Interval + foreground re-validation below cover the stay-on-screen case.
+  useFocusEffect(
+    useCallback(() => {
+      void doPing(true)
+    }, [doPing]),
+  )
+
   useEffect(() => {
-    void doPing(true)
     const id = setInterval(() => {
       void doPing(true)
     }, BADGE_PING_INTERVAL_MS)
@@ -86,9 +91,7 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
 
   const label =
     state === "connected"
-      ? ping !== null
-        ? `${t("common.connected")} · ${ping} ms`
-        : t("common.connected")
+      ? t("common.connected")
       : state === "error"
         ? t("common.error")
         : t("common.offline")

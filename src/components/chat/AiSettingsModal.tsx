@@ -1,18 +1,16 @@
-import { useMemo } from "react"
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetScrollView,
+  type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
 import { colors } from "../../lib/theme"
 import { Select, type SelectOption } from "./Select"
+import { SheetHandle } from "./SheetHandle"
 
 interface AgentItem {
   name: string
@@ -43,9 +41,11 @@ interface Props {
 
 const MODEL_ID_SEP = "/"
 
-// Single AI settings dialog: agent + model + reasoning effort as three
-// custom Select dropdowns in app theme. Plain RN Modal (no bottom-sheet
-// deps): guaranteed to open regardless of layout measurement. Model
+// Single AI settings sheet: agent + model + reasoning effort as three
+// custom Select dropdowns in app theme. A real BottomSheetModal (not a stock
+// RN Modal with a decorative pill) so it drags by the handle and dismisses
+// on swipe-down like every other sheet. The `visible` prop API is kept —
+// internally mapped to present()/dismiss() — so callers don't change. Model
 // selection closes the dialog; agent/effort stay open so several settings
 // can change in one go.
 export function AiSettingsModal({
@@ -63,6 +63,20 @@ export function AiSettingsModal({
   onClose,
 }: Props) {
   const { t } = useTranslation()
+  const sheetRef = useRef<BottomSheetModal>(null)
+
+  useEffect(() => {
+    if (visible) sheetRef.current?.present()
+    else sheetRef.current?.dismiss()
+  }, [visible])
+
+  const snapPoints = useMemo(() => ["60%", "92%"], [])
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" opacity={0.5} />
+    ),
+    [],
+  )
 
   const effortDescriptions: Record<string, string> = {
     low: t("chat.variantPicker.effort.low"),
@@ -126,78 +140,73 @@ export function AiSettingsModal({
   const selectedModelId = selectedModel ? `${selectedModel.providerID}${MODEL_ID_SEP}${selectedModel.modelID}` : null
 
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <View style={s.overlay}>
-        <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={[s.sheet, isDark && s.sheetDark]}
-        >
-          <View style={s.handleRow}>
-            <View style={[s.handle, isDark && s.handleDark]} />
-          </View>
-          <View style={s.titleRow}>
-            <Text style={[s.title, isDark && s.textWhite]}>{t("chat.aiSettings.title")}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={12} testID="ai-settings-close">
-              <Ionicons name="close" size={22} color={isDark ? "#888888" : "#666666"} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-            <Select
-              label={t("chat.aiSettings.agentLabel")}
-              options={agentOptions}
-              selectedId={selectedAgent}
-              isDark={isDark}
-              onSelect={(id) => id && onSelectAgent(id)}
-              testID="agent-select"
-            />
-            {showEffort && (
-              <Select
-                label={t("chat.aiSettings.effortLabel")}
-                options={effortOptions}
-                selectedId={selectedVariant}
-                isDark={isDark}
-                onSelect={onSelectVariant}
-                testID="effort-select"
-              />
-            )}
-            <Select
-              label={t("chat.aiSettings.modelLabel")}
-              options={modelOptions}
-              selectedId={selectedModelId}
-              isDark={isDark}
-              onSelect={(id) => {
-                if (!id) return
-                const sep = id.indexOf(MODEL_ID_SEP)
-                onSelectModel(id.slice(0, sep), id.slice(sep + 1))
-                onClose()
-              }}
-              searchPlaceholder={t("chat.modelPicker.searchPlaceholder")}
-              testID="model-select"
-            />
-          </ScrollView>
-        </KeyboardAvoidingView>
+    <BottomSheetModal
+      ref={sheetRef}
+      snapPoints={snapPoints}
+      enableDynamicSizing={false}
+      enablePanDownToClose
+      enableDismissOnClose
+      // Explicit (true by default): the handle pill must stay draggable.
+      enableHandlePanningGesture
+      handleComponent={SheetHandle}
+      backdropComponent={renderBackdrop}
+      backgroundStyle={[s.sheet, isDark && s.sheetDark]}
+      onDismiss={onClose}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
+    >
+      <View style={s.titleRow}>
+        <Text style={[s.title, isDark && s.textWhite]}>{t("chat.aiSettings.title")}</Text>
+        <TouchableOpacity onPress={onClose} hitSlop={12} testID="ai-settings-close">
+          <Ionicons name="close" size={22} color={isDark ? "#888888" : "#666666"} />
+        </TouchableOpacity>
       </View>
-    </Modal>
+      <BottomSheetScrollView contentContainerStyle={s.content}>
+        <Select
+          label={t("chat.aiSettings.agentLabel")}
+          options={agentOptions}
+          selectedId={selectedAgent}
+          isDark={isDark}
+          onSelect={(id) => id && onSelectAgent(id)}
+          testID="agent-select"
+        />
+        {showEffort && (
+          <Select
+            label={t("chat.aiSettings.effortLabel")}
+            options={effortOptions}
+            selectedId={selectedVariant}
+            isDark={isDark}
+            onSelect={onSelectVariant}
+            testID="effort-select"
+          />
+        )}
+        <Select
+          label={t("chat.aiSettings.modelLabel")}
+          options={modelOptions}
+          selectedId={selectedModelId}
+          isDark={isDark}
+          onSelect={(id) => {
+            if (!id) return
+            const sep = id.indexOf(MODEL_ID_SEP)
+            onSelectModel(id.slice(0, sep), id.slice(sep + 1))
+            onClose()
+          }}
+          searchPlaceholder={t("chat.modelPicker.searchPlaceholder")}
+          testID="model-select"
+        />
+      </BottomSheetScrollView>
+    </BottomSheetModal>
   )
 }
 
 const s = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" },
-  backdrop: { flex: 1 },
   sheet: {
-    maxHeight: "90%",
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingTop: 8,
-    paddingBottom: 24,
-    overflow: "hidden",
   },
   sheetDark: { backgroundColor: "#1a1a1a" },
-  handleRow: { alignItems: "center", paddingVertical: 4 },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "#cccccc" },
-  handleDark: { backgroundColor: "#666666" },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -207,5 +216,5 @@ const s = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: "700", color: "#0a0a0a" },
   textWhite: { color: "#ffffff" },
-  content: { paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
+  content: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
 })
