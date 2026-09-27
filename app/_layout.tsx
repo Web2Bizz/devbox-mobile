@@ -198,13 +198,9 @@ function RootLayout() {
                   presentation: "modal",
                 }}
               />
-              <Stack.Screen
-                name="connection/[id]"
-                options={{
-                  title: t("nav.editConnectionTitle"),
-                  presentation: "modal",
-                }}
-              />
+              {/* No connection/[id] (edit) route by policy: the main server
+                  entry is not editable, and manual connections are LAN-only
+                  via discovery — credentials are entered on the login screen. */}
               <Stack.Screen
                 name="project/clone"
                 options={{

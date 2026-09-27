@@ -72,14 +72,12 @@ function ServerRow({
   needsLogin,
   isDark,
   onActivate,
-  onEdit,
 }: {
   connection: ServerConnection
   isActive: boolean
   needsLogin: boolean
   isDark: boolean
   onActivate: () => void
-  onEdit: () => void
 }) {
   const { t } = useTranslation()
   // Subtitle under a server name: LAN entries show their address (needed to
@@ -120,9 +118,6 @@ function ServerRow({
             </Text>
           </View>
         )}
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onEdit} hitSlop={8} testID={`server-edit-${connection.id}`}>
-        <Ionicons name="create-outline" size={20} color={isDark ? "#666666" : "#999999"} />
       </TouchableOpacity>
     </View>
   )
@@ -195,15 +190,14 @@ export default function SettingsScreen() {
   }, [logoutAll, t])
 
   // LAN discovery pick from settings: same scenario as the login page —
-  // the found server is added as a second entry, then the edit screen opens
-  // so the user can enter credentials (reads/streams start after save).
+  // the found server is added as a second entry. Credentials are entered on
+  // the login screen (local mode) — there is no connection editing UI.
   const handlePickLan = useCallback(
     async (candidate: LanCandidate) => {
       const store = useConnections.getState()
       const existing = store.connections.find((c) => c.discoveredOnLan && c.url === candidate.url)
-      const id = existing ? existing.id : await store.addLanConnection(candidate.url, `LAN · ${candidate.host}`)
+      if (!existing) await store.addLanConnection(candidate.url, `LAN · ${candidate.host}`)
       setLanVisible(false)
-      router.push({ pathname: "/connection/[id]", params: { id } })
     },
     [],
   )
@@ -369,7 +363,6 @@ export default function SettingsScreen() {
               needsLogin={unauthorized.includes(c.id)}
               isDark={isDark}
               onActivate={() => handleActivate(c.id)}
-              onEdit={() => router.push({ pathname: "/connection/[id]", params: { id: c.id } })}
             />
           </Fragment>
         ))}
