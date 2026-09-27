@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import {
+import BottomSheet, {
   BottomSheetBackdrop,
-  BottomSheetModal,
   BottomSheetScrollView,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
@@ -42,12 +41,13 @@ interface Props {
 const MODEL_ID_SEP = "/"
 
 // Single AI settings sheet: agent + model + reasoning effort as three
-// custom Select dropdowns in app theme. A real BottomSheetModal (not a stock
-// RN Modal with a decorative pill) so it drags by the handle and dismisses
-// on swipe-down like every other sheet. The `visible` prop API is kept —
-// internally mapped to present()/dismiss() — so callers don't change. Model
-// selection closes the dialog; agent/effort stay open so several settings
-// can change in one go.
+// custom Select dropdowns in app theme. A real bottom sheet (draggable
+// handle, swipe-down to close) built on the SAME proven recipe as the folder
+// sheets (BottomSheet + index -1 + imperative expand/close): BottomSheetModal
+// present()/dismiss() proved unreliable on this stack (upstream portal and
+// dynamic-sizing flakiness in 5.2.x — the sheet silently never opened). The
+// `visible` prop API is kept so callers don't change. Model selection closes
+// the dialog; agent/effort stay open so several settings can change in one go.
 export function AiSettingsModal({
   visible,
   agents,
@@ -63,11 +63,11 @@ export function AiSettingsModal({
   onClose,
 }: Props) {
   const { t } = useTranslation()
-  const sheetRef = useRef<BottomSheetModal>(null)
+  const sheetRef = useRef<BottomSheet>(null)
 
   useEffect(() => {
-    if (visible) sheetRef.current?.present()
-    else sheetRef.current?.dismiss()
+    if (visible) sheetRef.current?.expand()
+    else sheetRef.current?.close()
   }, [visible])
 
   const snapPoints = useMemo(() => ["60%", "92%"], [])
@@ -140,18 +140,23 @@ export function AiSettingsModal({
   const selectedModelId = selectedModel ? `${selectedModel.providerID}${MODEL_ID_SEP}${selectedModel.modelID}` : null
 
   return (
-    <BottomSheetModal
+    <BottomSheet
       ref={sheetRef}
+      index={-1}
       snapPoints={snapPoints}
       enableDynamicSizing={false}
       enablePanDownToClose
-      enableDismissOnClose
       // Explicit (true by default): the handle pill must stay draggable.
       enableHandlePanningGesture
       handleComponent={SheetHandle}
       backdropComponent={renderBackdrop}
       backgroundStyle={[s.sheet, isDark && s.sheetDark]}
-      onDismiss={onClose}
+      // Gesture/button dismiss flows back through onClose so the parent's
+      // `visible` stays the single source of truth (closing an already
+      // closed sheet below is a no-op, so this can't loop).
+      onChange={(index) => {
+        if (index === -1) onClose()
+      }}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
@@ -196,7 +201,7 @@ export function AiSettingsModal({
           testID="model-select"
         />
       </BottomSheetScrollView>
-    </BottomSheetModal>
+    </BottomSheet>
   )
 }
 
