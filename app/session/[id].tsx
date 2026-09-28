@@ -1070,7 +1070,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     zIndex: 1,
-    elevation: 1,
   },
   overlayGroup: {
     flexDirection: "row",
