@@ -94,17 +94,10 @@ jobs:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
 
-  # F-Droid flavor disabled — was needed for reproducible-build parity.
-  # Re-enable when main should publish externally again (see publish-fdroid.yml header).
-  build-fdroid:
-    if: false
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "build-fdroid disabled — only GitHub APK prereleases active"
-
-  # Tag v* → GitHub Release (single APK, no fdroid flavor)
-  # This is the ONLY external-facing publish for now. Play/F-Droid/App Store
-  # workflows are disabled (if: false) and will be re-enabled for main.
+  # Tag v* → GitHub Release (single APK)
+  # Google Play is the ONLY store channel for release versions
+  # (upload itself runs in publish-play-store.yml on prod tags).
+  # F-Droid/App Store publishes were removed.
   release:
     needs: [build]
     if: startsWith(github.ref, 'refs/tags/v')
@@ -122,8 +115,8 @@ jobs:
           files: app-release.apk
           generate_release_notes: true
 
-  # Push to dev → GitHub Prerelease (APK only, no external distributors)
-  # Strategy: dev branch = GitHub-only, main branch (future) = external distributors.
+  # Push to dev → GitHub Prerelease (APK only, no stores)
+  # Dev builds publish only as GitHub prerelease APKs, no stores.
   prerelease:
     needs: [build]
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
