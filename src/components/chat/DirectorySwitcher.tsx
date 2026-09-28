@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react"
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -9,6 +9,7 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
 import { colors } from "../../lib/theme"
+import { shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
 import { SheetHandle } from "./SheetHandle"
 
 interface Props {
@@ -26,6 +27,10 @@ interface Props {
 export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDark, onSwitch, onBrowse }: Props) {
   const { t } = useTranslation()
   const [custom, setCustom] = useState("")
+
+  // Wide-screen centered column so rows don't stretch across a tablet.
+  const { width: winWidth } = useWindowDimensions()
+  const capContent = shouldCapSheetContent(winWidth)
 
   const handleSelect = useCallback(
     (dir?: string) => {
@@ -89,7 +94,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
         if (idx === -1) setCustom("")
       }}
     >
-      <View style={s.header}>
+      <View style={[s.header, capContent && sheetContentCap]}>
         <Text style={[s.title, isDark && s.white]}>{t("chat.directorySwitcher.title")}</Text>
         {shortCurrent && (
           <View style={s.current}>
@@ -102,7 +107,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
       </View>
 
       {/* Custom directory input */}
-      <View style={s.inputWrap}>
+      <View style={[s.inputWrap, capContent && sheetContentCap]}>
         <BottomSheetTextInput
           style={[s.input, isDark && s.inputDark]}
           placeholder={serverHome ? `${serverHome}/...` : "/path/to/project"}
@@ -127,7 +132,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
 
       {/* Quick path chips */}
       {(serverHome || onBrowse) && (
-        <View style={s.chips}>
+        <View style={[s.chips, capContent && sheetContentCap]}>
           {serverHome && (
             <>
               <TouchableOpacity style={[s.chip, isDark && s.chipDark]} onPress={() => setCustom(serverHome)}>
@@ -159,7 +164,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
         keyExtractor={(item: (typeof items)[number], i: number) => item.dir || `default-${i}`}
         renderItem={({ item }: { item: (typeof items)[number] }) => (
           <TouchableOpacity
-            style={[s.row, isDark && s.rowDark, item.active && s.rowActive]}
+            style={[s.row, isDark && s.rowDark, item.active && s.rowActive, capContent && sheetContentCap]}
             onPress={() => handleSelect(item.dir)}
           >
             <View style={s.rowIcon}>
@@ -188,7 +193,9 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
         contentContainerStyle={s.list}
         ListHeaderComponent={
           items.length > 1 ? (
-            <Text style={[s.section, isDark && s.dimDark]}>{t("chat.directorySwitcher.recentProjectsLabel")}</Text>
+            <Text style={[s.section, isDark && s.dimDark, capContent && sheetContentCap]}>
+              {t("chat.directorySwitcher.recentProjectsLabel")}
+            </Text>
           ) : null
         }
       />

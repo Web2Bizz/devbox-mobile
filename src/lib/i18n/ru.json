@@ -86,7 +86,22 @@
     },
     "empty": {
       "title": "Start a conversation",
-      "hint": "Type / for commands"
+      "hint": "Type / for commands",
+      "suggestionsTitle": "Что сделаем?",
+      "suggestions": {
+        "fixBug": "исправь баг",
+        "newTask": "заведи новую задачу",
+        "writeTest": "напиши тест",
+        "reviewCode": "проведи ревью кода",
+        "checkCicd": "проверь ci/cd"
+      },
+      "prompts": {
+        "fixBug": "Исправь баг: ",
+        "newTask": "Заведи новую задачу: ",
+        "writeTest": "Напиши тест для: ",
+        "reviewCode": "Проведи ревью кода: ",
+        "checkCicd": "Проверь CI/CD: "
+      }
     },
     "loadingOlder": "Loading older messages...",
     "input": {
@@ -477,6 +492,23 @@
   },
   "project": {
     "localBadge": "(local)",
+    "tabs": {
+      "server": "На сервере",
+      "lan": "В локальной сети"
+    },
+    "lanList": {
+      "noServersTitle": "Нет серверов в локальной сети",
+      "noServersHint": "Найдите сервер в вашем Wi-Fi — затем войдите и начните работу",
+      "findButton": "Найти сервер",
+      "serversLabel": "Серверы",
+      "projectsLabel": "Проекты в локальной сети",
+      "noProjectsHint": "На этом сервере пока нет проектов — создайте первый",
+      "newProjectButton": "Новый проект",
+      "loginButton": "Войти",
+      "useButton": "Использовать",
+      "activeBadge": "Активен",
+      "needsLogin": "Нужен вход"
+    },
     "new": {
       "title": "Новый проект",
       "subtitle": "Создайте локальный проект или клонируйте с GitHub",

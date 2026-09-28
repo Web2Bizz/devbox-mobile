@@ -4,8 +4,10 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  ScrollView,
   StyleSheet,
   useColorScheme,
+  useWindowDimensions,
   RefreshControl,
   ActivityIndicator,
   Modal,
@@ -22,6 +24,9 @@ import { useSessionsList, useCreateSession, useDeleteSession, useRenameSession }
 import { useProjectInfo, useServerProjects } from "../../src/queries/project"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
+import { useSettings } from "../../src/stores/settings"
+import { LanDiscoveryModal } from "../../src/components/LanDiscoveryModal"
+import type { LanCandidate } from "../../src/lib/lan-discover"
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -37,6 +42,7 @@ import { nameOf } from "../../src/lib/path-utils"
 import { useUi } from "../../src/stores/ui"
 import { breakpoints, colors } from "../../src/lib/theme"
 import { useTablet } from "../../src/lib/use-tablet"
+import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../src/lib/sheet-layout"
 
 function formatTime(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const date = new Date(timestamp)
@@ -123,6 +129,13 @@ export default function SessionsScreen() {
   const { t } = useTranslation()
   const [showNewSession, setShowNewSession] = useState(false)
   const { showNewProject, closeNewProject } = useUi()
+  // Источник списка проектов: основной сервер vs локальная сеть. Переключатель
+  // живет только на этой странице (сегмент-контрол над таб-баром) и меняет
+  // лишь список ниже — остальные табы не трогает.
+  const [sourceTab, setSourceTab] = useState<"server" | "lan">("server")
+  const [lanVisible, setLanVisible] = useState(false)
+  const lanDiscovery = useSettings((s) => s.lanDiscovery)
+  const setLanDiscovery = useSettings((s) => s.setLanDiscovery)
   const [isCreating, setIsCreating] = useState(false)
   const [renaming, setRenaming] = useState<ListedSession | null>(null)
   const [renameText, setRenameText] = useState("")
@@ -144,8 +157,10 @@ export default function SessionsScreen() {
   const { data: projectInfo, refetch: refetchProject } = useProjectInfo()
   const currentProject = projectInfo?.project ?? null
   const serverHome = projectInfo?.home ?? null
-  // Server-known projects load only while the new-session UI is open.
-  const { data: serverProjectsData } = useServerProjects(showNewSession || showNewProject)
+  // Server-known projects load while the new-session UI is open — plus on the
+  // LAN tab, so a freshly connected LAN server shows something to start from
+  // even with zero sessions yet.
+  const { data: serverProjectsData } = useServerProjects(showNewSession || showNewProject || sourceTab === "lan")
   const serverProjects = serverProjectsData ?? []
   const createSession = useCreateSession()
   const deleteSession = useDeleteSession()
@@ -153,9 +168,11 @@ export default function SessionsScreen() {
   const {
     activeConnection,
     connections,
+    clientBases,
     clientForDirectory,
     switchDirectory,
     recentDirectories,
+    setActiveConnection,
   } = useConnections()
   const authError = useEvents((s) => s.authError)
   const reconnect = useEvents((s) => s.connect)
@@ -178,10 +195,13 @@ export default function SessionsScreen() {
     setShowNewSession(false)
     closeNewProject()
   }, [closeNewProject])
-  // Single 50% detent: expand() targets the highest detent, so one compact
-  // detent keeps the new-project options sheet half-height; the option
-  // list scrolls inside. Drag down still closes.
-  const newSheetSnapPoints = useMemo(() => ["50%"], [])
+  // Single 50% detent in portrait; landscape gets 90%: 50% of a
+  // landscape-height screen is too short to pick a project. Wide screens
+  // also center the sheet body into a max-width column (see sheetContentCap).
+  const { width: winWidth, height: winHeight } = useWindowDimensions()
+  const sheetLandscape = isLandscapeSize(winWidth, winHeight)
+  const capSheetContent = shouldCapSheetContent(winWidth)
+  const newSheetSnapPoints = useMemo(() => [sheetLandscape ? "90%" : "50%"], [sheetLandscape])
   const renderNewSheetBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" opacity={0.5} />
@@ -212,6 +232,7 @@ export default function SessionsScreen() {
   // as a card. Same path on two servers is two cards; LAN cards carry the
   // (local) badge.
   const lanIds = useMemo(() => lanConnectionIds(connections), [connections])
+  const lanConnections = useMemo(() => connections.filter((c) => c.discoveredOnLan), [connections])
   const projects = useMemo(() => {
     const groups = groupProjects(sessions)
     return groups
@@ -225,6 +246,45 @@ export default function SessionsScreen() {
       }))
       .sort((a, b) => b.lastUpdated - a.lastUpdated)
   }, [sessions, lanIds])
+  // Две независимые выборки для сегмент-табов: серверные и LAN-проекты.
+  const serverProjectsList = useMemo(() => projects.filter((p) => !lanIds.has(p.connectionId)), [projects, lanIds])
+  const lanProjectsList = useMemo(() => projects.filter((p) => lanIds.has(p.connectionId)), [projects, lanIds])
+
+  // LAN: tap on "Find" is consent — enable discovery on the fly (same as login).
+  const handleFindLan = useCallback(async () => {
+    if (!lanDiscovery) await setLanDiscovery(true)
+    setLanVisible(true)
+  }, [lanDiscovery, setLanDiscovery])
+
+  // LAN discovery pick: found server becomes a second connection entry (main
+  // server untouched) and is activated so its projects load right away.
+  const handlePickLan = useCallback(
+    async (candidate: LanCandidate) => {
+      const store = useConnections.getState()
+      const existing = store.connections.find((c) => c.discoveredOnLan && c.url === candidate.url)
+      const id = existing ? existing.id : await store.addLanConnection(candidate.url, `LAN · ${candidate.host}`)
+      await store.setActiveConnection(id)
+      setLanVisible(false)
+    },
+    [],
+  )
+
+  const handleUseLan = useCallback(
+    (id: string) => {
+      void setActiveConnection(id)
+    },
+    [setActiveConnection],
+  )
+
+  // LAN entry without credentials can't list anything — activate it and send
+  // to login (local mode) to enter username/password.
+  const handleLoginLan = useCallback(
+    async (id: string) => {
+      await setActiveConnection(id)
+      router.push("/login")
+    },
+    [setActiveConnection],
+  )
 
   const handleSwitchDirectory = useCallback(
     async (dir?: string) => {
@@ -237,6 +297,9 @@ export default function SessionsScreen() {
   )
 
   const onRefresh = useCallback(async () => {
+    // Без клиента refetch'ить нечего (projectInfo кинет "No active
+    // connection") — тихо выходим, RefreshControl не дергаем.
+    if (!useConnections.getState().client) return
     setRefreshing(true)
     try {
       await Promise.all([refetchSessions(), refetchProject()])
@@ -354,42 +417,10 @@ export default function SessionsScreen() {
     setShowNewSession(true)
   }
 
-  if (!activeConnection) {
-    return (
-      <View style={[styles.emptyContainer, isDark && styles.containerDark]}>
-        <Ionicons name="lock-closed-outline" size={64} color={isDark ? "#444444" : "#cccccc"} />
-        <Text style={[styles.emptyTitle, isDark && styles.textDark]}>Требуется вход</Text>
-        <Text style={[styles.emptySubtitle, isDark && styles.metaDark]}>Требуется авторизация</Text>
-        <TouchableOpacity
-          style={[styles.addButton, isDark && styles.addButtonDark]}
-          onPress={() => router.push("/login")}
-          testID="go-login-button"
-        >
-          <Text style={[styles.addButtonText, isDark && styles.addButtonTextDark]}>Войти</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
-  if (authError) {
-    return (
-      <View style={[styles.emptyContainer, isDark && styles.containerDark]}>
-        <Ionicons name="lock-closed-outline" size={64} color={isDark ? "#444444" : "#cccccc"} />
-        <Text style={[styles.emptyTitle, isDark && styles.textDark]}>{t("sessionsList.empty.authFailedTitle")}</Text>
-        <Text style={[styles.emptySubtitle, isDark && styles.metaDark]}>
-          {t("sessionsList.empty.authFailedSubtitle", { name: activeConnection.name })}
-        </Text>
-        <TouchableOpacity
-          style={[styles.addButton, isDark && styles.addButtonDark]}
-          onPress={() => router.push("/login")}
-          testID="go-login-button"
-        >
-          <Text style={[styles.addButtonText, isDark && styles.addButtonTextDark]}>Войти снова</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
+  // NOTE: no early returns here on purpose — the source tabs (server/LAN)
+  // must stay visible even with no connection or a failed auth, otherwise
+  // the LAN screen is unreachable exactly when it's needed most. Each tab
+  // renders its own state below.
   const shortPath = getShortPath(currentProject)
 
   return (
@@ -422,8 +453,38 @@ export default function SessionsScreen() {
 
       <UpdateBanner isDark={isDark} />
 
+      {sourceTab === "server" ? (
+      !activeConnection ? (
+        <View style={[styles.emptyContainer, isDark && styles.containerDark]}>
+          <Ionicons name="lock-closed-outline" size={64} color={isDark ? "#444444" : "#cccccc"} />
+          <Text style={[styles.emptyTitle, isDark && styles.textDark]}>Требуется вход</Text>
+          <Text style={[styles.emptySubtitle, isDark && styles.metaDark]}>Требуется авторизация</Text>
+          <TouchableOpacity
+            style={[styles.addButton, isDark && styles.addButtonDark]}
+            onPress={() => router.push("/login")}
+            testID="go-login-button"
+          >
+            <Text style={[styles.addButtonText, isDark && styles.addButtonTextDark]}>Войти</Text>
+          </TouchableOpacity>
+        </View>
+      ) : authError ? (
+        <View style={[styles.emptyContainer, isDark && styles.containerDark]}>
+          <Ionicons name="lock-closed-outline" size={64} color={isDark ? "#444444" : "#cccccc"} />
+          <Text style={[styles.emptyTitle, isDark && styles.textDark]}>{t("sessionsList.empty.authFailedTitle")}</Text>
+          <Text style={[styles.emptySubtitle, isDark && styles.metaDark]}>
+            {t("sessionsList.empty.authFailedSubtitle", { name: activeConnection.name })}
+          </Text>
+          <TouchableOpacity
+            style={[styles.addButton, isDark && styles.addButtonDark]}
+            onPress={() => router.push("/login")}
+            testID="go-login-button"
+          >
+            <Text style={[styles.addButtonText, isDark && styles.addButtonTextDark]}>Войти снова</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
       <FlatList
-        data={projects}
+        data={serverProjectsList}
         key={numColumns}
         numColumns={numColumns}
         keyExtractor={(item) => item.key}
@@ -454,10 +515,10 @@ export default function SessionsScreen() {
           )
         }
         contentContainerStyle={
-          projects.length === 0
+          serverProjectsList.length === 0
             ? styles.emptyContent
             : [
-                { padding: 16, gap: 12 },
+                { padding: 16, gap: 12, paddingBottom: 88 },
                 isWide && {
                   maxWidth: breakpoints.desktop,
                   width: "100%",
@@ -465,7 +526,202 @@ export default function SessionsScreen() {
                 },
               ]
         }
+        style={{ flex: 1 }}
       />
+      )
+      ) : (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          { padding: 16, gap: 12, paddingBottom: 88 },
+          isWide && {
+            maxWidth: breakpoints.desktop,
+            width: "100%",
+            alignSelf: "center" as const,
+          },
+        ]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? "#ffffff" : "#0a0a0a"} />
+        }
+        testID="lan-project-list"
+      >
+        {/* LAN-серверы: без записи здесь проекты локальной сети негде увидеть.
+            Каждая строка — сервер с состоянием (активен / нужен вход). */}
+        <Text style={[styles.modalLabel, isDark && styles.metaDark]}>{t("project.lanList.serversLabel")}</Text>
+        {lanConnections.length === 0 ? (
+          <View style={[styles.lanEmpty, isDark && styles.lanEmptyDark]}>
+            <Ionicons name="wifi-outline" size={40} color={isDark ? "#444444" : "#cccccc"} />
+            <Text style={[styles.lanEmptyTitle, isDark && styles.textDark]}>{t("project.lanList.noServersTitle")}</Text>
+            <Text style={[styles.lanEmptyHint, isDark && styles.metaDark]}>{t("project.lanList.noServersHint")}</Text>
+            <TouchableOpacity
+              style={[styles.lanFindButton, isDark && styles.lanFindButtonDark]}
+              onPress={handleFindLan}
+              testID="lan-find-button"
+            >
+              <Ionicons name="search-outline" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
+              <Text style={[styles.lanFindButtonText, isDark && styles.lanFindButtonTextDark]}>
+                {t("project.lanList.findButton")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {lanConnections.map((c) => {
+              const isActive = activeConnection?.id === c.id
+              const hasAuth = !!clientBases[c.id]?.auth
+              return (
+                <View key={c.id} style={[styles.lanServerRow, isDark && styles.lanServerRowDark]}>
+                  <Ionicons name="wifi" size={20} color={isDark ? "#888888" : "#666666"} />
+                  <View style={styles.projectRowContent}>
+                    <Text style={[styles.projectRowName, isDark && styles.textDark]} numberOfLines={1}>
+                      {c.name}
+                    </Text>
+                    <Text style={[styles.projectRowPath, isDark && styles.metaDark]} numberOfLines={1}>
+                      {c.url}
+                    </Text>
+                  </View>
+                  {isActive ? (
+                    <View style={[styles.activeBadge, isDark && styles.activeBadgeDark]}>
+                      <Text style={[styles.activeBadgeText, isDark && styles.activeBadgeTextDark]}>
+                        {t("project.lanList.activeBadge")}
+                      </Text>
+                    </View>
+                  ) : hasAuth ? (
+                    <TouchableOpacity
+                      style={[styles.lanUseButton, isDark && styles.lanUseButtonDark]}
+                      onPress={() => handleUseLan(c.id)}
+                      testID={`lan-use-server-${c.id}`}
+                    >
+                      <Text style={[styles.lanUseButtonText, isDark && styles.lanUseButtonTextDark]}>
+                        {t("project.lanList.useButton")}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.lanFindButton, isDark && styles.lanFindButtonDark]}
+                      onPress={() => handleLoginLan(c.id)}
+                      testID={`lan-login-server-${c.id}`}
+                    >
+                      <Text style={[styles.lanFindButtonText, isDark && styles.lanFindButtonTextDark]}>
+                        {t("project.lanList.loginButton")}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {!hasAuth && !isActive && (
+                    <Text style={styles.lanNeedsLogin}>{t("project.lanList.needsLogin")}</Text>
+                  )}
+                </View>
+              )
+            })}
+            <TouchableOpacity
+              style={[styles.lanScanRow, isDark && styles.projectRowDark]}
+              onPress={handleFindLan}
+              testID="lan-find-another-button"
+            >
+              <Ionicons name="search-outline" size={18} color={isDark ? "#888888" : "#666666"} />
+              <Text style={[styles.projectRowName, isDark && styles.textDark]}>{t("lan.findAnother")}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Проекты в локальной сети (сессии с LAN-подключений). */}
+        <Text style={[styles.modalLabel, isDark && styles.metaDark, { marginTop: 8 }]}>
+          {t("project.lanList.projectsLabel")}
+        </Text>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={isDark ? "#ffffff" : "#0a0a0a"} />
+          </View>
+        ) : lanProjectsList.length === 0 ? (
+          <View style={styles.emptyList}>
+            <Text style={[styles.emptyListText, isDark && styles.metaDark]}>{t("project.lanList.noProjectsHint")}</Text>
+            {activeConnection?.discoveredOnLan && serverProjectsData && serverProjectsData.length > 0 ? (
+              <>
+                {serverProjectsData.map((p) => {
+                  const abs = p.path?.absolute
+                  if (!abs) return null
+                  const short = p.name || abs.split("/").filter(Boolean).pop() || p.id
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.projectRow, isDark && styles.projectRowDark, { marginTop: 8, alignSelf: "stretch" as const }]}
+                      onPress={() => onCreateInDirectory(abs)}
+                      disabled={isCreating}
+                    >
+                      <Ionicons name="code-slash-outline" size={18} color={isDark ? "#888888" : "#666666"} />
+                      <View style={styles.projectRowContent}>
+                        <Text style={[styles.projectRowName, isDark && styles.textDark]} numberOfLines={1}>
+                          {short}
+                        </Text>
+                        <Text style={[styles.projectRowPath, isDark && styles.metaDark]} numberOfLines={1}>
+                          {abs}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )
+                })}
+              </>
+            ) : activeConnection?.discoveredOnLan ? (
+              <TouchableOpacity
+                style={[styles.lanFindButton, isDark && styles.lanFindButtonDark, { marginTop: 12 }]}
+                onPress={() => setShowNewSession(true)}
+                testID="lan-new-project-button"
+              >
+                <Ionicons name="add" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
+                <Text style={[styles.lanFindButtonText, isDark && styles.lanFindButtonTextDark]}>
+                  {t("project.lanList.newProjectButton")}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : (
+          <>
+            {lanProjectsList.map((item) => (
+              <ProjectCard
+                key={item.key}
+                directory={item.directory}
+                connectionId={item.connectionId}
+                isLocal={item.isLocal}
+                count={item.count}
+                lastUpdated={item.lastUpdated}
+                isDark={isDark}
+              />
+            ))}
+          </>
+        )}
+      </ScrollView>
+      )}
+
+      {/* Сегмент-переключатель «На сервере / В локальной сети» — живет только на
+          странице проектов, чуть выше таб-бара, и переключает два списка выше. */}
+      <View style={[styles.sourceTabsWrap, isDark && styles.sourceTabsWrapDark]}>
+        <View style={[styles.sourceTabs, isDark && styles.sourceTabsDark]} testID="projects-source-tabs">
+          {(["server", "lan"] as const).map((mode) => {
+            const selected = sourceTab === mode
+            return (
+              <TouchableOpacity
+                key={mode}
+                style={[styles.sourceTab, selected && styles.sourceTabActive, selected && isDark && styles.sourceTabActiveDark]}
+                onPress={() => setSourceTab(mode)}
+                testID={`projects-tab-${mode}`}
+              >
+                <Text
+                  style={[
+                    styles.sourceTabText,
+                    selected && styles.sourceTabTextActive,
+                    selected && isDark && styles.sourceTabTextActiveDark,
+                  ]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {t(mode === "server" ? "project.tabs.server" : "project.tabs.lan")}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+      </View>
+      <LanDiscoveryModal visible={lanVisible} onClose={() => setLanVisible(false)} onPick={handlePickLan} />
 
       {/* FAB removed per request */}
 
@@ -487,7 +743,7 @@ export default function SessionsScreen() {
           if (index === -1) closeNewSession()
         }}
       >
-        <View style={styles.modalHeader}>
+        <View style={[styles.modalHeader, capSheetContent && sheetContentCap]}>
           <Text style={[styles.modalTitle, isDark && styles.textDark]}>{t("sessionsList.newSessionModal.title")}</Text>
           <TouchableOpacity onPress={closeNewSession}>
             <Ionicons name="close" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
@@ -495,6 +751,9 @@ export default function SessionsScreen() {
         </View>
 
         <BottomSheetScrollView style={styles.modalScrollBody} contentContainerStyle={styles.modalScrollContent}>
+          {/* Centered column on wide screens (cap on an inner View — on the
+              scroll content container itself it would left-stick). */}
+          <View style={capSheetContent && sheetContentCap}>
           {/* Recent projects */}
           {recentDirectories.length > 0 && (
             <>
@@ -621,6 +880,7 @@ export default function SessionsScreen() {
                 <Ionicons name="chevron-forward" size={16} color={isDark ? "#666666" : "#999999"} />
               </TouchableOpacity>
 
+            </View>
             </BottomSheetScrollView>
       </BottomSheet>
 
@@ -1126,6 +1386,177 @@ const styles = StyleSheet.create({
     color: "#15803d",
   },
   localBadgeTextDark: {
+    color: "#4ade80",
+  },
+  // Сегмент-переключатель источника проектов — плашка чуть выше таб-бара.
+  // Ширина жестко ограничена: wrap дает боковые поля, контейнер — maxWidth,
+  // табы делят место поровну (flex: 1 + minWidth: 0), текст в одну строку с
+  // троеточием. Длинный перевод или крупный шрифт сожмут табы, а не вылезут
+  // за край экрана.
+  sourceTabsWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 12,
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  sourceTabsWrapDark: {},
+  sourceTabs: {
+    flexDirection: "row",
+    width: "100%",
+    maxWidth: 480,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    // No Android elevation on purpose: the floating tabs must stay UNDER the
+    // bottom sheets (new-project, browser) — elevation would punch them
+    // through the open sheet. iOS keeps its shadow via shadow* above.
+  },
+  sourceTabsDark: {
+    backgroundColor: "#1a1a1a",
+  },
+  sourceTab: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  sourceTabActive: {
+    backgroundColor: "#0a0a0a",
+  },
+  sourceTabActiveDark: {
+    backgroundColor: "#ffffff",
+  },
+  sourceTabText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666666",
+    textAlign: "center",
+    flexShrink: 1,
+  },
+  sourceTabTextActive: {
+    color: "#ffffff",
+  },
+  sourceTabTextActiveDark: {
+    color: "#0a0a0a",
+  },
+  // LAN-экран
+  lanEmpty: {
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    padding: 24,
+    gap: 8,
+  },
+  lanEmptyDark: {
+    backgroundColor: "#1a1a1a",
+  },
+  lanEmptyTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0a0a0a",
+    marginTop: 8,
+  },
+  lanEmptyHint: {
+    fontSize: 13,
+    color: "#666666",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  lanFindButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#0a0a0a",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  lanFindButtonDark: {
+    backgroundColor: "#ffffff",
+  },
+  lanFindButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  lanFindButtonTextDark: {
+    color: "#0a0a0a",
+  },
+  lanServerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#f5f5f5",
+  },
+  lanServerRowDark: {
+    backgroundColor: "#2a2a2a",
+  },
+  lanScanRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: "#f5f5f5",
+    borderStyle: "dashed",
+  },
+  lanUseButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#0a0a0a",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  lanUseButtonDark: {
+    borderColor: "#ffffff",
+  },
+  lanUseButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0a0a0a",
+  },
+  lanUseButtonTextDark: {
+    color: "#ffffff",
+  },
+  lanNeedsLogin: {
+    fontSize: 11,
+    color: "#f59e0b",
+    fontWeight: "600",
+  },
+  activeBadge: {
+    backgroundColor: "#dcfce7",
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activeBadgeDark: {
+    backgroundColor: "#052e16",
+    borderColor: "#14532d",
+  },
+  activeBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#15803d",
+  },
+  activeBadgeTextDark: {
     color: "#4ade80",
   },
 })

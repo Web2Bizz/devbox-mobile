@@ -86,7 +86,22 @@
     },
     "empty": {
       "title": "Start a conversation",
-      "hint": "Type / for commands"
+      "hint": "Type / for commands",
+      "suggestionsTitle": "What should we do?",
+      "suggestions": {
+        "fixBug": "Fix a bug",
+        "newTask": "Create a task",
+        "writeTest": "Write a test",
+        "reviewCode": "Review code",
+        "checkCicd": "Check CI/CD"
+      },
+      "prompts": {
+        "fixBug": "Fix the bug: ",
+        "newTask": "Create a new task: ",
+        "writeTest": "Write a test for: ",
+        "reviewCode": "Review the code: ",
+        "checkCicd": "Check CI/CD: "
+      }
     },
     "loadingOlder": "Loading older messages...",
     "input": {
@@ -477,6 +492,23 @@
   },
   "project": {
     "localBadge": "(local)",
+    "tabs": {
+      "server": "On server",
+      "lan": "On LAN"
+    },
+    "lanList": {
+      "noServersTitle": "No LAN servers yet",
+      "noServersHint": "Find a server on your Wi-Fi — then log in and start working",
+      "findButton": "Find server",
+      "serversLabel": "Servers",
+      "projectsLabel": "LAN projects",
+      "noProjectsHint": "No projects on this server yet — create the first one",
+      "newProjectButton": "New project",
+      "loginButton": "Log in",
+      "useButton": "Use",
+      "activeBadge": "Active",
+      "needsLogin": "Login required"
+    },
     "new": {
       "title": "New project",
       "subtitle": "Create a local project or clone from GitHub",
