@@ -21,7 +21,7 @@ creates the issue (first run) or updates it in place.
 Required env vars:
   GOOGLE_SERVICE_ACCOUNT_JSON  — full JSON key for the service account
   GH_TOKEN                     — GitHub token with issues:write scope
-  PACKAGE_NAME                 — Android package (cc.agentlabs.opencode)
+   PACKAGE_NAME                 — Android package (team.web2bizz.devbox)
   DAYS_BACK                    — how many days back to look (default 7)
 """
 
@@ -37,8 +37,8 @@ from datetime import datetime, timezone, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-REPO = os.environ.get("GITHUB_REPOSITORY", "dzianisv/opencode-mobile")
-PACKAGE_NAME = os.environ.get("PACKAGE_NAME", "cc.agentlabs.opencode")
+REPO = os.environ.get("GITHUB_REPOSITORY", "Web2Bizz/devbox-mobile")
+PACKAGE_NAME = os.environ.get("PACKAGE_NAME", "team.web2bizz.devbox")
 DAYS_BACK = int(os.environ.get("DAYS_BACK", "7"))
 GH_TOKEN = os.environ.get("GH_TOKEN", "")
 

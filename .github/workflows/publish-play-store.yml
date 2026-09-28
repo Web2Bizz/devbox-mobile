@@ -92,7 +92,7 @@ jobs:
         # reuses ReactNativeApplicationEntryPoint.java referencing the OLD
         # package (ai.opencode.mobile.BuildConfig) and compileReleaseJavaWithJavac
         # fails. Delete generated sources so prebuild + Gradle regenerate them
-        # for the current package (cc.agentlabs.opencode).
+        # for the current package (team.web2bizz.devbox).
         run: rm -rf android/app/build/generated android/build/generated android/app/build/intermediates
 
       - name: Expo prebuild
@@ -147,7 +147,7 @@ jobs:
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
-          packageName: cc.agentlabs.opencode
+          packageName: team.web2bizz.devbox
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: ${{ steps.channel.outputs.track }}
           status: ${{ steps.channel.outputs.status }}

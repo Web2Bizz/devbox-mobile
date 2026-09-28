@@ -109,9 +109,9 @@ jobs:
           echo "${{ secrets.FDROID_REPO_KEYSTORE_B64 }}" | base64 -d > "$FDROID_DIR/repo-keystore.jks"
 
           cat > "$FDROID_DIR/config.yml" << CONFIGEOF
-          repo_url: https://dzianisv.github.io/opencode-mobile/fdroid/repo
-          repo_name: OpenCode Mobile
-          repo_description: OpenCode Mobile - AI coding assistant companion app
+          repo_url: https://web2bizz.github.io/devbox-mobile/fdroid/repo
+          repo_name: DevBox
+          repo_description: DevBox - AI coding assistant companion app
           keystore: $FDROID_DIR/repo-keystore.jks
           repo_keyalias: ${{ secrets.FDROID_REPO_KEY_ALIAS }}
           keystorepass: ${{ secrets.FDROID_REPO_KEYSTORE_PASS }}

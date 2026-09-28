@@ -1,4 +1,4 @@
-# AGENTS.md — opencode-mobile
+# AGENTS.md — devbox-mobile
 
 Expo 57 + React Native 0.86.3 + React 19.2.3 + Expo Router. Single app, no monorepo. Entry `expo-router/entry`, screens in `app/` (file-based routing), business logic in `src/lib/`, Zustand stores in `src/stores/`.
 

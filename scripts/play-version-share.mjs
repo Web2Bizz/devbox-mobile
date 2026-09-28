@@ -6,7 +6,7 @@
  * ---------------
  * The in-app waitlist form posts to `POST /api/beta-signup` (Brevo list 4). That
  * path only exists from **v0.4.8 (versionCode 34)** onward. Every older build has
- * a single fallback: open a `mailto:` to support@agentlabs.cc, which lands in a
+ * a single fallback: open a `mailto:` to support@web2bizz.team, which lands in a
  * human inbox and nowhere near the waitlist store — 20 of 21 signups between
  * 2026-08-03 and 2026-08-13 were lost that way (AGE-61). Reconciling the inbox
  * heals the symptom; this script measures the cause, i.e. how much of the live
@@ -50,14 +50,14 @@
 import { createSign } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-const PACKAGE_NAME = process.env.PLAY_PACKAGE_NAME || "cc.agentlabs.opencode";
+const PACKAGE_NAME = process.env.PLAY_PACKAGE_NAME || "team.web2bizz.devbox";
 /**
  * CAREFUL: Play versionCodes are NOT the ones in android/app/build.gradle. The
  * publish workflow overwrites them with `github.run_number + 100`
  * (.github/workflows/publish-play-store.yml), so the gradle/tag mapping is
  * meaningless on Play. The table below was derived from the publish runs:
  *
- *   gh api repos/dzianisv/opencode-mobile/actions/workflows/278415225/runs \
+ *   gh api repos/Web2Bizz/devbox-mobile/actions/workflows/278415225/runs \
  *     --jq '.workflow_runs[]|select(.conclusion=="success")|"\(.run_number+100) \(.head_sha)"'
  *   # then, per sha: version from package.json, API path via
  *   #   git merge-base --is-ancestor 0fdfb54 <sha>   (0fdfb54 = the beta-signup call)
@@ -114,7 +114,7 @@ function isPreApiSignupTag(tag) {
  * signal this channel emits, and the ratio is what we quote, never the absolute.
  */
 async function githubSideloadShare() {
-  const repo = process.env.GITHUB_RELEASES_REPO || "dzianisv/opencode-mobile";
+  const repo = process.env.GITHUB_RELEASES_REPO || "Web2Bizz/devbox-mobile";
   const headers = { accept: "application/vnd.github+json" };
   if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN)
     headers.authorization = `Bearer ${process.env.GH_TOKEN || process.env.GITHUB_TOKEN}`;

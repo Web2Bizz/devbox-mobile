@@ -41,8 +41,8 @@ export type { AvailableUpdate }
 /** Displayed in settings — single-sourced from package.json via app-version. */
 export const CURRENT_VERSION = APP_VERSION
 
-const RELEASES_API = "https://api.github.com/repos/dzianisv/opencode-mobile/releases/latest"
-const RELEASES_PAGE = "https://github.com/dzianisv/opencode-mobile/releases/latest"
+const RELEASES_API = "https://api.github.com/repos/Web2Bizz/devbox-mobile/releases/latest"
+const RELEASES_PAGE = "https://github.com/Web2Bizz/devbox-mobile/releases/latest"
 const TIMEOUT_MS = 8000
 
 const storage: UpdateStorage = {

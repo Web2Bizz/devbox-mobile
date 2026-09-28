@@ -1,7 +1,16 @@
 {
-  "name": "@opencode-ai/mobile",
+  "name": "devbox-mobile",
   "version": "0.5.1",
   "private": true,
+  "author": "web2bizz.team",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Web2Bizz/devbox-mobile.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Web2Bizz/devbox-mobile/issues"
+  },
+  "homepage": "https://github.com/Web2Bizz/devbox-mobile#readme",
   "workspaces": [
     "packages/*"
   ],
