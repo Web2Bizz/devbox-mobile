@@ -1,5 +1,5 @@
 /**
- * Centralized color palette for opencode-mobile.
+ * Centralized color palette for devbox-mobile.
  *
  * Goals:
  * - Single source of truth for every hex literal scattered across app/ and src/.

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "DevBox",
-    "slug": "opencode-mobile",
+    "slug": "devbox-mobile",
     "version": "0.5.1",
     "orientation": "portrait",
     "scheme": "opencode",
@@ -9,7 +9,7 @@
     "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "cc.agentlabs.opencode",
+      "bundleIdentifier": "team.web2bizz.devbox",
       "buildNumber": "1",
       "entitlements": {
         "aps-environment": "production"
@@ -29,7 +29,7 @@
       }
     },
     "android": {
-      "package": "cc.agentlabs.opencode",
+      "package": "team.web2bizz.devbox",
       "versionCode": 44,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -55,15 +55,15 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "OpenCode can attach images from your photo library to messages to your AI coding agent.",
-          "cameraPermission": "OpenCode can capture images with your camera and attach them to messages to your AI coding agent."
+          "photosPermission": "DevBox can attach images from your photo library to messages to your AI coding agent.",
+          "cameraPermission": "DevBox can capture images with your camera and attach them to messages to your AI coding agent."
         }
       ],
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "OpenCode uses the microphone to capture your voice when using speech-to-text input.",
-          "speechRecognitionPermission": "OpenCode uses speech recognition so you can dictate prompts to your AI coding agent hands-free."
+          "microphonePermission": "DevBox uses the microphone to capture your voice when using speech-to-text input.",
+          "speechRecognitionPermission": "DevBox uses speech recognition so you can dictate prompts to your AI coding agent hands-free."
         }
       ],
       "expo-localization",

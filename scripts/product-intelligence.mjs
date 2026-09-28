@@ -74,7 +74,7 @@ function githubHeaders(token) {
   return {
     Accept: "application/vnd.github+json",
     Authorization: `Bearer ${token}`,
-    "User-Agent": "opencode-mobile-product-intelligence",
+    "User-Agent": "devbox-mobile-product-intelligence",
     "X-GitHub-Api-Version": "2022-11-28",
   }
 }
@@ -207,7 +207,7 @@ async function main() {
   const options = args(process.argv.slice(2))
   const now = Date.now()
   const date = new Date(now).toISOString().slice(0, 10)
-  const repo = process.env.GITHUB_REPOSITORY ?? "dzianisv/opencode-mobile"
+  const repo = process.env.GITHUB_REPOSITORY ?? "Web2Bizz/devbox-mobile"
   const github = await collectGithub(process.env.GITHUB_TOKEN, repo, now)
   const githubData = github.status === "available" ? github.data : null
   const signals = []

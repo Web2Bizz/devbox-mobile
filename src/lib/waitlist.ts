@@ -11,8 +11,8 @@
 // `source` tag we send is forward-compatible: harmless now, attributable as
 // soon as the route starts reading it.
 
-export const WAITLIST_ENDPOINT = "https://opencode.agentlabs.cc/api/beta-signup"
-export const WAITLIST_SOURCE = "opencode-connect-waitlist"
+export const WAITLIST_ENDPOINT = "https://devbox.web2bizz.team/api/beta-signup"
+export const WAITLIST_SOURCE = "devbox-connect-waitlist"
 export const WAITLIST_TIMEOUT_MS = 8_000
 export const WAITLIST_FALLBACK_EMAIL = "support@web2bizz.team"
 
