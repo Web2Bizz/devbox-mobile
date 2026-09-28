@@ -143,7 +143,7 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <SvgXml xml={lockXml} width={64} height={64} />
+          <SvgXml xml={lockXml} width={83} height={83} />
           <Text style={[styles.title, isDark && styles.textDark]}>Вход</Text>
           <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>Введите логин и пароль</Text>
           {authError ? (
