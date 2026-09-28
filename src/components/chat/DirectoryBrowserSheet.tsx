@@ -233,9 +233,11 @@ export function DirectoryBrowserSheet({
 
   const canGoUp = !!browseDir && !!parentOf(browseDir)
 
-  // Memoized for the same reason as in DirectorySwitcher: fresh literals on
-  // every render remount the backdrop and can interrupt an in-progress drag.
-  const snapPoints = useMemo(() => ["65%", "92%"], [])
+  // Single 80% detent: expand() targets the highest detent, so one detent
+  // keeps the explorer at a fixed 80% height. Memoized (like
+  // DirectorySwitcher) because fresh literals on every render remount the
+  // backdrop and can interrupt an in-progress drag.
+  const snapPoints = useMemo(() => ["80%"], [])
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
@@ -488,19 +490,24 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
-    backgroundColor: "#f0f0f0",
+    // Transparent: crumbs are theme-colored text links, not filled pills.
+    backgroundColor: "transparent",
     maxWidth: 140,
   },
   crumbActive: {
-    backgroundColor: "#8b5cf6",
+    // Transparent like the idle crumb — the active state is carried by the
+    // accent text color below, not a filled background.
+    backgroundColor: "transparent",
   },
   crumbText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#444444",
   },
-  crumbTextDark: { color: "#c4b5fd" },
-  crumbTextActive: { color: "#ffffff" },
+  // Dark-mode secondary text (matches dimDark) — a neutral gray so the
+  // accent-colored active crumb stands out by hue on both themes.
+  crumbTextDark: { color: "#888888" },
+  crumbTextActive: { color: colors.accent },
   manualToggle: {
     flexDirection: "row",
     alignItems: "center",

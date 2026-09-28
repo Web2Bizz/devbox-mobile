@@ -28,7 +28,7 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import type { Project } from "../../src/lib/sdk"
-import { DirectorySwitcher, DirectoryBrowserSheet, SheetHandle } from "../../src/components/chat"
+import { DirectorySwitcher, DirectoryBrowserSheet, CloneRepoSheet, SheetHandle } from "../../src/components/chat"
 import { groupProjects } from "../../src/lib/session-grouping"
 import { lanConnectionIds } from "../../src/lib/listed-session"
 import type { ListedSession } from "../../src/lib/listed-session"
@@ -161,6 +161,10 @@ export default function SessionsScreen() {
   const reconnect = useEvents((s) => s.connect)
   const dirSheetRef = useRef<BottomSheet>(null)
   const browserSheetRef = useRef<BottomSheet>(null)
+  // GitHub clone sheet (replaces the old /project/clone route screen):
+  // parent-owned ref, opened imperatively via expand() — no visible-state
+  // feedback loop, same as the other sheets on this screen.
+  const cloneSheetRef = useRef<BottomSheet>(null)
   // New-project bottom sheet (replaces the old RN modal): driven by two
   // sources — local state (FAB long-press and friends) and the global UI
   // store (navbar tab). Imperative expand/close keeps it in sync with both.
@@ -174,7 +178,10 @@ export default function SessionsScreen() {
     setShowNewSession(false)
     closeNewProject()
   }, [closeNewProject])
-  const newSheetSnapPoints = useMemo(() => ["70%", "92%"], [])
+  // Single 50% detent: expand() targets the highest detent, so one compact
+  // detent keeps the new-project options sheet half-height; the option
+  // list scrolls inside. Drag down still closes.
+  const newSheetSnapPoints = useMemo(() => ["50%"], [])
   const renderNewSheetBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" opacity={0.5} />
@@ -591,13 +598,13 @@ export default function SessionsScreen() {
                 <Ionicons name="chevron-forward" size={16} color={isDark ? "#666666" : "#999999"} />
               </TouchableOpacity>
 
-              {/* Clone a GitHub repo onto the server (stub — backend lands later) */}
+              {/* Clone a GitHub repo onto the server (stub — backend lands later).
+                  Opens as a bottom sheet stacked above this one. */}
               <TouchableOpacity
                 style={[styles.projectRow, isDark && styles.projectRowDark, { marginTop: 8 }]}
                 onPress={() => {
-                  setShowNewSession(false)
-                  closeNewProject()
-                  router.push("/project/clone")
+                  closeNewSession()
+                  cloneSheetRef.current?.expand()
                 }}
                 disabled={isCreating}
                 testID="clone-repo-button"
@@ -678,6 +685,10 @@ export default function SessionsScreen() {
         isDark={isDark}
         onSelect={onBrowserSelect}
       />
+
+      {/* GitHub clone flow — bottom sheet stacked above the new-project
+          sheet (which closes first, see the clone row above). */}
+      <CloneRepoSheet sheetRef={cloneSheetRef} isDark={isDark} />
     </View>
   )
 }
