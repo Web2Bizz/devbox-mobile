@@ -81,6 +81,16 @@ const BUILTIN_COMMANDS: SlashCommand[] = [
   },
 ]
 
+// Quick actions offered on an empty (new) chat. Tapping one prefills the
+// composer — it never sends by itself.
+const SUGGESTIONS = [
+  { key: "fixBug", icon: "bug-outline", labelKey: "session.empty.suggestions.fixBug", promptKey: "session.empty.prompts.fixBug" },
+  { key: "newTask", icon: "list-outline", labelKey: "session.empty.suggestions.newTask", promptKey: "session.empty.prompts.newTask" },
+  { key: "writeTest", icon: "flask-outline", labelKey: "session.empty.suggestions.writeTest", promptKey: "session.empty.prompts.writeTest" },
+  { key: "reviewCode", icon: "eye-outline", labelKey: "session.empty.suggestions.reviewCode", promptKey: "session.empty.prompts.reviewCode" },
+  { key: "checkCicd", icon: "git-branch-outline", labelKey: "session.empty.suggestions.checkCicd", promptKey: "session.empty.prompts.checkCicd" },
+] as const
+
 function getShortDir(dir?: string): string | null {
   if (!dir) return null
   const parts = dir.split("/").filter(Boolean)
@@ -436,6 +446,16 @@ export default function SessionScreen() {
     clearedRef.current = text.length === 0
     setInput(text)
   }, [])
+
+  // Empty-chat quick action: prefill the composer with the suggestion prompt
+  // and focus the field so the user can complete it. Never sends by itself.
+  const handleSuggestionPress = useCallback(
+    (promptKey: string) => {
+      handleChangeText(t(promptKey))
+      fieldRef.current?.focus()
+    },
+    [handleChangeText, t],
+  )
 
   // Slash command handler
   const handleSlashSelect = useCallback(
@@ -822,11 +842,31 @@ export default function SessionScreen() {
               }
             />
             {/* Empty state rendered OUTSIDE the inverted list to avoid the
-                inverted transform mirroring its text/icon (see #ui-mirror). */}
+                inverted transform mirroring its text/icon (see #ui-mirror).
+                box-none: taps pass through the overlay itself, chips stay tappable. */}
             {messageData.length === 0 && (
-              <View style={s.emptyOverlay} pointerEvents="none">
+              <View style={s.emptyOverlay} pointerEvents="box-none">
                 <Ionicons name="chatbubble-outline" size={48} color={isDark ? "#444444" : "#cccccc"} />
-                <Text style={[s.emptyText, isDark && s.metaDark]}>{t("session.empty.title")}</Text>
+                <Text style={[s.emptyText, isDark && s.metaDark]}>{t("session.empty.suggestionsTitle")}</Text>
+                <View style={s.suggestionsWrap}>
+                  {SUGGESTIONS.map((item) => (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[s.suggestionChip, isDark && s.suggestionChipDark]}
+                      onPress={() => handleSuggestionPress(item.promptKey)}
+                      testID={`suggestion-${item.key}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={t(item.labelKey)}
+                    >
+                      <Ionicons
+                        name={item.icon as keyof typeof Ionicons.glyphMap}
+                        size={16}
+                        color={isDark ? "#bbbbbb" : "#444444"}
+                      />
+                      <Text style={[s.suggestionText, isDark && s.suggestionTextDark]}>{t(item.labelKey)}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
                 <Text style={[s.emptyHint, isDark && s.metaDark]}>{t("session.empty.hint")}</Text>
               </View>
             )}
@@ -974,7 +1014,13 @@ export default function SessionScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* AI settings dialog (agent + model + reasoning effort) */}
+      {/* AI settings dialog (agent + model + reasoning effort).
+          Layer wrapper: gorhom renders inline (not a portal), so without an
+          explicit stacking level the composer overlay buttons (zIndex: 1) and
+          the scroll-to-bottom button (Android elevation 4) bleed through the
+          open sheet and its backdrop. box-none keeps list touches working
+          while the sheet is closed (index -1). */}
+      <View style={s.sheetLayer} pointerEvents="box-none">
       <AiSettingsModal
         sheetRef={aiSheetRef}
         agents={agents}
@@ -988,6 +1034,7 @@ export default function SessionScreen() {
         onSelectModel={(providerID, modelID) => setModel({ providerID, modelID })}
         onSelectVariant={setVariant}
       />
+      </View>
     </>
   )
 }
@@ -1040,12 +1087,36 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 64,
+    paddingHorizontal: 24,
   },
 
   // Empty
   empty: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 64 },
   emptyText: { fontSize: 16, color: "#999999", marginTop: 12 },
-  emptyHint: { fontSize: 13, color: "#bbbbbb", marginTop: 4 },
+  // Quick-action chips: web flex-wrap analog — row + wrap so chips flow onto
+  // the next line instead of stacking vertically.
+  suggestionsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 16,
+  },
+  suggestionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    backgroundColor: "#f5f5f5",
+  },
+  suggestionChipDark: { borderColor: "#2a2a2a", backgroundColor: "#1a1a1a" },
+  suggestionText: { fontSize: 14, fontWeight: "500", color: "#444444" },
+  suggestionTextDark: { color: "#bbbbbb" },
+  emptyHint: { fontSize: 13, color: "#bbbbbb", marginTop: 12 },
   metaDark: { color: "#666666" },
   textWhite: { color: "#ffffff" },
 
@@ -1132,4 +1203,13 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
   },
   bannerAction: { color: "#93c5fd", fontSize: 13, fontWeight: "700" },
+
+  // Bottom-sheet layer: must sit above the composer overlay buttons and the
+  // scroll button (see wrapper comment at the AiSettingsModal usage). No
+  // backgroundColor — so Android draws no shadow from the elevation.
+  sheetLayer: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 10,
+    elevation: 10,
+  },
 })

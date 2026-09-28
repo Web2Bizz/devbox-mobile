@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react"
-import { View, Text, StyleSheet } from "react-native"
+import { View, Text, StyleSheet, useWindowDimensions } from "react-native"
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -7,6 +7,7 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
 import { colors } from "../../lib/theme"
+import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
 import { Select, type SelectOption } from "./Select"
 import { SheetHandle } from "./SheetHandle"
 
@@ -67,10 +68,13 @@ export function AiSettingsModal({
 }: Props) {
   const { t } = useTranslation()
 
-  // Single 40% detent: the sheet opens compact (expand() targets the
-  // highest detent, so a second taller one would reopen the too-tall sheet);
-  // the model list scrolls inside. Drag down still closes.
-  const snapPoints = useMemo(() => ["40%"], [])
+  // Landscape detent: "40%" of a landscape-height screen is a ~300pt
+  // strip — the sheet opens but can't be used. Near-full height instead.
+  // Wide content cap: rows must not stretch across a 1100pt+ tablet.
+  const { width: winWidth, height: winHeight } = useWindowDimensions()
+  const isLandscape = isLandscapeSize(winWidth, winHeight)
+  const capContent = shouldCapSheetContent(winWidth)
+  const snapPoints = useMemo(() => [isLandscape ? "85%" : "40%"], [isLandscape])
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" opacity={0.5} />
@@ -155,10 +159,11 @@ export function AiSettingsModal({
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
-      <View style={s.titleRow}>
+      <View style={[s.titleRow, capContent && sheetContentCap]}>
         <Text style={[s.title, isDark && s.textWhite]}>{t("chat.aiSettings.title")}</Text>
       </View>
       <BottomSheetScrollView contentContainerStyle={s.content}>
+        <View style={[s.contentInner, capContent && sheetContentCap]}>
         <Select
           label={t("chat.aiSettings.agentLabel")}
           options={agentOptions}
@@ -191,6 +196,7 @@ export function AiSettingsModal({
           searchPlaceholder={t("chat.modelPicker.searchPlaceholder")}
           testID="model-select"
         />
+        </View>
       </BottomSheetScrollView>
     </BottomSheet>
   )
@@ -212,5 +218,9 @@ const s = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: "700", color: "#0a0a0a" },
   textWhite: { color: "#ffffff" },
-  content: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
+  content: { paddingHorizontal: 16, paddingBottom: 32 },
+  // Inner column: carries the gap + the wide-screen centered cap (the cap
+  // must sit on an inner View — on the scroll content container itself it
+  // would left-stick instead of centering).
+  contentInner: { gap: 12 },
 })

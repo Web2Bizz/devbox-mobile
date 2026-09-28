@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next"
 import type { Client, FileEntry } from "../../lib/sdk"
 import { parentOf, nameOf, breadcrumbsOf } from "../../lib/path-utils"
 import { normalizeRoots, type FileRoot } from "../../lib/file-roots"
+import { shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
 import { MOCK_HOME, MOCK_ROOTS, listMockDir } from "../../lib/fs-mock"
 import { colors } from "../../lib/theme"
 import { SheetHandle } from "./SheetHandle"
@@ -233,6 +234,11 @@ export function DirectoryBrowserSheet({
 
   const canGoUp = !!browseDir && !!parentOf(browseDir)
 
+  // Wide-screen centered column so rows don't stretch across a tablet.
+  // Detent stays 80% — tall enough in landscape as is.
+  const { width: winWidth } = useWindowDimensions()
+  const capContent = shouldCapSheetContent(winWidth)
+
   // Single 80% detent: expand() targets the highest detent, so one detent
   // keeps the explorer at a fixed 80% height. Memoized (like
   // DirectorySwitcher) because fresh literals on every render remount the
@@ -269,7 +275,7 @@ export function DirectoryBrowserSheet({
       backdropComponent={renderBackdrop}
       onChange={handleSheetChange}
     >
-      <View style={s.header}>
+      <View style={[s.header, capContent && sheetContentCap]}>
         <View style={s.titleRow}>
           <Text style={[s.title, isDark && s.white]}>{t("chat.directoryBrowserSheet.title")}</Text>
           {useMock && (
@@ -395,7 +401,7 @@ export function DirectoryBrowserSheet({
         keyExtractor={(item: FileEntry) => item.absolute}
         renderItem={({ item }: { item: FileEntry }) => (
           <TouchableOpacity
-            style={[s.row, isDark && s.rowDark]}
+            style={[s.row, isDark && s.rowDark, capContent && sheetContentCap]}
             onPress={() => enter(item.absolute)}
             testID={`directory-row-${item.name}`}
           >
@@ -413,18 +419,18 @@ export function DirectoryBrowserSheet({
         contentContainerStyle={s.list}
         ListHeaderComponent={
           loading ? (
-            <View style={s.centerBox}>
+            <View style={[s.centerBox, capContent && sheetContentCap]}>
               <ActivityIndicator color={isDark ? "#ffffff" : "#0a0a0a"} />
             </View>
           ) : error ? (
-            <View style={s.centerBox}>
+            <View style={[s.centerBox, capContent && sheetContentCap]}>
               <Text style={s.errorText}>{error}</Text>
             </View>
           ) : null
         }
         ListEmptyComponent={
           !loading && !error ? (
-            <Text style={[s.emptyText, isDark && s.dimDark]}>
+            <Text style={[s.emptyText, isDark && s.dimDark, capContent && sheetContentCap]}>
               {browseDir
                 ? t("chat.directoryBrowserSheet.noSubfolders")
                 : t("chat.directoryBrowserSheet.enterPathHint")}
@@ -433,7 +439,7 @@ export function DirectoryBrowserSheet({
         }
       />
 
-      <View style={s.footer}>
+      <View style={[s.footer, capContent && sheetContentCap]}>
         <TouchableOpacity
           style={[s.selectBtn, isDark && s.selectBtnDark, !browseDir && s.selectBtnDisabled]}
           onPress={handleUseFolder}

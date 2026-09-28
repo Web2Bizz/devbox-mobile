@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -8,6 +8,7 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
+import { shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
 import { filterMockRepos, type MockRepo } from "../../lib/github-mock"
 import { useClonedProjects } from "../../stores/cloned-projects"
 import { useConnections } from "../../stores/connections"
@@ -38,6 +39,10 @@ export function CloneRepoSheet({ sheetRef, isDark, targetDir }: Props) {
   const addRecentDirectory = useConnections((s) => s.addRecentDirectory)
 
   const repos = useMemo(() => filterMockRepos(query), [query])
+
+  // Wide-screen centered column so rows don't stretch across a tablet.
+  const { width: winWidth } = useWindowDimensions()
+  const capContent = shouldCapSheetContent(winWidth)
 
   // UI stub: fake 1.5s "cloning", then stores the project locally and
   // closes the sheet. Backend will replace the setTimeout with a real
@@ -73,7 +78,7 @@ export function CloneRepoSheet({ sheetRef, isDark, targetDir }: Props) {
       const cloning = cloningId === item.id
       return (
         <TouchableOpacity
-          style={[s.row, isDark && s.rowDark]}
+          style={[s.row, isDark && s.rowDark, capContent && sheetContentCap]}
           onPress={() => onClone(item.id)}
           disabled={cloningId !== null}
           testID={`repo-item-${item.id}`}
@@ -111,7 +116,7 @@ export function CloneRepoSheet({ sheetRef, isDark, targetDir }: Props) {
         </TouchableOpacity>
       )
     },
-    [cloningId, isDark, onClone, t],
+    [cloningId, isDark, onClone, t, capContent],
   )
 
   return (
@@ -130,11 +135,11 @@ export function CloneRepoSheet({ sheetRef, isDark, targetDir }: Props) {
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
     >
-      <View style={s.titleRow}>
+      <View style={[s.titleRow, capContent && sheetContentCap]}>
         <Text style={[s.title, isDark && s.textWhite]}>{t("project.clone.title")}</Text>
       </View>
       {typeof targetDir === "string" && !!targetDir && (
-        <View style={s.targetWrap}>
+        <View style={[s.targetWrap, capContent && sheetContentCap]}>
           <View style={[s.targetBox, isDark && s.targetBoxDark]} testID="clone-target-dir">
             <Ionicons name="folder-outline" size={14} color={isDark ? "#888888" : "#666666"} />
             <Text style={[s.targetText, isDark && s.metaDark]} numberOfLines={1}>
@@ -143,7 +148,7 @@ export function CloneRepoSheet({ sheetRef, isDark, targetDir }: Props) {
           </View>
         </View>
       )}
-      <View style={s.searchWrap}>
+      <View style={[s.searchWrap, capContent && sheetContentCap]}>
         <BottomSheetTextInput
           style={[s.search, isDark && s.searchDark]}
           placeholder={t("project.clone.searchPlaceholder")}
@@ -161,7 +166,7 @@ export function CloneRepoSheet({ sheetRef, isDark, targetDir }: Props) {
         renderItem={renderRepo}
         contentContainerStyle={s.list}
         ListEmptyComponent={
-          <View style={s.empty}>
+          <View style={[s.empty, capContent && sheetContentCap]}>
             <Text style={[s.emptyText, isDark && s.metaDark]}>{t("project.clone.empty")}</Text>
           </View>
         }
