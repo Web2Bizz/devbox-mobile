@@ -33,6 +33,11 @@ export const MessageBubble = memo(
     const fileParts = parts.filter((p) => p.type === "file" && isImageMime(p.mime))
     const text = textParts.map((p) => p.text).join("\n") || ""
     const reasoning = reasoningParts.map((p) => p.text).join("\n") || ""
+    // True when tools follow text/reasoning/images inside the SAME bubble:
+    // then the toolList needs its own 16px top gap. When a bubble starts
+    // with tools, marginTop stays 0 and the 16px comes from the surrounding
+    // 8 (prev padBottom) + 0 (margin) + 8 (this padTop) paddings.
+    const toolsAfterContent = text.length > 0 || reasoning.length > 0 || fileParts.length > 0
 
     return (
       <TouchableOpacity
@@ -84,9 +89,14 @@ export const MessageBubble = memo(
           ))}
 
         {/* Tool calls — uniform rhythm via the container gap, not per-card
-            margins, so every row in a series sits equally apart */}
+            margins, so every row in a series sits equally apart.
+            Rhythm math (all assistant adjacencies = 16):
+            intra-bubble text→tools 16 (toolListAfterContent marginTop),
+            tools→tools 16 (toolList gap), cross-bubble anything→anything 16
+            (8 padBottom + 0 margin + 8 padTop), assistant→user stays 20
+            (8 pad + 12 user padding). User bubble untouched. */}
         {toolParts.length > 0 && (
-          <View style={s.toolList}>
+          <View style={[s.toolList, toolsAfterContent && s.toolListAfterContent]}>
             {toolParts.map((tool) => (
               <ToolCallCard key={tool.id} tool={tool} isDark={isDark} />
             ))}
@@ -138,8 +148,9 @@ const s = StyleSheet.create({
     width: "100%",
     marginLeft: 0,
     marginRight: 0,
-    // Breathing room before the next (user) message.
-    marginBottom: 12,
+    // Consecutive assistant bubbles must flow as one series: keep 0 here so
+    // the cross-bubble gap is exactly padBottom 8 + padTop 8 = 16.
+    marginBottom: 0,
     paddingHorizontal: 0,
     paddingVertical: 8,
   },
@@ -149,8 +160,11 @@ const s = StyleSheet.create({
 
   messageText: { fontSize: 15, lineHeight: 22, color: "#0a0a0a" },
   markdownWrap: { marginHorizontal: -4 },
-  // Tool-call series: one gap value for text→card and card→card alike.
-  toolList: { marginTop: 12, gap: 12 },
+  // Tool-call series: one 16px gap value for text→card and card→card alike.
+  // Base has marginTop 0; toolListAfterContent adds 16 only when tools follow
+  // content in the same bubble (see rhythm math above).
+  toolList: { marginTop: 0, marginBottom: 0, gap: 16 },
+  toolListAfterContent: { marginTop: 16 },
 
   tokens: { fontSize: 11, color: "#999999", marginTop: 8 },
   tokensDark: { color: "#666666" },
