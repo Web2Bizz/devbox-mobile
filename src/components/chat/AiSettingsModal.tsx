@@ -6,7 +6,7 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
-import { colors } from "../../lib/theme"
+import { colors, breakpoints } from "../../lib/theme"
 import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
 import { Select, type SelectOption } from "./Select"
 import { SheetHandle } from "./SheetHandle"
@@ -68,13 +68,19 @@ export function AiSettingsModal({
 }: Props) {
   const { t } = useTranslation()
 
-  // Landscape detent: "40%" of a landscape-height screen is a ~300pt
-  // strip — the sheet opens but can't be used. Near-full height instead.
-  // Wide content cap: rows must not stretch across a 1100pt+ tablet.
+  // Detents: phones open tall (70%) so agent/model/effort lists are usable
+  // without cramped scrolling; tablets keep the compact 40% portrait sheet.
+  // Landscape always goes near-full height — "40%" of a landscape-height
+  // screen is a ~300pt strip. Wide content cap: rows must not stretch
+  // across a 1100pt+ tablet.
   const { width: winWidth, height: winHeight } = useWindowDimensions()
   const isLandscape = isLandscapeSize(winWidth, winHeight)
+  const isPhone = winWidth < breakpoints.tablet
   const capContent = shouldCapSheetContent(winWidth)
-  const snapPoints = useMemo(() => [isLandscape ? "85%" : "40%"], [isLandscape])
+  const snapPoints = useMemo(() => {
+    if (isLandscape) return ["85%"]
+    return [isPhone ? "70%" : "40%"]
+  }, [isLandscape, isPhone])
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" opacity={0.5} />
