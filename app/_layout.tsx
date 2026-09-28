@@ -201,13 +201,6 @@ function RootLayout() {
               {/* No connection/[id] (edit) route by policy: the main server
                   entry is not editable, and manual connections are LAN-only
                   via discovery — credentials are entered on the login screen. */}
-              <Stack.Screen
-                name="project/clone"
-                options={{
-                  title: t("project.clone.title"),
-                  presentation: "card",
-                }}
-              />
             </Stack>
               <StatusBar style={isDark ? "light" : "dark"} />
             </AuthGate>
