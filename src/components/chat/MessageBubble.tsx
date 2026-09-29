@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Dimensions
 import { Markdown } from "../markdown"
 import { ToolCallCard } from "./ToolCallCard"
 import { ReasoningBlock } from "./ReasoningBlock"
-import type { Message, Part } from "../../lib/sdk"
+import type { Message, Part } from "@opencode-ai/uikit"
 
 const SCREEN_WIDTH = Dimensions.get("window").width
 

@@ -11,10 +11,10 @@ import { useTranslation } from "react-i18next"
 import type { Client, FileEntry } from "../../lib/sdk"
 import { parentOf, nameOf, breadcrumbsOf } from "../../lib/path-utils"
 import { normalizeRoots, type FileRoot } from "../../lib/file-roots"
+import { colors } from "@opencode-ai/uikit"
 import { shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
 import { MOCK_HOME, MOCK_ROOTS, listMockDir } from "../../lib/fs-mock"
-import { colors } from "../../lib/theme"
-import { SheetHandle } from "./SheetHandle"
+import { SheetHandle } from "@opencode-ai/uikit"
 
 // Fake latency so the mock mode feels like the real API during UI review.
 const MOCK_DELAY_MS = 350

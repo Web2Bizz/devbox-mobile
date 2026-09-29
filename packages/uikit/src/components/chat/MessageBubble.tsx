@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { Markdown } from "../markdown"
 import { ToolCallCard } from "./ToolCallCard"
 import { ReasoningBlock } from "./ReasoningBlock"
-import type { Message, Part } from "../../lib/sdk"
+import type { Message, Part } from "../../types"
 
 const SCREEN_WIDTH = Dimensions.get("window").width
 

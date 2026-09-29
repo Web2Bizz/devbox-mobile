@@ -22,7 +22,7 @@ import { buildAuth } from "../../src/lib/auth"
 import { submitWaitlistSignup, buildWaitlistMailtoUrl, needsManualEscapeHatch, type QueuedSignup } from "../../src/lib/waitlist"
 import { flushPendingSignups, queuePendingSignup, readPendingSignups, dropPendingSignup } from "../../src/lib/waitlist-queue-storage"
 import { HARDCODED_SERVER_URL } from "../../src/lib/server-config"
-import { colors } from "../../src/lib/theme"
+import { colors } from "@opencode-ai/uikit"
 import pkg from "../../package.json"
 
 // Single source of truth — package.json
