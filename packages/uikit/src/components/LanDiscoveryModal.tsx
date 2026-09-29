@@ -1,3 +1,4 @@
+<<<<<<<< HEAD:packages/uikit/src/components/LanDiscoveryModal.tsx
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
   View,
@@ -224,3 +225,15 @@ export function LanDiscoveryModal({
     </Modal>
   )
 }
+========
+/**
+ * Back-compat shim (uikit atoms card).
+ *
+ * Real component lives in `@opencode-ai/uikit`
+ * (`packages/uikit/src/components/LanDiscoveryModal.tsx`).
+ * This file re-exports the package so existing imports
+ * (`src/components/LanDiscoveryModal`, …) keep working — `app/` is untouched.
+ * New code should import from `@opencode-ai/uikit` directly.
+ */
+export * from "@opencode-ai/uikit"
+>>>>>>>> ef640f1 (chore(uikit): чистые атомы + chat-дельта + свитч импортов, без переименования):src/components/LanDiscoveryModal.tsx
