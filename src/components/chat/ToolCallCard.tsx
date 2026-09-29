@@ -2,7 +2,7 @@ import { useState, useCallback } from "react"
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Platform } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
-import type { Part } from "../../lib/sdk"
+import type { Part } from "@opencode-ai/uikit"
 import { DiffView } from "./DiffView"
 
 const TOOL_ICONS: Record<string, string> = {

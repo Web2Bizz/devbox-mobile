@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import { router } from "expo-router"
 import { useConnections } from "../../src/stores/connections"
-import { layout } from "../../src/lib/theme"
+import { layout } from "@opencode-ai/uikit"
 
 export default function AccountScreen() {
   const colorScheme = useColorScheme()

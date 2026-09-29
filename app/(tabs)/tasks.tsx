@@ -7,7 +7,7 @@ import { useSessions } from "../../src/stores/sessions"
 import { useSessionsList } from "../../src/queries/sessions"
 import { useEvents } from "../../src/stores/events"
 import { selectActiveSessions } from "../../src/lib/active-tasks"
-import { colors } from "../../src/lib/theme"
+import { colors } from "@opencode-ai/uikit"
 import type { ListedSession } from "../../src/lib/listed-session"
 
 // Tasks = sessions where the agent is currently doing something:

@@ -25,7 +25,7 @@ import { useProjectInfo, useServerProjects } from "../../src/queries/project"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
 import { useSettings } from "../../src/stores/settings"
-import { LanDiscoveryModal } from "../../src/components/LanDiscoveryModal"
+import { LanDiscoveryModal } from "@opencode-ai/uikit"
 import type { LanCandidate } from "../../src/lib/lan-discover"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -33,15 +33,16 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import type { Project } from "../../src/lib/sdk"
-import { DirectorySwitcher, DirectoryBrowserSheet, CloneRepoSheet, SheetHandle } from "../../src/components/chat"
+import { DirectorySwitcher, DirectoryBrowserSheet, CloneRepoSheet } from "../../src/components/chat"
+import { SheetHandle } from "@opencode-ai/uikit"
 import { groupProjects } from "../../src/lib/session-grouping"
 import { lanConnectionIds } from "../../src/lib/listed-session"
 import type { ListedSession } from "../../src/lib/listed-session"
-import { UpdateBanner } from "../../src/components/UpdateBanner"
+import { UpdateBanner } from "@opencode-ai/uikit"
 import { nameOf } from "../../src/lib/path-utils"
 import { useUi } from "../../src/stores/ui"
-import { breakpoints, colors } from "../../src/lib/theme"
-import { useTablet } from "../../src/lib/use-tablet"
+import { breakpoints, colors } from "@opencode-ai/uikit"
+import { useTablet } from "@opencode-ai/uikit"
 import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../src/lib/sheet-layout"
 
 function formatTime(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
