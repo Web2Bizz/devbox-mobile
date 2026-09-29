@@ -1,3 +1,4 @@
+<<<<<<<< HEAD:packages/uikit/src/components/markdown/CopyLink.tsx
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Text, Linking, type StyleProp, type TextStyle } from "react-native"
 import * as Clipboard from "expo-clipboard"
@@ -46,3 +47,15 @@ export function CopyLink({
     </Text>
   )
 }
+========
+/**
+ * Back-compat shim (uikit atoms card).
+ *
+ * Real component lives in `@opencode-ai/uikit`
+ * (`packages/uikit/src/components/markdown/CopyLink.tsx`).
+ * This file re-exports the package so existing imports
+ * (`src/components/markdown/CopyLink`, …) keep working — `app/` is untouched.
+ * New code should import from `@opencode-ai/uikit` directly.
+ */
+export * from "@opencode-ai/uikit"
+>>>>>>>> ef640f1 (chore(uikit): чистые атомы + chat-дельта + свитч импортов, без переименования):src/components/markdown/CopyLink.tsx
