@@ -25,7 +25,7 @@ import { useProjectInfo, useServerProjects } from "../../src/queries/project"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
 import { useSettings } from "../../src/stores/settings"
-import { LanDiscoveryModal } from "@opencode-ai/uikit"
+import { LanDiscoveryModal } from "@web2bizz/ui-native"
 import type { LanCandidate } from "../../src/lib/lan-discover"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -34,15 +34,15 @@ import BottomSheet, {
 } from "@gorhom/bottom-sheet"
 import type { Project } from "../../src/lib/sdk"
 import { DirectorySwitcher, DirectoryBrowserSheet, CloneRepoSheet } from "../../src/components/chat"
-import { SheetHandle } from "@opencode-ai/uikit"
+import { SheetHandle } from "@web2bizz/ui-native"
 import { groupProjects } from "../../src/lib/session-grouping"
 import { lanConnectionIds } from "../../src/lib/listed-session"
 import type { ListedSession } from "../../src/lib/listed-session"
-import { UpdateBanner } from "@opencode-ai/uikit"
+import { UpdateBanner } from "@web2bizz/ui-native"
 import { nameOf } from "../../src/lib/path-utils"
 import { useUi } from "../../src/stores/ui"
-import { breakpoints, colors } from "@opencode-ai/uikit"
-import { useTablet } from "@opencode-ai/uikit"
+import { breakpoints, colors } from "@web2bizz/ui-native"
+import { useTablet } from "@web2bizz/ui-native"
 import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../src/lib/sheet-layout"
 
 function formatTime(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {

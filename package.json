@@ -19,10 +19,10 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.14",
-    "@opencode-ai/uikit": "file:packages/uikit",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/native": "^7.0.14",
     "@tanstack/react-query": "^5.62.0",
+    "@web2bizz/ui-native": "file:packages/uikit",
     "expo": "^57.0.24",
     "expo-build-properties": "~57.0.21",
     "expo-clipboard": "~57.0.2",

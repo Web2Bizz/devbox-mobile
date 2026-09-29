@@ -1,5 +1,5 @@
 /**
- * @opencode-ai/uikit — shared UI kit (card 2/5 decompose).
+ * @web2bizz/ui-native — shared UI kit (card 2/5 decompose).
  *
  * Card 2: theme tokens, tablet hook and Container live here as the single
  * source of truth. `src/lib/theme.ts`, `src/lib/use-tablet.ts` and

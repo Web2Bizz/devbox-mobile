@@ -8,9 +8,9 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
-import { colors } from "@opencode-ai/uikit"
+import { colors } from "@web2bizz/ui-native"
 import { shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
-import { SheetHandle } from "@opencode-ai/uikit"
+import { SheetHandle } from "@web2bizz/ui-native"
 
 interface Props {
   sheetRef: React.RefObject<BottomSheet | null>

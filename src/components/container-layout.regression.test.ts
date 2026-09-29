@@ -64,13 +64,13 @@ test("use-tablet derives columns from live window width, not Dimensions.get", ()
   assert.doesNotMatch(src, /Dimensions\.get/, "must not use static Dimensions.get snapshot")
 })
 
-test("legacy src/ paths re-export from @opencode-ai/uikit (no breaking changes)", () => {
+test("legacy src/ paths re-export from @web2bizz/ui-native (no breaking changes)", () => {
   const themeShim = readSource("../lib/theme.ts")
-  assert.match(themeShim, /@opencode-ai\/uikit/, "src/lib/theme.ts must re-export from @opencode-ai/uikit")
+  assert.match(themeShim, /@web2bizz\/ui-native/, "src/lib/theme.ts must re-export from @web2bizz/ui-native")
   const hookShim = readSource("../lib/use-tablet.ts")
-  assert.match(hookShim, /@opencode-ai\/uikit/, "src/lib/use-tablet.ts must re-export from @opencode-ai/uikit")
+  assert.match(hookShim, /@web2bizz\/ui-native/, "src/lib/use-tablet.ts must re-export from @web2bizz/ui-native")
   const containerShim = readSource("Container.tsx")
-  assert.match(containerShim, /@opencode-ai\/uikit/, "src/components/Container.tsx must re-export from @opencode-ai/uikit")
+  assert.match(containerShim, /@web2bizz\/ui-native/, "src/components/Container.tsx must re-export from @web2bizz/ui-native")
 })
 
 test("login form is wrapped in a centered max-width container", () => {
