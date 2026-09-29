@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import { MessageBubble, PermissionPrompt } from "../src/components/chat"
 import { buildDemoScript, buildDemoCompletionMessage, buildDemoDenialMessage } from "../src/lib/demo-script"
-import { colors } from "@opencode-ai/uikit"
+import { colors } from "@web2bizz/ui-native"
 
 // Reply values of PermissionPrompt's `onReply` (see
 // src/components/chat/PermissionPrompt.tsx).

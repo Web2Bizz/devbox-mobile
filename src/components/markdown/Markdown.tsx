@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react"
 import { View, Text, useColorScheme, Platform, type StyleProp, type ViewStyle, type TextStyle } from "react-native"
 import { useMarkdown, Renderer } from "react-native-marked"
 import { CodeBlock } from "./CodeBlock"
-import { CopyLink } from "@opencode-ai/uikit"
+import { CopyLink } from "@web2bizz/ui-native"
 
 // react-native-marked's base Renderer hardcodes `selectable` on every plain
 // text node it produces (text/strong/em/del/heading/codespan). On Android,

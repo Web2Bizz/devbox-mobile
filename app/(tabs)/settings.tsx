@@ -17,7 +17,7 @@ import { useAuth } from "../../src/stores/auth"
 import { useSettings } from "../../src/stores/settings"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
-import { LanDiscoveryModal } from "@opencode-ai/uikit"
+import { LanDiscoveryModal } from "@web2bizz/ui-native"
 import type { LanCandidate } from "../../src/lib/lan-discover"
 import type { ServerConnection } from "../../src/lib/types"
 
@@ -30,7 +30,7 @@ import {
 } from "../../src/lib/notifications"
 import type { Category } from "../../src/lib/notifications"
 import { CURRENT_VERSION } from "../../src/lib/update-check"
-import { layout } from "@opencode-ai/uikit"
+import { layout } from "@web2bizz/ui-native"
 import type { LocalePreference } from "../../src/lib/i18n/locale-resolve"
 
 function SettingRow({

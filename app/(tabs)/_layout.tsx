@@ -6,8 +6,8 @@ import { useEvents } from "../../src/stores/events"
 import { useSessions } from "../../src/stores/sessions"
 import { useSessionsList } from "../../src/queries/sessions"
 import { countActiveTasks } from "../../src/lib/active-tasks"
-import { ConnectionBadge } from "@opencode-ai/uikit"
-import { layout } from "@opencode-ai/uikit"
+import { ConnectionBadge } from "@web2bizz/ui-native"
+import { layout } from "@web2bizz/ui-native"
 
 export default function TabLayout() {
   const colorScheme = useColorScheme()

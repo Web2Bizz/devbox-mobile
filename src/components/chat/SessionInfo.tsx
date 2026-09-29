@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "rea
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import type { Session } from "../../lib/sdk"
-import type { Message } from "@opencode-ai/uikit"
+import type { Message } from "@web2bizz/ui-native"
 import type { Provider } from "../../stores/catalog"
-import { colors } from "@opencode-ai/uikit"
+import { colors } from "@web2bizz/ui-native"
 
 interface Props {
   session: Session | null
