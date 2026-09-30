@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native"
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, Keyboard, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -57,6 +57,8 @@ export function CloneRepoSheet({ sheetRef, isDark, targetDir }: Props) {
         const project = addCloned(repo, typeof targetDir === "string" ? targetDir : undefined)
         void addRecentDirectory(project.path).catch(() => {})
         setCloningId(null)
+        // Search field may hold focus — hide the keyboard with the sheet.
+        Keyboard.dismiss()
         sheetRef.current?.close()
       }, 1500)
     },

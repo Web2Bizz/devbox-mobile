@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native"
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, Keyboard, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -222,12 +222,16 @@ export function DirectoryBrowserSheet({
   const goJump = useCallback(() => {
     const dir = jumpPath.trim()
     if (!dir) return
+    Keyboard.dismiss()
     setJumpPath("")
     enter(dir)
   }, [jumpPath, enter])
 
   const handleUseFolder = useCallback(() => {
     if (!browseDir) return
+    // Jump-to-path field may hold focus — hide the keyboard so it doesn't
+    // linger over the closing sheet.
+    Keyboard.dismiss()
     onSelect(browseDir)
     sheetRef.current?.close()
   }, [browseDir, onSelect, sheetRef])

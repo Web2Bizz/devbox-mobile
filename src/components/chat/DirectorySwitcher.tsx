@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react"
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet, Keyboard, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -34,6 +34,9 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
 
   const handleSelect = useCallback(
     (dir?: string) => {
+      // Custom-path field may hold focus — hide the keyboard so it doesn't
+      // linger over the closing sheet or the next stacked one.
+      Keyboard.dismiss()
       onSwitch(dir)
       setCustom("")
       sheetRef.current?.close()
@@ -147,6 +150,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
             <TouchableOpacity
               style={[s.chip, s.chipBrowse, isDark && s.chipDark]}
               onPress={() => {
+                Keyboard.dismiss()
                 sheetRef.current?.close()
                 onBrowse()
               }}
