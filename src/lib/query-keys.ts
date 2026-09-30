@@ -14,6 +14,10 @@ export const queryKeys = {
   catalog: ["catalog"] as const,
   projectInfo: ["project", "info"] as const,
   serverProjects: ["project", "list"] as const,
+  // Per-connection server-project list: one cache entry per server so a LAN
+  // server's projects never collide with (or reuse) the cloud snapshot.
+  // Prefix-invalidation on `serverProjects` still hits every entry below.
+  serverProjectsFor: (connectionId: string) => ["project", "list", connectionId] as const,
 } as const
 
 // Prefix that matches every session-scoped key (list, detail, messages,
