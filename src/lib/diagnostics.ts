@@ -4,7 +4,7 @@
 import { Platform, Share } from "react-native"
 import * as Clipboard from "expo-clipboard"
 import * as Device from "expo-device"
-import pkg from "../../package.json"
+import { APP_VERSION } from "./app-version"
 import { log, formatLogLines } from "./logbuffer"
 import { type Classification, type ProbeAttempt, type ParsedUrl, parseUrl, classify } from "./diagnostics-classify"
 
@@ -102,7 +102,7 @@ export async function probeConnection(url: string, auth?: { username: string; pa
       platform: Platform.OS,
       osVersion: String(Platform.Version),
       model: Device.modelName || "unknown",
-      appVersion: (pkg as { version?: string }).version || "unknown",
+      appVersion: APP_VERSION,
     },
     timestamp: new Date().toISOString(),
   }
@@ -161,7 +161,7 @@ export function buildCrashReport(error: unknown, source: "react-boundary" | "glo
       platform: Platform.OS,
       osVersion: String(Platform.Version),
       model: Device.modelName || "unknown",
-      appVersion: (pkg as { version?: string }).version || "unknown",
+      appVersion: APP_VERSION,
     },
     timestamp: new Date().toISOString(),
   }
