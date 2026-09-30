@@ -35,18 +35,35 @@ export function useProjectInfo() {
   })
 }
 
-async function fetchServerProjects(): Promise<Project[]> {
-  const client = useConnections.getState().client
+async function fetchServerProjects(connectionId?: string): Promise<Project[]> {
+  const conn = useConnections.getState()
+  // Explicit origin: the caller's connection id wins, otherwise the active
+  // one. NEVER fall back to the active server when an explicit id was given
+  // and is unknown — a wrong-server list is worse than an explicit error.
+  const targetId = connectionId ?? conn.activeConnection?.id
+  if (!targetId) throw new Error("No active connection")
+  if (connectionId && !conn.clientBases[connectionId]) throw new Error("No active connection")
+  // No stored credentials (LAN added but not logged in): surface it instead
+  // of swallowing into an empty list — the LAN tab renders "login required".
+  if (!conn.clientBases[targetId]?.auth) throw new Error("Login required")
+  const client = conn.clientForConnection(targetId)
   if (!client) throw new Error("No active connection")
-  return client.project.list().catch(() => [] as Project[])
+  // Errors (401/network) propagate to the caller — the LAN tab shows them
+  // instead of an indistinguishable empty state.
+  return client.project.list()
 }
 
 export function useServerProjects(enabled: boolean) {
-  const client = useConnections((s) => s.client)
+  const activeId = useConnections((s) => s.activeConnection?.id)
+  const hasClient = useConnections((s) => !!s.client)
+  const targetId = activeId ?? ""
   return useQuery({
-    queryKey: queryKeys.serverProjects,
-    queryFn: fetchServerProjects,
-    enabled: enabled && !!client,
+    // Keyed on the connection so per-server snapshots never collide and a
+    // setActiveConnection/addLanConnection switch refetches via the key
+    // change alone (plus invalidateConnectionScopeQueries' prefix drop).
+    queryKey: queryKeys.serverProjectsFor(targetId),
+    queryFn: () => fetchServerProjects(targetId || undefined),
+    enabled: enabled && !!activeId && hasClient,
     staleTime: 60_000,
   })
 }

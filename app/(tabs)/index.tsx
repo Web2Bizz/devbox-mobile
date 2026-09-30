@@ -162,7 +162,7 @@ export default function SessionsScreen() {
   // Server-known projects load while the new-session UI is open — plus on the
   // LAN tab, so a freshly connected LAN server shows something to start from
   // even with zero sessions yet.
-  const { data: serverProjectsData } = useServerProjects(showNewSession || showNewProject || sourceTab === "lan")
+  const { data: serverProjectsData, error: serverProjectsError } = useServerProjects(showNewSession || showNewProject || sourceTab === "lan")
   const serverProjects = serverProjectsData ?? []
   const createSession = useCreateSession()
   const deleteSession = useDeleteSession()
@@ -412,17 +412,27 @@ export default function SessionsScreen() {
   // Sessions are only ever created inside an explicitly chosen,
   // already-downloaded project (recents / server list / folder browser) —
   // never at the server root and never from a hand-typed path.
-  const onCreateInDirectory = async (dir: string) => {
-    if (!activeConnection) return
+  // On the LAN tab an explicit LAN connectionId is always passed so the
+  // session lands on the LAN server even if the active connection lagged
+  // behind (and with connectionId::directory tagging + local badge +
+  // /project/[directory]?connectionId routing the card shows up in the
+  // LAN list right after creation).
+  const onCreateInDirectory = async (dir: string, explicitConnectionId?: string) => {
+    if (!activeConnection && !explicitConnectionId) return
     if (creatingInFlight.current) return
     creatingInFlight.current = true
     setIsCreating(true)
 
     try {
+      const lanTarget =
+        explicitConnectionId ??
+        (sourceTab === "lan" && activeConnection?.discoveredOnLan ? activeConnection.id : undefined)
       // A custom directory uses a one-off client for that directory (the
       // mutation handles this via clientForDirectory) so the connection's
       // default project is never mutated.
-      const { created: session, connectionId } = await createSession.mutateAsync({ directory: dir.trim() })
+      const { created: session, connectionId } = await createSession.mutateAsync(
+        lanTarget ? { directory: dir.trim(), connectionId: lanTarget } : { directory: dir.trim() },
+      )
       setShowNewSession(false)
       closeNewProject()
       router.push({
@@ -689,7 +699,13 @@ export default function SessionsScreen() {
           </View>
         ) : lanProjectsList.length === 0 ? (
           <View style={styles.emptyList}>
-            <Text style={[styles.emptyListText, isDark && styles.metaDark]}>{t("project.lanList.noProjectsHint")}</Text>
+            {serverProjectsError ? (
+              <Text style={[styles.emptyListText, isDark && styles.metaDark]}>
+                {serverProjectsError instanceof Error ? serverProjectsError.message : String(serverProjectsError)}
+              </Text>
+            ) : (
+              <Text style={[styles.emptyListText, isDark && styles.metaDark]}>{t("project.lanList.noProjectsHint")}</Text>
+            )}
             {activeConnection?.discoveredOnLan && serverProjectsData && serverProjectsData.length > 0 ? (
               <>
                 {serverProjectsData.map((p) => {
@@ -700,7 +716,7 @@ export default function SessionsScreen() {
                     <TouchableOpacity
                       key={p.id}
                       style={[styles.projectRow, isDark && styles.projectRowDark, { marginTop: 8, alignSelf: "stretch" as const }]}
-                      onPress={() => onCreateInDirectory(abs)}
+                      onPress={() => onCreateInDirectory(abs, activeConnection.id)}
                       disabled={isCreating}
                     >
                       <Ionicons name="code-slash-outline" size={18} color={isDark ? "#888888" : "#666666"} />
