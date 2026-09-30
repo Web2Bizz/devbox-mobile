@@ -46,3 +46,22 @@ test("does not remove a temp of a different role", () => {
   const out = mergeIncomingMessage([msg("temp-1", "user")], msg("real-a", "assistant"))
   assert.ok(out.some((m) => m.id === "temp-1"))
 })
+
+test("edit resend: echo of the edited message resolves its own temp 1:1", () => {
+  // After the sender pruned the reverted tail (see revert-prune.ts), state
+  // holds [before…, temp-edit]; the server echo replaces exactly the temp —
+  // a single updated row, never old+new.
+  const list = [msg("msg_1"), msg("temp-9")]
+  const out = mergeIncomingMessage(list, msg("msg_4", "user"))
+  assert.deepEqual(out.map((m) => m.id), ["msg_1", "msg_4"])
+})
+
+test("merge never drops unrelated rows itself — tail pruning is the sender's job", () => {
+  // H1/H2 boundary pin: if the reverted tail were still in state (prune
+  // skipped), the echo appends and old+new coexist until a wholesale
+  // refresh. The duplicate is fixed in sendMessage (revert-prune.ts), not
+  // by teaching the merge to delete rows it doesn't own.
+  const list = [msg("msg_1"), msg("msg_2")]
+  const out = mergeIncomingMessage(list, msg("msg_4", "user"))
+  assert.deepEqual(out.map((m) => m.id), ["msg_1", "msg_2", "msg_4"])
+})
