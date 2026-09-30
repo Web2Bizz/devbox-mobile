@@ -13,6 +13,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Linking,
@@ -188,10 +189,61 @@ export default function SessionsScreen() {
   // store (navbar tab). Imperative expand/close keeps it in sync with both.
   const newSheetRef = useRef<BottomSheet>(null)
   const newSheetOpen = showNewSession || showNewProject
+  // Sheets must open AFTER the keyboard is gone: expanding while a field
+  // holds focus (rename input, another sheet's search, or the chat composer
+  // left open on another tab) leaves only the backdrop visible — the sheet
+  // never measures against the keyboard-resized layout. Same recipe as the
+  // AI settings sheet on the session screen: dismiss first, expand once
+  // keyboardDidHide lands, fallback timer in case the event never comes.
+  const sheetPendingRef = useRef(false)
+  const sheetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sheetKbSubRef = useRef<{ remove: () => void } | null>(null)
+  useEffect(
+    () => () => {
+      if (sheetTimerRef.current) clearTimeout(sheetTimerRef.current)
+      sheetTimerRef.current = null
+      sheetKbSubRef.current?.remove()
+      sheetKbSubRef.current = null
+      sheetPendingRef.current = false
+    },
+    [],
+  )
+  const expandSheet = useCallback((ref: React.RefObject<BottomSheet | null>) => {
+    if (sheetPendingRef.current) return
+    sheetPendingRef.current = true
+    Keyboard.dismiss()
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      if (sheetTimerRef.current) {
+        clearTimeout(sheetTimerRef.current)
+        sheetTimerRef.current = null
+      }
+      sheetKbSubRef.current?.remove()
+      sheetKbSubRef.current = null
+      sheetPendingRef.current = false
+      ref.current?.expand()
+    }
+    const keyboardVisible = typeof Keyboard.isVisible === "function" ? Keyboard.isVisible() : true
+    if (!keyboardVisible) {
+      // Keyboard already hidden — expand on the next tick so the dismiss
+      // commits before measuring.
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(finish)
+      } else {
+        sheetTimerRef.current = setTimeout(finish, 0)
+      }
+      return
+    }
+    const sub = Keyboard.addListener("keyboardDidHide", finish)
+    sheetKbSubRef.current = sub
+    sheetTimerRef.current = setTimeout(finish, Platform.OS === "android" ? 150 : 100)
+  }, [])
   useEffect(() => {
-    if (newSheetOpen) newSheetRef.current?.expand()
+    if (newSheetOpen) expandSheet(newSheetRef)
     else newSheetRef.current?.close()
-  }, [newSheetOpen])
+  }, [newSheetOpen, expandSheet])
   const closeNewSession = useCallback(() => {
     setShowNewSession(false)
     closeNewProject()
@@ -391,14 +443,16 @@ export default function SessionsScreen() {
   }
 
   // Both pickers are bottom sheets now, so they stack naturally (browser on
-  // top) — no modal juggling and no restore dance needed.
+  // top) — no modal juggling and no restore dance needed. Keyboard is
+  // dismissed first (see expandSheet): the browser may open on top of the
+  // switcher's custom-path input with focus still in it.
   const openBrowser = useCallback(
     (startDir: string | null, mode: "create" | "switch") => {
       setBrowseStartDir(startDir || serverHome || null)
       setBrowseMode(mode)
-      browserSheetRef.current?.expand()
+      expandSheet(browserSheetRef)
     },
-    [serverHome],
+    [serverHome, expandSheet],
   )
 
   const onBrowserSelect = useCallback(
@@ -430,7 +484,7 @@ export default function SessionsScreen() {
       {shortPath ? (
         <TouchableOpacity
           style={[styles.connectionBar, isDark && styles.connectionBarDark]}
-          onPress={() => dirSheetRef.current?.expand()}
+          onPress={() => expandSheet(dirSheetRef)}
           activeOpacity={0.7}
           testID="connection-status-bar"
         >
@@ -864,7 +918,7 @@ export default function SessionsScreen() {
                 style={[styles.projectRow, isDark && styles.projectRowDark, { marginTop: 8 }]}
                 onPress={() => {
                   closeNewSession()
-                  cloneSheetRef.current?.expand()
+                  expandSheet(cloneSheetRef)
                 }}
                 disabled={isCreating}
                 testID="clone-repo-button"

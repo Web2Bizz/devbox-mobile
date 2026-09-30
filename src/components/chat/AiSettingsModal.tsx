@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react"
-import { View, Text, StyleSheet, useWindowDimensions } from "react-native"
+import { View, Text, StyleSheet, Keyboard, useWindowDimensions } from "react-native"
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
@@ -197,6 +197,8 @@ export function AiSettingsModal({
             if (!id) return
             const sep = id.indexOf(MODEL_ID_SEP)
             onSelectModel(id.slice(0, sep), id.slice(sep + 1))
+            // Model search may hold focus — hide the keyboard with the sheet.
+            Keyboard.dismiss()
             sheetRef.current?.close()
           }}
           searchPlaceholder={t("chat.modelPicker.searchPlaceholder")}
