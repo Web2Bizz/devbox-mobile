@@ -24,10 +24,7 @@ import { flushPendingSignups, queuePendingSignup, readPendingSignups, dropPendin
 import { HARDCODED_SERVER_URL } from "../../src/lib/server-config"
 import { buildManualLanUrl } from "../../src/lib/lan-manual"
 import { colors } from "@web2bizz/ui-native"
-import pkg from "../../package.json"
-
-// Single source of truth — package.json
-const APP_VERSION = (pkg as { version?: string }).version ?? "unknown"
+import { APP_VERSION } from "../../src/lib/app-version"
 
 export default function AddConnectionScreen() {
   const colorScheme = useColorScheme()
