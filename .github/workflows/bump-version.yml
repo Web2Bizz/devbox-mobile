@@ -19,7 +19,9 @@ on:
         required: false
         default: "auto"
         type: choice
-        options: [auto, major]
+        options:
+          - auto
+          - major
 
 concurrency:
   group: bump-version
@@ -30,7 +32,7 @@ permissions:
 
 jobs:
   bump:
-    if: github.event_name == 'workflow_dispatch' || (!contains(github.event.head_commit.message, '[skip bump]') && !contains(github.event.head_commit.message, 'chore: bump version'))
+    if: "github.event_name == 'workflow_dispatch' || (!contains(github.event.head_commit.message, '[skip bump]') && !contains(github.event.head_commit.message, 'chore: bump version'))"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
