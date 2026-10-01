@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Platform, ScrollView } from "react-native"
 import * as Clipboard from "expo-clipboard"
-import { WIDE_CONTENT_SCROLL_CONFIG } from "../../lib/scroll-config"
+import { WIDE_CONTENT_SCROLL_CONFIG } from "../../utils/scroll-config"
 
 interface Props {
   code: string

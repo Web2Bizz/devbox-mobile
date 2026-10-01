@@ -11,10 +11,9 @@
 // Pure — unit-testable under node --test. Call sites read dimensions via
 // useWindowDimensions and apply these helpers.
 //
-// NOTE: deliberately no theme import here. src/lib/theme re-exports the
-// uikit package root, which pulls react-native and can't load under
-// node --test. TABLET_WIDTH mirrors breakpoints.tablet — keep in sync with
-// packages/uikit/src/theme.ts.
+// NOTE: deliberately no theme import here — utils stay dependency-free so
+// they remain unit-testable under node --test. TABLET_WIDTH mirrors
+// breakpoints.tablet — keep in sync with packages/uikit/src/theme.ts.
 
 /** Screen width from which sheet content is capped (== breakpoints.tablet). */
 const TABLET_WIDTH = 768

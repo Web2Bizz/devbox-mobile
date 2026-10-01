@@ -163,7 +163,7 @@ function requestDirectory(req: http.IncomingMessage): string {
 }
 
 // Fake server-side filesystem tree for DirectoryBrowserSheet
-// (src/components/chat/DirectoryBrowserSheet.tsx -> client.file.list({path: "."})
+// (packages/uikit/src/components/chat/DirectoryBrowserSheet.tsx -> client.file.list({path: "."})
 // -> GET /file). The client always requests path=".", scoping to a directory
 // entirely via the x-opencode-directory header (src/lib/headers.ts) — so this
 // map is keyed by absolute directory, not by the literal query string.
@@ -243,7 +243,7 @@ export function createMockOpencodeServer(opts: MockServerOptions) {
     }
 
     // Populated `edit` tool call: renders via ToolCallCard -> EditDetail ->
-    // DiffView (src/components/chat/DiffView.tsx) once the card is expanded.
+    // DiffView (packages/uikit/src/components/chat/DiffView.tsx) once the card is expanded.
     // One short unchanged line + one wide added line, so DiffView's diff has
     // both a context row and an "add" row whose text overflows the ScrollView.
     const toolPart: StoredPart = {
@@ -267,7 +267,7 @@ export function createMockOpencodeServer(opts: MockServerOptions) {
 
     // Wide fenced code block in the reply text: renders via
     // Markdown -> CustomRenderer.code -> CodeBlock
-    // (src/components/markdown/CodeBlock.tsx).
+    // (packages/uikit/src/components/markdown/CodeBlock.tsx).
     const textPart: StoredPart = {
       id: "seed-diff-text",
       sessionID: session.id,
@@ -465,7 +465,7 @@ export function createMockOpencodeServer(opts: MockServerOptions) {
                 limit: { context: 8000, output: 2000 },
                 status: "active",
                 // Reasoning-effort variants for VariantPicker
-                // (src/components/chat/VariantPicker.tsx reads Object.keys(variants)).
+                // (packages/uikit/src/components/chat/AiSettingsModal.tsx reads Object.keys(variants)).
                 variants: {
                   low: { reasoningEffort: "low" },
                   medium: { reasoningEffort: "medium" },

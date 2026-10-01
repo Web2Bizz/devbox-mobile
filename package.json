@@ -17,7 +17,7 @@
     "version:bump": "node scripts/bump-version.mjs",
     "version:bump:major": "node scripts/bump-version.mjs --major",
     "version:bump:dry": "node scripts/bump-version.mjs --dry-run",
-    "test": "node --test 'src/**/*.test.ts' 'scripts/*.test.mjs'"
+    "test": "node --test 'src/**/*.test.ts' 'packages/uikit/src/**/*.test.ts' 'scripts/*.test.mjs'"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

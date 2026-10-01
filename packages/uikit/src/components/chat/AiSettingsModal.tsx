@@ -7,8 +7,8 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
-import { colors, breakpoints } from "../../lib/theme"
-import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
+import { colors, breakpoints } from "../../theme"
+import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../utils/sheet-layout"
 import { Select, type SelectOption } from "./Select"
 import { PickerSheet } from "./PickerSheet"
 import { SheetHandle } from "./SheetHandle"

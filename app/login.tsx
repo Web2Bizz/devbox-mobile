@@ -21,7 +21,7 @@ import { useConnections } from "../src/stores/connections"
 import { useSettings } from "../src/stores/settings"
 import { useEvents } from "../src/stores/events"
 import { LanDiscoveryModal } from "@web2bizz/ui-native"
-import type { LanCandidate } from "../src/lib/lan-discover"
+import type { LanCandidate } from "@web2bizz/ui-native"
 import type { ServerConnection } from "../src/lib/types"
 import { HARDCODED_SERVER_URL } from "../src/lib/server-config"
 

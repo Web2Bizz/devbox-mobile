@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import path from "node:path"
 
@@ -64,13 +64,42 @@ test("use-tablet derives columns from live window width, not Dimensions.get", ()
   assert.doesNotMatch(src, /Dimensions\.get/, "must not use static Dimensions.get snapshot")
 })
 
-test("legacy src/ paths re-export from @web2bizz/ui-native (no breaking changes)", () => {
-  const themeShim = readSource("../lib/theme.ts")
-  assert.match(themeShim, /@web2bizz\/ui-native/, "src/lib/theme.ts must re-export from @web2bizz/ui-native")
-  const hookShim = readSource("../lib/use-tablet.ts")
-  assert.match(hookShim, /@web2bizz\/ui-native/, "src/lib/use-tablet.ts must re-export from @web2bizz/ui-native")
-  const containerShim = readSource("Container.tsx")
-  assert.match(containerShim, /@web2bizz\/ui-native/, "src/components/Container.tsx must re-export from @web2bizz/ui-native")
+test("no legacy re-export shims remain (single implementation in the kit)", () => {
+  const dir = path.dirname(fileURLToPath(import.meta.url))
+  // Every reusable component/util has exactly one implementation in
+  // packages/uikit/src — these src/ paths must stay deleted (app-bound
+  // exceptions with real code here: AuthGate, CloneRepoSheet,
+  // ConnectionBadge, UpdateBanner, ErrorBoundary).
+  for (const shim of [
+    "../lib/theme.ts",
+    "../lib/use-tablet.ts",
+    "Container.tsx",
+    "LanDiscoveryModal.tsx",
+    "chat/index.ts",
+    "chat/AiSettingsModal.tsx",
+    "chat/DiffView.tsx",
+    "chat/diff-compute.ts",
+    "chat/DirectoryBrowserSheet.tsx",
+    "chat/DirectorySwitcher.tsx",
+    "chat/ImageAttachments.tsx",
+    "chat/MessageBubble.tsx",
+    "chat/PermissionPrompt.tsx",
+    "chat/PickerSheet.tsx",
+    "chat/QuestionPrompt.tsx",
+    "chat/ReasoningBlock.tsx",
+    "chat/Select.tsx",
+    "chat/SessionInfo.tsx",
+    "chat/SheetHandle.tsx",
+    "chat/SlashPopover.tsx",
+    "chat/StatusIndicator.tsx",
+    "chat/ToolCallCard.tsx",
+    "markdown/index.tsx",
+    "markdown/CodeBlock.tsx",
+    "markdown/CopyLink.tsx",
+    "markdown/Markdown.tsx",
+  ]) {
+    assert.ok(!existsSync(path.join(dir, shim)), `${shim} must be gone — import from @web2bizz/ui-native instead`)
+  }
 })
 
 test("login form is wrapped in a centered max-width container", () => {

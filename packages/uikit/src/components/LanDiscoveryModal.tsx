@@ -20,7 +20,7 @@ import {
   isPrivateLanIpv4,
   scanLanHosts,
   type LanCandidate,
-} from "../../lib/lan-discover"
+} from "../utils/lan-discover"
 
 // Modal that sweeps the local /24 for opencode servers. Rendered (but hidden)
 // only when the user enabled settings.lanDiscovery — the sweep itself starts

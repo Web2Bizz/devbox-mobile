@@ -7,7 +7,7 @@ import { buildRequestHeaders } from "./headers"
 import { SSEParser } from "./sse"
 import { apiErrorFor } from "./api-error"
 import { loadSessionList } from "./session-list"
-import type { FileRoot } from "./file-roots"
+import type { FileRoot } from "@web2bizz/ui-native"
 
 export { ApiAuthError, isAuthError } from "./api-error"
 
