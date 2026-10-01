@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Platform, ScrollView } from "react-native"
-import { WIDE_CONTENT_SCROLL_CONFIG } from "../../lib/scroll-config"
+import { WIDE_CONTENT_SCROLL_CONFIG } from "../../utils/scroll-config"
 import { computeDiff } from "./diff-compute"
 
 const mono = Platform.OS === "ios" ? "Menlo" : "monospace"

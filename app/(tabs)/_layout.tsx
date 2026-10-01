@@ -6,7 +6,7 @@ import { useEvents } from "../../src/stores/events"
 import { useSessions } from "../../src/stores/sessions"
 import { useSessionsList } from "../../src/queries/sessions"
 import { countActiveTasks } from "../../src/lib/active-tasks"
-import { ConnectionBadge } from "@web2bizz/ui-native"
+import { ConnectionBadge } from "../../src/components/ConnectionBadge"
 import { layout } from "@web2bizz/ui-native"
 
 export default function TabLayout() {

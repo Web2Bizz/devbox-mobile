@@ -8,11 +8,10 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
-import { shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
+import { shouldCapSheetContent, sheetContentCap, SheetHandle } from "@web2bizz/ui-native"
 import { filterMockRepos, type MockRepo } from "../../lib/github-mock"
 import { useClonedProjects } from "../../stores/cloned-projects"
 import { useConnections } from "../../stores/connections"
-import { SheetHandle } from "./SheetHandle"
 
 interface Props {
   // Parent-owned ref — the sheet is UNCONTROLLED (no `visible` prop): the

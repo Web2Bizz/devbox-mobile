@@ -7,8 +7,8 @@ import BottomSheet, {
   BottomSheetTextInput,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
-import { colors } from "../../lib/theme"
-import { shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
+import { colors } from "../../theme"
+import { shouldCapSheetContent, sheetContentCap } from "../../utils/sheet-layout"
 import { SheetHandle } from "./SheetHandle"
 import type { SelectOption } from "./Select"
 

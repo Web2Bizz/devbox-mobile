@@ -33,7 +33,7 @@ import {
   SessionInfo,
   type SlashCommand,
   type Attachment,
-} from "../../src/components/chat"
+} from "@web2bizz/ui-native"
 import { useSessions } from "../../src/stores/sessions"
 import { useEvents, refreshPending } from "../../src/stores/events"
 import { useCatalogData } from "../../src/queries/catalog"
@@ -50,7 +50,7 @@ import { useConnections } from "../../src/stores/connections"
 import { useAuth } from "../../src/stores/auth"
 import { useCatalog } from "../../src/stores/catalog"
 import { useSpeech } from "../../src/lib/speech"
-import { composerMaxHeight, keyboardVerticalOffset, COMPOSER_MIN_HEIGHT } from "../../src/lib/session-layout"
+import { composerMaxHeight, keyboardVerticalOffset, COMPOSER_MIN_HEIGHT } from "@web2bizz/ui-native"
 
 // --- Builtin slash commands ---
 // Hard input cap, mirrored in the TextInput's maxLength below. Pastes that
@@ -887,7 +887,14 @@ export default function SessionScreen() {
               // Prevent jump when older messages are prepended
               maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
               ListHeaderComponent={
-                currentSession ? <StatusIndicator sessionID={currentSession.id} isDark={isDark} /> : null
+                currentSession ? (
+                  <StatusIndicator
+                    status={statusForScroll}
+                    statusText={statusTextForScroll}
+                    optimistic={optimisticSending}
+                    isDark={isDark}
+                  />
+                ) : null
               }
               ListFooterComponent={
                 loadingMore ? (

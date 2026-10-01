@@ -27,24 +27,25 @@ import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
 import { useSettings } from "../../src/stores/settings"
 import { LanDiscoveryModal } from "@web2bizz/ui-native"
-import type { LanCandidate } from "../../src/lib/lan-discover"
+import type { LanCandidate } from "@web2bizz/ui-native"
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import type { Project } from "../../src/lib/sdk"
-import { DirectorySwitcher, DirectoryBrowserSheet, CloneRepoSheet } from "../../src/components/chat"
+import { DirectorySwitcher, DirectoryBrowserSheet } from "@web2bizz/ui-native"
+import { CloneRepoSheet } from "../../src/components/chat/CloneRepoSheet"
 import { SheetHandle } from "@web2bizz/ui-native"
 import { groupProjects } from "../../src/lib/session-grouping"
 import { lanConnectionIds } from "../../src/lib/listed-session"
 import type { ListedSession } from "../../src/lib/listed-session"
-import { UpdateBanner } from "@web2bizz/ui-native"
-import { nameOf } from "../../src/lib/path-utils"
+import { UpdateBanner } from "../../src/components/UpdateBanner"
+import { nameOf } from "@web2bizz/ui-native"
 import { useUi } from "../../src/stores/ui"
 import { breakpoints, colors } from "@web2bizz/ui-native"
 import { useTablet } from "@web2bizz/ui-native"
-import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../src/lib/sheet-layout"
+import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "@web2bizz/ui-native"
 
 function formatTime(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const date = new Date(timestamp)

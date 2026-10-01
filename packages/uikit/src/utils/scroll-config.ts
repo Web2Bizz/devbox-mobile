@@ -1,5 +1,5 @@
 // Pure (no React Native imports) horizontal-scroll configuration shared by
-// src/components/chat/DiffView.tsx and src/components/markdown/CodeBlock.tsx.
+// components/chat/DiffView.tsx and components/markdown/CodeBlock.tsx.
 //
 // GitHub issue #21: wide diff lines and wide code-block lines must render in
 // a horizontally-scrollable container instead of being wrap-broken or

@@ -2,7 +2,7 @@ import { useRef, useState } from "react"
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
-import { QUESTION_BODY_SCROLL_PROPS } from "../../lib/session-layout"
+import { QUESTION_BODY_SCROLL_PROPS } from "../../utils/session-layout"
 
 interface QuestionOption {
   label: string

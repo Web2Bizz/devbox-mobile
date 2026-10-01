@@ -2,9 +2,8 @@ import { useMemo } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
-import type { Message, Session } from "../../lib/sdk"
-import type { Provider } from "../../stores/catalog"
-import { colors } from "../../lib/theme"
+import type { Session, Message, Provider } from "../../types"
+import { colors } from "../../theme"
 
 interface Props {
   session: Session | null

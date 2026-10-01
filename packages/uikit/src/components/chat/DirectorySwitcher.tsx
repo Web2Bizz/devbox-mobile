@@ -1,9 +1,16 @@
 import { useState, useCallback, useMemo } from "react"
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet, Keyboard, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetTextInput } from "@gorhom/bottom-sheet"
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetFlatList,
+  BottomSheetTextInput,
+  type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
-import { colors } from "../../lib/theme"
+import { colors } from "../../theme"
+import { shouldCapSheetContent, sheetContentCap } from "../../utils/sheet-layout"
+import { SheetHandle } from "./SheetHandle"
 
 interface Props {
   sheetRef: React.RefObject<BottomSheet | null>
@@ -21,8 +28,15 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
   const { t } = useTranslation()
   const [custom, setCustom] = useState("")
 
+  // Wide-screen centered column so rows don't stretch across a tablet.
+  const { width: winWidth } = useWindowDimensions()
+  const capContent = shouldCapSheetContent(winWidth)
+
   const handleSelect = useCallback(
     (dir?: string) => {
+      // Custom-path field may hold focus — hide the keyboard so it doesn't
+      // linger over the closing sheet or the next stacked one.
+      Keyboard.dismiss()
       onSwitch(dir)
       setCustom("")
       sheetRef.current?.close()
@@ -51,28 +65,39 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
 
   const shortCurrent = current ? current.split("/").filter(Boolean).pop() || current : null
 
+  // Static detents + backdrop are memoized: inline literals would get a fresh
+  // identity on every render (and this sheet re-renders with its parent),
+  // which remounts the backdrop and can interrupt an in-progress drag.
+  const snapPoints = useMemo(() => ["45%", "70%"], [])
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+    ),
+    [],
+  )
+
   return (
     <BottomSheet
       ref={sheetRef}
       index={-1}
-      snapPoints={["45%", "70%"]}
+      snapPoints={snapPoints}
       // See DirectoryBrowserSheet.tsx for why this is required alongside
       // static snapPoints (issue #104): without it the sheet can never open.
       enableDynamicSizing={false}
       enablePanDownToClose
+      // Explicit (true by default): the handle pill must stay draggable.
+      enableHandlePanningGesture
+      handleComponent={SheetHandle}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
       backgroundStyle={isDark ? s.sheetDark : s.sheet}
-      handleIndicatorStyle={{ backgroundColor: isDark ? "#666666" : "#cccccc" }}
-      backdropComponent={(props) => (
-        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-      )}
+      backdropComponent={renderBackdrop}
       onChange={(idx) => {
         if (idx === -1) setCustom("")
       }}
     >
-      <View style={s.header}>
+      <View style={[s.header, capContent && sheetContentCap]}>
         <Text style={[s.title, isDark && s.white]}>{t("chat.directorySwitcher.title")}</Text>
         {shortCurrent && (
           <View style={s.current}>
@@ -85,7 +110,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
       </View>
 
       {/* Custom directory input */}
-      <View style={s.inputWrap}>
+      <View style={[s.inputWrap, capContent && sheetContentCap]}>
         <BottomSheetTextInput
           style={[s.input, isDark && s.inputDark]}
           placeholder={serverHome ? `${serverHome}/...` : "/path/to/project"}
@@ -110,7 +135,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
 
       {/* Quick path chips */}
       {(serverHome || onBrowse) && (
-        <View style={s.chips}>
+        <View style={[s.chips, capContent && sheetContentCap]}>
           {serverHome && (
             <>
               <TouchableOpacity style={[s.chip, isDark && s.chipDark]} onPress={() => setCustom(serverHome)}>
@@ -125,6 +150,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
             <TouchableOpacity
               style={[s.chip, s.chipBrowse, isDark && s.chipDark]}
               onPress={() => {
+                Keyboard.dismiss()
                 sheetRef.current?.close()
                 onBrowse()
               }}
@@ -142,7 +168,7 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
         keyExtractor={(item: (typeof items)[number], i: number) => item.dir || `default-${i}`}
         renderItem={({ item }: { item: (typeof items)[number] }) => (
           <TouchableOpacity
-            style={[s.row, isDark && s.rowDark, item.active && s.rowActive]}
+            style={[s.row, isDark && s.rowDark, item.active && s.rowActive, capContent && sheetContentCap]}
             onPress={() => handleSelect(item.dir)}
           >
             <View style={s.rowIcon}>
@@ -171,7 +197,9 @@ export function DirectorySwitcher({ sheetRef, current, recents, serverHome, isDa
         contentContainerStyle={s.list}
         ListHeaderComponent={
           items.length > 1 ? (
-            <Text style={[s.section, isDark && s.dimDark]}>{t("chat.directorySwitcher.recentProjectsLabel")}</Text>
+            <Text style={[s.section, isDark && s.dimDark, capContent && sheetContentCap]}>
+              {t("chat.directorySwitcher.recentProjectsLabel")}
+            </Text>
           ) : null
         }
       />
