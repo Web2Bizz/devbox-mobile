@@ -6,9 +6,9 @@ import path from "node:path"
 
 // GitHub issue #21 ("QA: verify DiffView + CodeBlock horizontal-scroll
 // on-device with a populated diff"). The underlying fixes were:
-//   - src/components/chat/DiffView.tsx: wrap diff lines in a horizontal
+//   - components/chat/DiffView.tsx: wrap diff lines in a horizontal
 //     ScrollView (previously truncated with numberOfLines={1}).
-//   - src/components/markdown/CodeBlock.tsx: wrap code in a horizontal
+//   - components/markdown/CodeBlock.tsx: wrap code in a horizontal
 //     ScrollView (previously long lines wrapped/mangled).
 //
 // This repo's runtime is React Native, so these components can't be rendered
@@ -40,6 +40,6 @@ test("CodeBlock wraps code in the shared horizontal-scroll ScrollView", () => {
 test("DiffView and CodeBlock both source the config from the shared, unit-tested module", () => {
   const diffView = readComponent("chat/DiffView.tsx")
   const codeBlock = readComponent("markdown/CodeBlock.tsx")
-  assert.match(diffView, /from ["']\.\.\/\.\.\/lib\/scroll-config["']/)
-  assert.match(codeBlock, /from ["']\.\.\/\.\.\/lib\/scroll-config["']/)
+  assert.match(diffView, /from ["']\.\.\/\.\.\/utils\/scroll-config["']/)
+  assert.match(codeBlock, /from ["']\.\.\/\.\.\/utils\/scroll-config["']/)
 })

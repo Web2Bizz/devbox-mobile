@@ -30,11 +30,20 @@ No `lint`/`format` scripts despite `CONTRIBUTING.md` mentioning `npm run lint` �
 
 `app.config.js` re-exports `version` from `package.json` at runtime so `Constants.expoConfig` is always correct, but `app.json` is still checked.
 
+## Version auto-increment (CI, ported from web2bizz/ui)
+
+`.github/workflows/bump-version.yml` runs on every push to `dev`/`main` (+ manual dispatch) and commits exactly one `chore: bump version … [skip bump]` on top:
+- `dev` → `scripts/bump-version.mjs` carry-on-9 patch bump (same as web2bizz/ui: `0.4.19 → 0.5.0`).
+- `main` (merges) → `scripts/bump-version.mjs --major`: major+1 with minor/patch reset (`0.4.15 → 1.0.0`).
+- `scripts/bump-release-meta.mjs` then bumps `versionCode` +1 (monotonic across majors, never reset), re-runs `sync-version.mjs`, and creates stub changelogs for the new code — fill the stub body before release, never ship it.
+- Manual: `npm run version:bump` / `version:bump:major` / `version:bump:dry`.
+
 ## Project structure
 
 - `app/` — Expo Router screens. `_layout.tsx` is root (auth gate, SSE, notifications, telemetry consent). `(tabs)/` holds tab group, `session/[id].tsx`, `connection/`, `project/`.
 - `src/lib/sdk.ts` — custom lightweight opencode client over `expo/fetch` (not generated `@opencode-ai/sdk`). All API calls go through here; SSE via `src/lib/sse.ts`.
 - `src/lib/` — pure utils with colocated `*.test.ts`. Each module is independently testable.
+- `packages/uikit/` — `@web2bizz/ui-native`: the SINGLE home for reusable UI (components, theme, tablet hook, UI-support utils in `src/utils/`). Never duplicate a component in `src/components/` — app-bound components (stores, server clients, release checks: `AuthGate`, `CloneRepoSheet`, `ConnectionBadge`, `UpdateBanner`, `ErrorBoundary`) live in `src/components/` instead. Utils moved here keep their colocated tests; `npm test` covers `packages/uikit/src/**/*.test.ts` too.
 - `src/stores/` — Zustand stores (`auth`, `connections`, `events`, `catalog`, `settings`).
 - `src/components/` — shared UI (`AuthGate`, `ErrorBoundary`, etc.).
 - `scripts/*.mjs` — release/product scripts, each with `*.test.mjs` run by `npm test`.

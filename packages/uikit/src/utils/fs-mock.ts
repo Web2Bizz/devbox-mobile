@@ -6,8 +6,7 @@
 // When the backend lands, drop `useMock` from DirectoryBrowserSheet callers —
 // the mock shapes below mirror the real API shapes so screens don't change.
 
-import type { FileEntry } from "./sdk"
-import type { FileRoot } from "./file-roots"
+import type { FileEntry, FileRoot } from "../types"
 
 export const MOCK_HOME = "/home/user"
 

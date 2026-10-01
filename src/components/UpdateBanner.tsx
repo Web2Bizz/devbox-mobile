@@ -66,6 +66,9 @@ export function UpdateBanner({ isDark }: { isDark: boolean }) {
   )
 }
 
+// NOTE: sky/slate scale (#e0f2fe #0c2b3d #0c4a6e #0369a1 #94a3b8 #7dd3fc
+// #64748b) has no theme tokens — theme only has info #3b82f6. Kept as-is
+// to avoid restyling; tokenize when banner palette lands in theme.ts.
 const styles = StyleSheet.create({
   banner: {
     flexDirection: "row",

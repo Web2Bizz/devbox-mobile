@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native"
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, Keyboard, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -8,11 +8,10 @@ import BottomSheet, {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
-import { shouldCapSheetContent, sheetContentCap } from "../../lib/sheet-layout"
+import { shouldCapSheetContent, sheetContentCap, SheetHandle } from "@web2bizz/ui-native"
 import { filterMockRepos, type MockRepo } from "../../lib/github-mock"
 import { useClonedProjects } from "../../stores/cloned-projects"
 import { useConnections } from "../../stores/connections"
-import { SheetHandle } from "./SheetHandle"
 
 interface Props {
   // Parent-owned ref — the sheet is UNCONTROLLED (no `visible` prop): the
@@ -57,6 +56,8 @@ export function CloneRepoSheet({ sheetRef, isDark, targetDir }: Props) {
         const project = addCloned(repo, typeof targetDir === "string" ? targetDir : undefined)
         void addRecentDirectory(project.path).catch(() => {})
         setCloningId(null)
+        // Search field may hold focus — hide the keyboard with the sheet.
+        Keyboard.dismiss()
         sheetRef.current?.close()
       }, 1500)
     },

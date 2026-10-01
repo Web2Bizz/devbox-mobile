@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import { useSessionsList, useCreateSession, useDeleteSession } from "../../src/queries/sessions"
 import { useConnections } from "../../src/stores/connections"
-import { colors } from "../../src/lib/theme"
+import { colors } from "@web2bizz/ui-native"
 
 function formatTime(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const date = new Date(timestamp)

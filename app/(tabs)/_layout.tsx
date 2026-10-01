@@ -7,7 +7,7 @@ import { useSessions } from "../../src/stores/sessions"
 import { useSessionsList } from "../../src/queries/sessions"
 import { countActiveTasks } from "../../src/lib/active-tasks"
 import { ConnectionBadge } from "../../src/components/ConnectionBadge"
-import { layout } from "../../src/lib/theme"
+import { layout } from "@web2bizz/ui-native"
 
 export default function TabLayout() {
   const colorScheme = useColorScheme()

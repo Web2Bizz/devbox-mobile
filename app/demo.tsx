@@ -3,12 +3,12 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, useColorScheme } 
 import { Stack, useRouter } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
-import { MessageBubble, PermissionPrompt } from "../src/components/chat"
+import { MessageBubble, PermissionPrompt } from "@web2bizz/ui-native"
 import { buildDemoScript, buildDemoCompletionMessage, buildDemoDenialMessage } from "../src/lib/demo-script"
-import { colors } from "../src/lib/theme"
+import { colors } from "@web2bizz/ui-native"
 
 // Reply values of PermissionPrompt's `onReply` (see
-// src/components/chat/PermissionPrompt.tsx).
+// packages/uikit/src/components/chat/PermissionPrompt.tsx).
 type DemoPermissionReply = "once" | "always" | "reject"
 
 // Fully offline, scripted walkthrough for installers with no self-hosted

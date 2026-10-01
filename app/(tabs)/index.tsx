@@ -13,6 +13,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Linking,
@@ -25,24 +26,26 @@ import { useProjectInfo, useServerProjects } from "../../src/queries/project"
 import { useConnections } from "../../src/stores/connections"
 import { useEvents } from "../../src/stores/events"
 import { useSettings } from "../../src/stores/settings"
-import { LanDiscoveryModal } from "../../src/components/LanDiscoveryModal"
-import type { LanCandidate } from "../../src/lib/lan-discover"
+import { LanDiscoveryModal } from "@web2bizz/ui-native"
+import type { LanCandidate } from "@web2bizz/ui-native"
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetScrollView,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet"
 import type { Project } from "../../src/lib/sdk"
-import { DirectorySwitcher, DirectoryBrowserSheet, CloneRepoSheet, SheetHandle } from "../../src/components/chat"
+import { DirectorySwitcher, DirectoryBrowserSheet } from "@web2bizz/ui-native"
+import { CloneRepoSheet } from "../../src/components/chat/CloneRepoSheet"
+import { SheetHandle } from "@web2bizz/ui-native"
 import { groupProjects } from "../../src/lib/session-grouping"
 import { lanConnectionIds } from "../../src/lib/listed-session"
 import type { ListedSession } from "../../src/lib/listed-session"
 import { UpdateBanner } from "../../src/components/UpdateBanner"
-import { nameOf } from "../../src/lib/path-utils"
+import { nameOf } from "@web2bizz/ui-native"
 import { useUi } from "../../src/stores/ui"
-import { breakpoints, colors } from "../../src/lib/theme"
-import { useTablet } from "../../src/lib/use-tablet"
-import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "../../src/lib/sheet-layout"
+import { breakpoints, colors } from "@web2bizz/ui-native"
+import { useTablet } from "@web2bizz/ui-native"
+import { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "@web2bizz/ui-native"
 
 function formatTime(timestamp: number, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const date = new Date(timestamp)
@@ -160,7 +163,7 @@ export default function SessionsScreen() {
   // Server-known projects load while the new-session UI is open — plus on the
   // LAN tab, so a freshly connected LAN server shows something to start from
   // even with zero sessions yet.
-  const { data: serverProjectsData } = useServerProjects(showNewSession || showNewProject || sourceTab === "lan")
+  const { data: serverProjectsData, error: serverProjectsError } = useServerProjects(showNewSession || showNewProject || sourceTab === "lan")
   const serverProjects = serverProjectsData ?? []
   const createSession = useCreateSession()
   const deleteSession = useDeleteSession()
@@ -187,10 +190,61 @@ export default function SessionsScreen() {
   // store (navbar tab). Imperative expand/close keeps it in sync with both.
   const newSheetRef = useRef<BottomSheet>(null)
   const newSheetOpen = showNewSession || showNewProject
+  // Sheets must open AFTER the keyboard is gone: expanding while a field
+  // holds focus (rename input, another sheet's search, or the chat composer
+  // left open on another tab) leaves only the backdrop visible — the sheet
+  // never measures against the keyboard-resized layout. Same recipe as the
+  // AI settings sheet on the session screen: dismiss first, expand once
+  // keyboardDidHide lands, fallback timer in case the event never comes.
+  const sheetPendingRef = useRef(false)
+  const sheetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sheetKbSubRef = useRef<{ remove: () => void } | null>(null)
+  useEffect(
+    () => () => {
+      if (sheetTimerRef.current) clearTimeout(sheetTimerRef.current)
+      sheetTimerRef.current = null
+      sheetKbSubRef.current?.remove()
+      sheetKbSubRef.current = null
+      sheetPendingRef.current = false
+    },
+    [],
+  )
+  const expandSheet = useCallback((ref: React.RefObject<BottomSheet | null>) => {
+    if (sheetPendingRef.current) return
+    sheetPendingRef.current = true
+    Keyboard.dismiss()
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      if (sheetTimerRef.current) {
+        clearTimeout(sheetTimerRef.current)
+        sheetTimerRef.current = null
+      }
+      sheetKbSubRef.current?.remove()
+      sheetKbSubRef.current = null
+      sheetPendingRef.current = false
+      ref.current?.expand()
+    }
+    const keyboardVisible = typeof Keyboard.isVisible === "function" ? Keyboard.isVisible() : true
+    if (!keyboardVisible) {
+      // Keyboard already hidden — expand on the next tick so the dismiss
+      // commits before measuring.
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(finish)
+      } else {
+        sheetTimerRef.current = setTimeout(finish, 0)
+      }
+      return
+    }
+    const sub = Keyboard.addListener("keyboardDidHide", finish)
+    sheetKbSubRef.current = sub
+    sheetTimerRef.current = setTimeout(finish, Platform.OS === "android" ? 150 : 100)
+  }, [])
   useEffect(() => {
-    if (newSheetOpen) newSheetRef.current?.expand()
+    if (newSheetOpen) expandSheet(newSheetRef)
     else newSheetRef.current?.close()
-  }, [newSheetOpen])
+  }, [newSheetOpen, expandSheet])
   const closeNewSession = useCallback(() => {
     setShowNewSession(false)
     closeNewProject()
@@ -359,17 +413,27 @@ export default function SessionsScreen() {
   // Sessions are only ever created inside an explicitly chosen,
   // already-downloaded project (recents / server list / folder browser) —
   // never at the server root and never from a hand-typed path.
-  const onCreateInDirectory = async (dir: string) => {
-    if (!activeConnection) return
+  // On the LAN tab an explicit LAN connectionId is always passed so the
+  // session lands on the LAN server even if the active connection lagged
+  // behind (and with connectionId::directory tagging + local badge +
+  // /project/[directory]?connectionId routing the card shows up in the
+  // LAN list right after creation).
+  const onCreateInDirectory = async (dir: string, explicitConnectionId?: string) => {
+    if (!activeConnection && !explicitConnectionId) return
     if (creatingInFlight.current) return
     creatingInFlight.current = true
     setIsCreating(true)
 
     try {
+      const lanTarget =
+        explicitConnectionId ??
+        (sourceTab === "lan" && activeConnection?.discoveredOnLan ? activeConnection.id : undefined)
       // A custom directory uses a one-off client for that directory (the
       // mutation handles this via clientForDirectory) so the connection's
       // default project is never mutated.
-      const { created: session, connectionId } = await createSession.mutateAsync({ directory: dir.trim() })
+      const { created: session, connectionId } = await createSession.mutateAsync(
+        lanTarget ? { directory: dir.trim(), connectionId: lanTarget } : { directory: dir.trim() },
+      )
       setShowNewSession(false)
       closeNewProject()
       router.push({
@@ -390,14 +454,16 @@ export default function SessionsScreen() {
   }
 
   // Both pickers are bottom sheets now, so they stack naturally (browser on
-  // top) — no modal juggling and no restore dance needed.
+  // top) — no modal juggling and no restore dance needed. Keyboard is
+  // dismissed first (see expandSheet): the browser may open on top of the
+  // switcher's custom-path input with focus still in it.
   const openBrowser = useCallback(
     (startDir: string | null, mode: "create" | "switch") => {
       setBrowseStartDir(startDir || serverHome || null)
       setBrowseMode(mode)
-      browserSheetRef.current?.expand()
+      expandSheet(browserSheetRef)
     },
-    [serverHome],
+    [serverHome, expandSheet],
   )
 
   const onBrowserSelect = useCallback(
@@ -429,7 +495,7 @@ export default function SessionsScreen() {
       {shortPath ? (
         <TouchableOpacity
           style={[styles.connectionBar, isDark && styles.connectionBarDark]}
-          onPress={() => dirSheetRef.current?.expand()}
+          onPress={() => expandSheet(dirSheetRef)}
           activeOpacity={0.7}
           testID="connection-status-bar"
         >
@@ -634,7 +700,13 @@ export default function SessionsScreen() {
           </View>
         ) : lanProjectsList.length === 0 ? (
           <View style={styles.emptyList}>
-            <Text style={[styles.emptyListText, isDark && styles.metaDark]}>{t("project.lanList.noProjectsHint")}</Text>
+            {serverProjectsError ? (
+              <Text style={[styles.emptyListText, isDark && styles.metaDark]}>
+                {serverProjectsError instanceof Error ? serverProjectsError.message : String(serverProjectsError)}
+              </Text>
+            ) : (
+              <Text style={[styles.emptyListText, isDark && styles.metaDark]}>{t("project.lanList.noProjectsHint")}</Text>
+            )}
             {activeConnection?.discoveredOnLan && serverProjectsData && serverProjectsData.length > 0 ? (
               <>
                 {serverProjectsData.map((p) => {
@@ -645,7 +717,7 @@ export default function SessionsScreen() {
                     <TouchableOpacity
                       key={p.id}
                       style={[styles.projectRow, isDark && styles.projectRowDark, { marginTop: 8, alignSelf: "stretch" as const }]}
-                      onPress={() => onCreateInDirectory(abs)}
+                      onPress={() => onCreateInDirectory(abs, activeConnection.id)}
                       disabled={isCreating}
                     >
                       <Ionicons name="code-slash-outline" size={18} color={isDark ? "#888888" : "#666666"} />
@@ -863,7 +935,7 @@ export default function SessionsScreen() {
                 style={[styles.projectRow, isDark && styles.projectRowDark, { marginTop: 8 }]}
                 onPress={() => {
                   closeNewSession()
-                  cloneSheetRef.current?.expand()
+                  expandSheet(cloneSheetRef)
                 }}
                 disabled={isCreating}
                 testID="clone-repo-button"

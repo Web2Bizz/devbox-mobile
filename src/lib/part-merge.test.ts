@@ -38,3 +38,21 @@ test("missing message bucket is created", () => {
   const out = applyIncomingParts({}, "m9", [part("p1", "m9", "hi")])
   assert.deepEqual(out.m9.map((p) => p.id), ["p1"])
 })
+
+test("edit resend: batched parts snapshot populates the resolved message bucket", () => {
+  // The edited message's echo arrives as message.created/updated with batched
+  // parts under the NEW real id; the bucket is created without touching live
+  // rows of other messages, and a follow-up live part.updated merges into it
+  // (streaming growth, order preserved).
+  const afterSnapshot = applyIncomingParts({ m1: [part("p1", "m1", "a")] }, "msg_4", [
+    part("q1", "msg_4", "hello"),
+    part("q2", "msg_4", "world"),
+  ])
+  assert.deepEqual(afterSnapshot.msg_4.map((p) => p.id), ["q1", "q2"])
+  assert.deepEqual(afterSnapshot.m1.map((p) => p.id), ["p1"])
+  const afterLive = applyIncomingParts(afterSnapshot, "msg_4", [part("q1", "msg_4", "hello!")])
+  assert.deepEqual(afterLive.msg_4.map((p) => [p.id, p.text]), [
+    ["q1", "hello!"],
+    ["q2", "world"],
+  ])
+})

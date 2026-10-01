@@ -23,15 +23,18 @@
     "typecheck": "tsc --noEmit",
     "check:versions": "node scripts/check-version-parity.mjs",
     "sync:version": "node scripts/sync-version.mjs",
-    "test": "node --test 'src/**/*.test.ts' 'scripts/*.test.mjs'"
+    "version:bump": "node scripts/bump-version.mjs",
+    "version:bump:major": "node scripts/bump-version.mjs --major",
+    "version:bump:dry": "node scripts/bump-version.mjs --dry-run",
+    "test": "node --test 'src/**/*.test.ts' 'packages/uikit/src/**/*.test.ts' 'scripts/*.test.mjs'"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.14",
-    "@opencode-ai/uikit": "file:packages/uikit",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/native": "^7.0.14",
     "@tanstack/react-query": "^5.62.0",
+    "@web2bizz/ui-native": "file:packages/uikit",
     "expo": "^57.0.24",
     "expo-build-properties": "~57.0.21",
     "expo-clipboard": "~57.0.2",

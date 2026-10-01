@@ -4,6 +4,7 @@ import { useConnections } from "./connections"
 import { useSettings } from "./settings"
 import { mergeIncomingMessage } from "../lib/message-merge"
 import { applyIncomingParts } from "../lib/part-merge"
+import { pruneRevertedTail } from "../lib/revert-prune"
 import { isColdSessionLoad, isLiveEventForSession } from "../lib/session-load-reconcile"
 import { queryClient } from "../lib/query-client"
 import { queryKeys } from "../lib/query-keys"
@@ -234,6 +235,17 @@ export const useSessions = create<SessionsState>((set, get) => ({
       return
     }
 
+    // Edit-resend: a pending session.revert means the server still holds
+    // the reverted message + tail (cleanup runs inside the prompt below)
+    // while the screen only HIDES them via its presentation filter. The
+    // accepted prompt deletes that tail server-side — prune it locally NOW
+    // and clear the flag optimistically. Otherwise session.updated clears
+    // the flag before the busy→idle wholesale refresh lands, the filter
+    // lifts over a stale state, and old+new paint side by side (duplicate).
+    // Without a pending revert this is a no-op (same references).
+    // Hoisted before try: the catch needs it to restore the flag on failure.
+    const revertMessageID = session.revert?.messageID
+
     try {
       set((state) => ({ sending: { ...state.sending, [session.id]: true }, error: null }))
 
@@ -271,10 +283,21 @@ export const useSessions = create<SessionsState>((set, get) => ({
         }
       }
 
-      set((state) => ({
-        messages: [...state.messages, userMessage],
-        parts: { ...state.parts, [userMessage.id]: optimisticParts },
-      }))
+      set((state) => {
+        const pruned = pruneRevertedTail(state.messages, state.parts, revertMessageID)
+        return {
+          // The pruned tail is doomed server-side once the prompt below is
+          // accepted — drop the filter flag together with it so the edited
+          // message's SSE echo is visible immediately instead of hidden
+          // until session.updated arrives.
+          currentSession:
+            revertMessageID && state.currentSession?.id === session.id
+              ? { ...state.currentSession, revert: undefined }
+              : state.currentSession,
+          messages: [...pruned.messages, userMessage],
+          parts: { ...pruned.parts, [userMessage.id]: optimisticParts },
+        }
+      })
 
       // Build prompt parts - images are already converted to JPEG with base64 by toJpeg()
       const promptParts: Array<
@@ -303,7 +326,23 @@ export const useSessions = create<SessionsState>((set, get) => ({
       set((state) => ({
         sending: { ...state.sending, [session.id]: false },
       }))
-      if (stillCurrent) get().refreshMessages()
+      if (stillCurrent) {
+        // The optimistic prune above assumed server cleanup ran — on failure
+        // it didn't: the tail is still server-side. Re-sync messages
+        // (restores the tail) and the session object (restores the still-
+        // pending revert flag so the filter hides it again).
+        if (revertMessageID) {
+          void client.session
+            .get(session.id)
+            .then((fresh) => {
+              if (get().currentSession?.id === session.id) {
+                set({ currentSession: { ...fresh, connectionId: session.connectionId } })
+              }
+            })
+            .catch((e) => console.error("[sendMessage] failed to restore session:", e))
+        }
+        get().refreshMessages()
+      }
       throw err
     }
   },

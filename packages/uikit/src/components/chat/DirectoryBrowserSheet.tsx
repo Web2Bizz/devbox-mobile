@@ -1,24 +1,42 @@
-import { useCallback, useRef, useState } from "react"
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, Keyboard, useWindowDimensions } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetTextInput } from "@gorhom/bottom-sheet"
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetFlatList,
+  BottomSheetTextInput,
+  type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet"
 import { useTranslation } from "react-i18next"
-import type { Client, FileEntry } from "../../lib/sdk"
-import { parentOf, nameOf } from "../../lib/path-utils"
-import { normalizeRoots, type FileRoot } from "../../lib/file-roots"
-import { colors } from "../../lib/theme"
+import type { DirectoryClient, FileEntry } from "../../types"
+import { parentOf, nameOf, breadcrumbsOf } from "../../utils/path-utils"
+import { normalizeRoots, type FileRoot } from "../../utils/file-roots"
+import { colors } from "../../theme"
+import { shouldCapSheetContent, sheetContentCap } from "../../utils/sheet-layout"
+import { MOCK_HOME, MOCK_ROOTS, listMockDir } from "../../utils/fs-mock"
+import { SheetHandle } from "./SheetHandle"
+
+// Fake latency so the mock mode feels like the real API during UI review.
+const MOCK_DELAY_MS = 350
 
 interface Props {
   sheetRef: React.RefObject<BottomSheet | null>
   // Directory to start browsing from whenever the sheet opens (project root, server home, etc).
+  // When null, the sheet resolves the server home itself so the user never
+  // has to type a path manually.
   startDirectory: string | null
   // Builds a client rooted at an arbitrary absolute directory (see connections store).
-  clientForDirectory: (directory: string) => Client | null
+  // Called with undefined to get a directory-less client (server home lookup).
+  // Ignored when useMock is set.
+  clientForDirectory: (directory?: string) => DirectoryClient | null
   isDark: boolean
   // Called with the chosen absolute directory when the user taps "Use this folder".
   onSelect: (directory: string) => void
   // Called whenever the sheet fully closes (selection or cancel).
   onDismiss?: () => void
+  // UI stub: browse the static mock tree (fs-mock.ts) instead of the server.
+  // Shapes mirror the real devbox API; drop this prop when backend lands.
+  useMock?: boolean
 }
 
 export function DirectoryBrowserSheet({
@@ -28,6 +46,7 @@ export function DirectoryBrowserSheet({
   isDark,
   onSelect,
   onDismiss,
+  useMock,
 }: Props) {
   const { t } = useTranslation()
   const [browseDir, setBrowseDir] = useState<string | null>(null)
@@ -35,6 +54,9 @@ export function DirectoryBrowserSheet({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [jumpPath, setJumpPath] = useState("")
+  // Manual path entry is a fallback — the explorer (roots + breadcrumbs +
+  // folder list) is the primary way, so the input stays collapsed.
+  const [showJump, setShowJump] = useState(false)
   // Pinned top-level entries (drives, home dir) fetched from GET /file/roots.
   // Stays empty on older servers that don't expose the endpoint, or while a
   // fetch is in flight — the manual "Jump to path" input keeps working
@@ -44,10 +66,18 @@ export function DirectoryBrowserSheet({
 
   const load = useCallback(
     (dir: string) => {
-      const client = clientForDirectory(dir)
       const token = ++loadToken.current
       setLoading(true)
       setError(null)
+      if (useMock) {
+        setTimeout(() => {
+          if (loadToken.current !== token) return
+          setEntries(listMockDir(dir))
+          setLoading(false)
+        }, MOCK_DELAY_MS)
+        return
+      }
+      const client = clientForDirectory(dir)
       if (!client) {
         setEntries([])
         setLoading(false)
@@ -69,7 +99,7 @@ export function DirectoryBrowserSheet({
           if (loadToken.current === token) setLoading(false)
         })
     },
-    [clientForDirectory, t],
+    [clientForDirectory, t, useMock],
   )
 
   const enter = useCallback(
@@ -85,6 +115,10 @@ export function DirectoryBrowserSheet({
   // servers or any request failure.
   const loadRoots = useCallback(
     (dir: string) => {
+      if (useMock) {
+        setRoots(MOCK_ROOTS)
+        return
+      }
       const client = clientForDirectory(dir)
       if (!client) {
         setRoots([])
@@ -95,11 +129,48 @@ export function DirectoryBrowserSheet({
         .then((result) => setRoots(normalizeRoots(result)))
         .catch(() => setRoots([]))
     },
-    [clientForDirectory],
+    [clientForDirectory, useMock],
   )
 
-  // The caller (app/(tabs)/index.tsx openBrowser) sets the start directory
-  // via setState and calls sheetRef.current?.expand() in the very same
+  // Resolve the server home directory so the explorer opens usable even
+  // when the caller doesn't know a start directory (no manual typing needed).
+  const loadHome = useCallback(() => {
+    if (useMock) {
+      enter(MOCK_HOME)
+      loadRoots(MOCK_HOME)
+      return
+    }
+    const client = clientForDirectory(undefined)
+    if (!client) {
+      loadToken.current++
+      setBrowseDir(null)
+      setEntries([])
+      setError(t("chat.directoryBrowserSheet.noActiveConnection"))
+      setLoading(false)
+      setRoots([])
+      return
+    }
+    const token = ++loadToken.current
+    setLoading(true)
+    setError(null)
+    client.path
+      .get()
+      .then((paths) => {
+        if (loadToken.current !== token) return
+        enter(paths.home)
+        loadRoots(paths.home)
+      })
+      .catch(() => {
+        if (loadToken.current !== token) return
+        setLoading(false)
+        setBrowseDir(null)
+        setEntries([])
+        setRoots([])
+      })
+  }, [clientForDirectory, enter, loadRoots, t, useMock])
+
+  // The caller sets the start directory via setState and calls
+  // sheetRef.current?.expand() in the very same synchronous handler.
   // synchronous handler. expand() kicks off a reanimated-driven animation
   // whose onChange callback can fire before React has committed the
   // re-render that would give this component the new `startDirectory` prop
@@ -127,22 +198,18 @@ export function DirectoryBrowserSheet({
       if (wasOpen.current) return // snap-point change while already open
       wasOpen.current = true
       setJumpPath("")
+      setShowJump(false)
       const dir = startDirectoryRef.current
       if (dir) {
         enter(dir)
         loadRoots(dir)
       } else {
-        // No starting directory known (e.g. server home not loaded yet):
-        // show an explicit empty state instead of a previous open's entries.
-        loadToken.current++
-        setBrowseDir(null)
-        setEntries([])
-        setError(null)
-        setLoading(false)
-        setRoots([])
+        // No starting directory known — resolve the server home so the
+        // explorer is usable without typing a path manually.
+        loadHome()
       }
     },
-    [enter, loadRoots, onDismiss],
+    [enter, loadRoots, loadHome, onDismiss],
   )
 
   const goUp = useCallback(() => {
@@ -155,23 +222,44 @@ export function DirectoryBrowserSheet({
   const goJump = useCallback(() => {
     const dir = jumpPath.trim()
     if (!dir) return
+    Keyboard.dismiss()
     setJumpPath("")
     enter(dir)
   }, [jumpPath, enter])
 
   const handleUseFolder = useCallback(() => {
     if (!browseDir) return
+    // Jump-to-path field may hold focus — hide the keyboard so it doesn't
+    // linger over the closing sheet.
+    Keyboard.dismiss()
     onSelect(browseDir)
     sheetRef.current?.close()
   }, [browseDir, onSelect, sheetRef])
 
   const canGoUp = !!browseDir && !!parentOf(browseDir)
 
+  // Wide-screen centered column so rows don't stretch across a tablet.
+  // Detent stays 80% — tall enough in landscape as is.
+  const { width: winWidth } = useWindowDimensions()
+  const capContent = shouldCapSheetContent(winWidth)
+
+  // Single 80% detent: expand() targets the highest detent, so one detent
+  // keeps the explorer at a fixed 80% height. Memoized (like
+  // DirectorySwitcher) because fresh literals on every render remount the
+  // backdrop and can interrupt an in-progress drag.
+  const snapPoints = useMemo(() => ["80%"], [])
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
+    ),
+    [],
+  )
+
   return (
     <BottomSheet
       ref={sheetRef}
       index={-1}
-      snapPoints={["65%", "92%"]}
+      snapPoints={snapPoints}
       // Static percentage snapPoints are provided above, but @gorhom/bottom-sheet
       // v5 defaults enableDynamicSizing to true, which requires content wrapped
       // in a size-reporting component (BottomSheetView) to ever compute a valid
@@ -181,18 +269,25 @@ export function DirectoryBrowserSheet({
       // explicit snapPoints above are used directly. See GitHub issue #104.
       enableDynamicSizing={false}
       enablePanDownToClose
+      // Explicit (true by default): the handle pill must stay draggable.
+      enableHandlePanningGesture
+      handleComponent={SheetHandle}
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
       backgroundStyle={isDark ? s.sheetDark : s.sheet}
-      handleIndicatorStyle={{ backgroundColor: isDark ? "#666666" : "#cccccc" }}
-      backdropComponent={(props) => (
-        <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
-      )}
+      backdropComponent={renderBackdrop}
       onChange={handleSheetChange}
     >
-      <View style={s.header}>
-        <Text style={[s.title, isDark && s.white]}>{t("chat.directoryBrowserSheet.title")}</Text>
+      <View style={[s.header, capContent && sheetContentCap]}>
+        <View style={s.titleRow}>
+          <Text style={[s.title, isDark && s.white]}>{t("chat.directoryBrowserSheet.title")}</Text>
+          {useMock && (
+            <View style={s.mockBadge} testID="directory-mock-badge">
+              <Text style={s.mockBadgeText}>{t("chat.directoryBrowserSheet.mockBadge")}</Text>
+            </View>
+          )}
+        </View>
         <View style={s.pathRow}>
           <TouchableOpacity onPress={goUp} disabled={!canGoUp} hitSlop={8} testID="directory-up-button">
             <Ionicons
@@ -205,6 +300,38 @@ export function DirectoryBrowserSheet({
             {browseDir || "…"}
           </Text>
         </View>
+        {browseDir && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.crumbs}
+            testID="directory-breadcrumbs"
+          >
+            {breadcrumbsOf(browseDir).map((crumb, i, all) => {
+              const active = i === all.length - 1
+              return (
+                <View key={crumb.path} style={s.crumbWrap}>
+                  {i > 0 && (
+                    <Text style={[s.crumbSep, isDark && s.dimDark]}>/</Text>
+                  )}
+                  <TouchableOpacity
+                    style={[s.crumb, active && s.crumbActive]}
+                    onPress={() => !active && enter(crumb.path)}
+                    disabled={active}
+                    testID={`directory-crumb-${i}`}
+                  >
+                    <Text
+                      style={[s.crumbText, isDark && s.crumbTextDark, active && s.crumbTextActive]}
+                      numberOfLines={1}
+                    >
+                      {crumb.label === "/" ? t("chat.directoryBrowserSheet.rootLabel") : crumb.label}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )
+            })}
+          </ScrollView>
+        )}
       </View>
 
       {roots.length > 0 && (
@@ -236,32 +363,49 @@ export function DirectoryBrowserSheet({
         </View>
       )}
 
-      <View style={s.inputWrap}>
-        <BottomSheetTextInput
-          style={[s.input, isDark && s.inputDark]}
-          placeholder={t("chat.directoryBrowserSheet.jumpPlaceholder")}
-          placeholderTextColor={isDark ? "#666666" : "#999999"}
-          value={jumpPath}
-          onChangeText={setJumpPath}
-          onSubmitEditing={goJump}
-          returnKeyType="go"
-          autoCapitalize="none"
-          autoCorrect={false}
-          testID="directory-jump-input"
+      <TouchableOpacity
+        style={s.manualToggle}
+        onPress={() => setShowJump((v) => !v)}
+        testID="directory-manual-toggle"
+      >
+        <Ionicons
+          name={showJump ? "chevron-down" : "chevron-forward"}
+          size={14}
+          color={isDark ? "#888888" : "#666666"}
         />
-        {jumpPath.trim() && (
-          <TouchableOpacity style={[s.goBtn, isDark && s.goBtnDark]} onPress={goJump}>
-            <Ionicons name="arrow-forward" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
-          </TouchableOpacity>
-        )}
-      </View>
+        <Text style={[s.manualToggleText, isDark && s.dimDark]}>
+          {t("chat.directoryBrowserSheet.manualToggle")}
+        </Text>
+      </TouchableOpacity>
+
+      {showJump && (
+        <View style={s.inputWrap}>
+          <BottomSheetTextInput
+            style={[s.input, isDark && s.inputDark]}
+            placeholder={t("chat.directoryBrowserSheet.jumpPlaceholder")}
+            placeholderTextColor={isDark ? "#666666" : "#999999"}
+            value={jumpPath}
+            onChangeText={setJumpPath}
+            onSubmitEditing={goJump}
+            returnKeyType="go"
+            autoCapitalize="none"
+            autoCorrect={false}
+            testID="directory-jump-input"
+          />
+          {jumpPath.trim() && (
+            <TouchableOpacity style={[s.goBtn, isDark && s.goBtnDark]} onPress={goJump}>
+              <Ionicons name="arrow-forward" size={18} color={isDark ? "#0a0a0a" : "#ffffff"} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       <BottomSheetFlatList
         data={entries}
         keyExtractor={(item: FileEntry) => item.absolute}
         renderItem={({ item }: { item: FileEntry }) => (
           <TouchableOpacity
-            style={[s.row, isDark && s.rowDark]}
+            style={[s.row, isDark && s.rowDark, capContent && sheetContentCap]}
             onPress={() => enter(item.absolute)}
             testID={`directory-row-${item.name}`}
           >
@@ -279,18 +423,18 @@ export function DirectoryBrowserSheet({
         contentContainerStyle={s.list}
         ListHeaderComponent={
           loading ? (
-            <View style={s.centerBox}>
+            <View style={[s.centerBox, capContent && sheetContentCap]}>
               <ActivityIndicator color={isDark ? "#ffffff" : "#0a0a0a"} />
             </View>
           ) : error ? (
-            <View style={s.centerBox}>
+            <View style={[s.centerBox, capContent && sheetContentCap]}>
               <Text style={s.errorText}>{error}</Text>
             </View>
           ) : null
         }
         ListEmptyComponent={
           !loading && !error ? (
-            <Text style={[s.emptyText, isDark && s.dimDark]}>
+            <Text style={[s.emptyText, isDark && s.dimDark, capContent && sheetContentCap]}>
               {browseDir
                 ? t("chat.directoryBrowserSheet.noSubfolders")
                 : t("chat.directoryBrowserSheet.enterPathHint")}
@@ -299,7 +443,7 @@ export function DirectoryBrowserSheet({
         }
       />
 
-      <View style={s.footer}>
+      <View style={[s.footer, capContent && sheetContentCap]}>
         <TouchableOpacity
           style={[s.selectBtn, isDark && s.selectBtnDark, !browseDir && s.selectBtnDisabled]}
           onPress={handleUseFolder}
@@ -322,7 +466,10 @@ const s = StyleSheet.create({
   sheet: { backgroundColor: "#ffffff" },
   sheetDark: { backgroundColor: "#1a1a1a" },
   header: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   title: { fontSize: 18, fontWeight: "700", color: "#0a0a0a" },
+  mockBadge: { backgroundColor: "#f59e0b", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+  mockBadgeText: { color: "#ffffff", fontSize: 11, fontWeight: "700" },
   white: { color: "#ffffff" },
   pathRow: {
     flexDirection: "row",
@@ -335,6 +482,53 @@ const s = StyleSheet.create({
     color: "#666666",
   },
   dimDark: { color: "#888888" },
+  crumbs: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  crumbWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  crumbSep: {
+    fontSize: 13,
+    color: "#999999",
+    marginHorizontal: 2,
+  },
+  crumb: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    // Transparent: crumbs are theme-colored text links, not filled pills.
+    backgroundColor: "transparent",
+    maxWidth: 140,
+  },
+  crumbActive: {
+    // Transparent like the idle crumb — the active state is carried by the
+    // accent text color below, not a filled background.
+    backgroundColor: "transparent",
+  },
+  crumbText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#444444",
+  },
+  // Dark-mode secondary text (matches dimDark) — a neutral gray so the
+  // accent-colored active crumb stands out by hue on both themes.
+  crumbTextDark: { color: "#888888" },
+  crumbTextActive: { color: colors.accent },
+  manualToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  manualToggleText: {
+    fontSize: 12,
+    color: "#666666",
+  },
   rootsRow: {
     flexDirection: "row",
     flexWrap: "wrap",

@@ -1,28 +1,38 @@
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native"
 import { useTranslation } from "react-i18next"
-import { useEvents } from "../../stores/events"
-import { useSessions } from "../../stores/sessions"
+
+// Server-reported session status, read by the parent from its own store and
+// passed in — the kit never imports app zustand stores (which do not exist
+// in the package). Extra fields on the caller's status object are fine.
+export interface StatusSnapshot {
+  type: string
+  attempt?: number
+}
 
 interface Props {
-  sessionID: string
+  status?: StatusSnapshot
+  statusText?: string
+  optimistic?: boolean
   isDark: boolean
 }
 
-export function StatusIndicator({ sessionID, isDark }: Props) {
+export function StatusIndicator({ status, statusText, optimistic, isDark }: Props) {
   const { t } = useTranslation()
-  const status = useEvents((s) => s.sessionStatus[sessionID])
-  const text = useEvents((s) => s.statusText[sessionID])
-  const optimistic = useSessions((s) => s.sending[sessionID])
 
-  // SSE status is the source of truth. The optimistic `sending` flag only
-  // covers the gap between the user tapping send and SSE confirming busy.
-  // Once SSE reports idle, the indicator hides regardless of the optimistic flag.
-  const sseBusy = status && status.type !== "idle"
-  const busy = sseBusy || (optimistic && !status)
+  // Server status is the source of truth, but the optimistic `sending` flag
+  // must also count on its own: it bridges the gap between the user tapping
+  // send and the server confirming busy (including a stale `idle` left over
+  // from the previous run). Once the server reports idle for the current
+  // run, the parent clears `sending` too, so `sseBusy || optimistic` can't
+  // get stuck.
+  const sseBusy = !!status && status.type !== "idle"
+  const busy = sseBusy || optimistic
   if (!busy) return <View style={s.barPlaceholder} />
 
   const label =
-    status?.type === "retry" ? t("chat.statusIndicator.retrying", { attempt: status.attempt }) : text || t("chat.statusIndicator.working")
+    status?.type === "retry" && typeof status.attempt === "number"
+      ? t("chat.statusIndicator.retrying", { attempt: status.attempt })
+      : statusText || t("chat.statusIndicator.working")
 
   return (
     <View style={[s.bar, isDark && s.barDark]}>

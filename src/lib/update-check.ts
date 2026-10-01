@@ -28,7 +28,7 @@
 
 import { Platform } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import pkg from "../../package.json"
+import { APP_VERSION } from "./app-version"
 import {
   DISMISSED_KEY,
   resolveUpdate,
@@ -38,8 +38,8 @@ import {
 
 export type { AvailableUpdate }
 
-/** Single source of truth — package.json per user request. */
-export const CURRENT_VERSION = (pkg as { version?: string }).version ?? "unknown"
+/** Displayed in settings — single-sourced from package.json via app-version. */
+export const CURRENT_VERSION = APP_VERSION
 
 const RELEASES_API = "https://api.github.com/repos/Web2Bizz/devbox-mobile/releases/latest"
 const RELEASES_PAGE = "https://github.com/Web2Bizz/devbox-mobile/releases/latest"

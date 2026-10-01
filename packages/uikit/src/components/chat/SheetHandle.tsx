@@ -1,4 +1,5 @@
 import { StyleSheet, View, useColorScheme } from "react-native"
+import { colors } from "../../theme"
 
 // Shared drag handle for all bottom sheets: a full-width, 28px-tall grab zone
 // with a centered pill (the stock handle's ~24px zone is hard to catch, and
@@ -26,9 +27,9 @@ const s = StyleSheet.create({
     width: 48,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "#cccccc",
+    backgroundColor: colors.neutral.gray200,
   },
   pillDark: {
-    backgroundColor: "#666666",
+    backgroundColor: colors.neutral.gray500,
   },
 })

@@ -22,11 +22,9 @@ import { buildAuth } from "../../src/lib/auth"
 import { submitWaitlistSignup, buildWaitlistMailtoUrl, needsManualEscapeHatch, type QueuedSignup } from "../../src/lib/waitlist"
 import { flushPendingSignups, queuePendingSignup, readPendingSignups, dropPendingSignup } from "../../src/lib/waitlist-queue-storage"
 import { HARDCODED_SERVER_URL } from "../../src/lib/server-config"
-import { colors } from "../../src/lib/theme"
-import pkg from "../../package.json"
-
-// Single source of truth — package.json
-const APP_VERSION = (pkg as { version?: string }).version ?? "unknown"
+import { buildManualLanUrl } from "../../src/lib/lan-manual"
+import { colors } from "@web2bizz/ui-native"
+import { APP_VERSION } from "../../src/lib/app-version"
 
 export default function AddConnectionScreen() {
   const colorScheme = useColorScheme()
@@ -78,6 +76,12 @@ export default function AddConnectionScreen() {
   const buildUrl = () => {
     return HARDCODED_SERVER_URL
   }
+
+  // Manual LAN entry (Advanced → Local): raw ip:port typed by the user into
+  // a full URL — single implementation lives in src/lib/lan-manual (tested).
+  // Null = invalid port (caller shows invalidUrl) or empty host (caller
+  // falls back to the hardcoded server).
+  const buildLanUrl = () => buildManualLanUrl(ip, port)
 
   const handleQuickConnect = async () => {
     const serverUrl = buildUrl()
@@ -148,6 +152,20 @@ export default function AddConnectionScreen() {
       return
     }
 
+    // Manual LAN: a typed ip:port becomes a LAN-marked entry (custom URL is
+    // preserved by the store — hardcode enforcement skips discoveredOnLan).
+    // Empty host = the hardcoded main server (legacy behavior).
+    const manualLanUrl = type === "local" ? buildLanUrl() : null
+    if (type === "local" && ip.trim() && !manualLanUrl) {
+      Alert.alert(
+        t("connection.shared.alerts.invalidUrlTitle"),
+        t("connection.shared.alerts.invalidUrlMessage"),
+      )
+      return
+    }
+    const targetUrl = manualLanUrl ?? HARDCODED_SERVER_URL
+    const isManualLan = manualLanUrl != null
+
     setIsConnecting(true)
 
     // Pre-flight, mirroring Quick Connect: previously Advanced mode saved
@@ -159,7 +177,7 @@ export default function AddConnectionScreen() {
         id: "",
         name: name.trim(),
         type,
-        url: HARDCODED_SERVER_URL,
+        url: targetUrl,
         directory: directory.trim() || undefined,
         username: username.trim() || undefined,
       },
@@ -172,9 +190,10 @@ export default function AddConnectionScreen() {
           {
             name: name.trim(),
             type,
-            url: HARDCODED_SERVER_URL,
+            url: targetUrl,
             directory: directory.trim() || undefined,
             username: username.trim() || undefined,
+            ...(isManualLan ? { discoveredOnLan: true as const } : {}),
           },
           password || undefined,
         )
@@ -193,13 +212,13 @@ export default function AddConnectionScreen() {
     // Failed: same "Connection Failed" alert as Quick Connect — run active
     // diagnostics and offer a shareable report instead of
     // silently persisting an unreachable/unauthorized connection.
-    const report = await probeConnection(HARDCODED_SERVER_URL, buildAuth(username, password))
+    const report = await probeConnection(targetUrl, buildAuth(username, password))
     setIsConnecting(false)
     Alert.alert(
       t("connection.shared.alerts.connectionFailedTitle"),
       t("connection.add.alerts.connectionFailedMessage", {
         summary: report.summary,
-        target: HARDCODED_SERVER_URL,
+        target: targetUrl,
         error: result.error || t("connection.shared.alerts.unknownError"),
       }),
       [
@@ -499,6 +518,41 @@ export default function AddConnectionScreen() {
       />
 
       {/* URL is hardcoded — not shown to user */}
+
+      {/* Manual LAN server (Local only): typed ip:port is saved as a
+          LAN-marked entry and survives the hardcode migration. Empty = the
+          main server. */}
+      {type === "local" && (
+        <>
+          <Text style={[styles.label, isDark && styles.labelDark]}>{t("connection.add.quick.ipAddressLabel")}</Text>
+          <View style={styles.ipRow}>
+            <TextInput
+              style={[styles.input, styles.ipInput, isDark && styles.inputDark]}
+              placeholder="192.168.1.100"
+              placeholderTextColor={isDark ? "#666666" : "#999999"}
+              value={ip}
+              onChangeText={setIp}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="decimal-pad"
+              testID="lan-ip-input"
+            />
+            <Text style={[styles.ipColon, isDark && styles.labelDark]}>:</Text>
+            <TextInput
+              style={[styles.input, styles.portInput, isDark && styles.inputDark]}
+              placeholder="4096"
+              placeholderTextColor={isDark ? "#666666" : "#999999"}
+              value={port}
+              onChangeText={setPort}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="number-pad"
+              testID="lan-port-input"
+            />
+          </View>
+          <Text style={[styles.hint, isDark && styles.hintDark]}>{t("connection.add.advanced.urlHintPrefix")}http://192.168.1.100:4096</Text>
+        </>
+      )}
 
       {/* Directory */}
       <Text style={[styles.label, isDark && styles.labelDark]}>{t("connection.shared.directoryOptional")}</Text>

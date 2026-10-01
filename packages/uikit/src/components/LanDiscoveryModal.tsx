@@ -11,18 +11,22 @@ import {
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import * as Network from "expo-network"
+import { colors } from "../theme"
+// NOTE: lib/lan-discover is not vendored into uikit yet (cards 3-5).
+// Resolves once `src/lib` moves under `packages/uikit/src/lib`.
 import {
   DEFAULT_LAN_PORTS,
   hostsInSubnet24,
   isPrivateLanIpv4,
   scanLanHosts,
   type LanCandidate,
-} from "../lib/lan-discover"
+} from "../utils/lan-discover"
 
 // Modal that sweeps the local /24 for opencode servers. Rendered (but hidden)
 // only when the user enabled settings.lanDiscovery — the sweep itself starts
 // on open and aborts on close/unmount. A hit becomes a SECOND connection
 // entry via onPick (the hardcoded main server is untouched).
+// Pure atom — no zustand stores, only lib/lan-discover + expo-network.
 export function LanDiscoveryModal({
   visible,
   onClose,
@@ -108,32 +112,32 @@ export function LanDiscoveryModal({
             width: "100%",
             maxWidth: 400,
             maxHeight: "80%",
-            backgroundColor: isDark ? "#1a1a1a" : "#ffffff",
+            backgroundColor: isDark ? colors.surfaceDark : colors.white,
             borderRadius: 16,
             padding: 20,
             gap: 12,
           }}
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? "#ffffff" : "#0a0a0a" }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? colors.textPrimaryDark : colors.textPrimaryLight }}>
               {t("lan.scanTitle")}
             </Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <Ionicons name="close" size={20} color={isDark ? "#888888" : "#666666"} />
+              <Ionicons name="close" size={20} color={isDark ? colors.textSecondaryDark : colors.textSecondaryLight} />
             </TouchableOpacity>
           </View>
 
           {scanning ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <ActivityIndicator size="small" color={isDark ? "#ffffff" : "#0a0a0a"} />
-              <Text style={{ fontSize: 14, color: isDark ? "#888888" : "#666666" }}>
+              <ActivityIndicator size="small" color={isDark ? colors.textPrimaryDark : colors.textPrimaryLight} />
+              <Text style={{ fontSize: 14, color: isDark ? colors.textSecondaryDark : colors.textSecondaryLight }}>
                 {t("lan.scanning", { scanned, total })}
               </Text>
             </View>
           ) : phase === "error" ? (
-            <Text style={{ fontSize: 14, color: "#ef4444" }}>{errorText}</Text>
+            <Text style={{ fontSize: 14, color: colors.error }}>{errorText}</Text>
           ) : found.length === 0 ? (
-            <Text style={{ fontSize: 14, color: isDark ? "#888888" : "#666666" }}>{t("lan.none")}</Text>
+            <Text style={{ fontSize: 14, color: isDark ? colors.textSecondaryDark : colors.textSecondaryLight }}>{t("lan.none")}</Text>
           ) : null}
 
           <FlatList
@@ -145,32 +149,32 @@ export function LanDiscoveryModal({
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 10,
-                  backgroundColor: isDark ? "#0a0a0a" : "#f5f5f5",
+                  backgroundColor: isDark ? colors.backgroundDark : colors.surfaceLight,
                   borderRadius: 10,
                   padding: 12,
                 }}
                 testID={`lan-candidate-${index}`}
               >
-                <Ionicons name="server-outline" size={20} color={isDark ? "#888888" : "#666666"} />
+                <Ionicons name="server-outline" size={20} color={isDark ? colors.textSecondaryDark : colors.textSecondaryLight} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: "600", color: isDark ? "#ffffff" : "#0a0a0a" }} numberOfLines={1}>
+                  <Text style={{ fontSize: 15, fontWeight: "600", color: isDark ? colors.textPrimaryDark : colors.textPrimaryLight }} numberOfLines={1}>
                     {item.host}:{item.port}
                   </Text>
-                  <Text style={{ fontSize: 12, color: isDark ? "#888888" : "#666666" }} numberOfLines={1}>
+                  <Text style={{ fontSize: 12, color: isDark ? colors.textSecondaryDark : colors.textSecondaryLight }} numberOfLines={1}>
                     {item.version ? `v${item.version}` : item.authRequired ? t("lan.needsLogin") : item.url}
                   </Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => onPick(item)}
                   style={{
-                    backgroundColor: "#0a0a0a",
+                    backgroundColor: colors.backgroundDark,
                     borderRadius: 8,
                     paddingHorizontal: 14,
                     paddingVertical: 8,
                   }}
                   testID={`lan-use-${index}`}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#ffffff" }}>{t("lan.use")}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: colors.white }}>{t("lan.use")}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -188,12 +192,12 @@ export function LanDiscoveryModal({
                   flex: 1,
                   alignItems: "center",
                   borderWidth: 1,
-                  borderColor: isDark ? "#2a2a2a" : "#e5e5e5",
+                  borderColor: isDark ? colors.surfaceDark2 : colors.borderLight,
                   padding: 12,
                   borderRadius: 10,
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? "#ffffff" : "#0a0a0a" }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? colors.textPrimaryDark : colors.textPrimaryLight }}>
                   {t("lan.stop")}
                 </Text>
               </TouchableOpacity>
@@ -204,12 +208,12 @@ export function LanDiscoveryModal({
                   flex: 1,
                   alignItems: "center",
                   borderWidth: 1,
-                  borderColor: isDark ? "#2a2a2a" : "#e5e5e5",
+                  borderColor: isDark ? colors.surfaceDark2 : colors.borderLight,
                   padding: 12,
                   borderRadius: 10,
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? "#ffffff" : "#0a0a0a" }}>
+                <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? colors.textPrimaryDark : colors.textPrimaryLight }}>
                   {t("lan.rescan")}
                 </Text>
               </TouchableOpacity>

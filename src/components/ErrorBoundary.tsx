@@ -8,6 +8,7 @@
 
 import React from "react"
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native"
+import { colors } from "@web2bizz/ui-native"
 import { buildCrashReport, shareReport } from "../lib/diagnostics"
 import { log } from "../lib/logbuffer"
 // Class component — can't use the useTranslation() hook, so resolve strings
@@ -101,18 +102,19 @@ export class ErrorBoundary extends React.Component<Props, State> {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0a0a0a" },
+  root: { flex: 1, backgroundColor: colors.backgroundDark },
   content: { padding: 24, paddingTop: 80 },
-  title: { color: "#ffffff", fontSize: 24, fontWeight: "700", marginBottom: 8 },
+  title: { color: colors.textPrimaryDark, fontSize: 24, fontWeight: "700", marginBottom: 8 },
+  // NOTE: #a0a0a0 and #cdd3da have no theme tokens — kept as-is.
   subtitle: { color: "#a0a0a0", fontSize: 15, lineHeight: 21, marginBottom: 24 },
-  card: { backgroundColor: "#1a1a1a", borderRadius: 12, padding: 16, marginBottom: 12 },
-  cardLabel: { color: "#888", fontSize: 12, fontWeight: "600", textTransform: "uppercase", marginBottom: 6 },
-  cardBody: { color: "#fff", fontSize: 15 },
+  card: { backgroundColor: colors.surfaceDark, borderRadius: 12, padding: 16, marginBottom: 12 },
+  cardLabel: { color: colors.textSecondaryDark, fontSize: 12, fontWeight: "600", textTransform: "uppercase", marginBottom: 6 },
+  cardBody: { color: colors.white, fontSize: 15 },
   code: { color: "#cdd3da", fontSize: 12, fontFamily: "Courier" },
   actions: { marginTop: 16, flexDirection: "row", gap: 12 },
   button: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: "center" },
-  buttonPrimary: { backgroundColor: "#3b82f6" },
-  buttonSecondary: { backgroundColor: "#2a2a2a" },
-  buttonPrimaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  buttonSecondaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  buttonPrimary: { backgroundColor: colors.info },
+  buttonSecondary: { backgroundColor: colors.surfaceDark2 },
+  buttonPrimaryText: { color: colors.white, fontSize: 16, fontWeight: "600" },
+  buttonSecondaryText: { color: colors.white, fontSize: 16, fontWeight: "600" },
 })

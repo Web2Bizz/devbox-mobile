@@ -3,6 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ActivityIndicator, AppState } from
 import { useFocusEffect } from "expo-router"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
+import { colors } from "@web2bizz/ui-native"
 import { useConnections } from "../stores/connections"
 import { useEvents } from "../stores/events"
 import { HARDCODED_SERVER_URL } from "../lib/server-config"
@@ -105,17 +106,19 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
           flexDirection: "row",
           alignItems: "center",
           gap: 6,
+          // NOTE: status-tint bg/border (#052e16/#dcfce7, #3f0a0a/#fef2f2,
+          // #14532d/#bbf7d0, #7f1d1d/#fecaca) have no theme tokens — kept as-is.
           backgroundColor: isDark
             ? state === "connected"
               ? "#052e16"
               : state === "error"
                 ? "#3f0a0a"
-                : "#1a1a1a"
+                : colors.surfaceDark
             : state === "connected"
               ? "#dcfce7"
               : state === "error"
                 ? "#fef2f2"
-                : "#f5f5f5",
+                : colors.surfaceLight,
           paddingHorizontal: 10,
           paddingVertical: 5,
           borderRadius: 12,
@@ -125,12 +128,12 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
               ? "#14532d"
               : state === "error"
                 ? "#7f1d1d"
-                : "#2a2a2a"
+                : colors.surfaceDark2
             : state === "connected"
               ? "#bbf7d0"
               : state === "error"
                 ? "#fecaca"
-                : "#e5e5e5",
+                : colors.borderLight,
         }}
         testID="connection-status-badge"
       >
@@ -139,7 +142,7 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: state === "connected" ? "#22c55e" : state === "error" ? "#ef4444" : "#999999",
+            backgroundColor: state === "connected" ? colors.success : state === "error" ? colors.error : colors.textTertiaryLight,
           }}
         />
         <Text
@@ -151,12 +154,12 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
                 ? "#4ade80"
                 : state === "error"
                   ? "#f87171"
-                  : "#888888"
+                  : colors.textSecondaryDark
               : state === "connected"
                 ? "#15803d"
                 : state === "error"
-                  ? "#dc2626"
-                  : "#666666",
+                  ? colors.errorStrong
+                  : colors.textSecondaryLight,
           }}
         >
           {label}
@@ -172,18 +175,18 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
           <TouchableOpacity activeOpacity={1} style={{ width: "100%", maxWidth: 360 }}>
             <View
               style={{
-                backgroundColor: isDark ? "#1a1a1a" : "#ffffff",
+                backgroundColor: isDark ? colors.surfaceDark : colors.white,
                 borderRadius: 16,
                 padding: 20,
                 gap: 16,
               }}
             >
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? "#ffffff" : "#0a0a0a" }}>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: isDark ? colors.textPrimaryDark : colors.textPrimaryLight }}>
                   {t("connection.status.title")}
                 </Text>
                 <TouchableOpacity onPress={() => setVisible(false)} hitSlop={8}>
-                  <Ionicons name="close" size={20} color={isDark ? "#888888" : "#666666"} />
+                  <Ionicons name="close" size={20} color={isDark ? colors.textSecondaryDark : colors.textSecondaryLight} />
                 </TouchableOpacity>
               </View>
 
@@ -193,10 +196,10 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
                     width: 12,
                     height: 12,
                     borderRadius: 6,
-                    backgroundColor: state === "connected" ? "#22c55e" : state === "error" ? "#ef4444" : "#999999",
+                    backgroundColor: state === "connected" ? colors.success : state === "error" ? colors.error : colors.textTertiaryLight,
                   }}
                 />
-                <Text style={{ fontSize: 15, fontWeight: "600", color: isDark ? "#ffffff" : "#0a0a0a" }}>
+                <Text style={{ fontSize: 15, fontWeight: "600", color: isDark ? colors.textPrimaryDark : colors.textPrimaryLight }}>
                   {state === "connected"
                     ? t("connection.status.connected")
                     : state === "error"
@@ -210,23 +213,23 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  backgroundColor: isDark ? "#0a0a0a" : "#f5f5f5",
+                  backgroundColor: isDark ? colors.backgroundDark : colors.surfaceLight,
                   borderRadius: 10,
                   padding: 14,
                 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Ionicons name="pulse-outline" size={18} color={isDark ? "#888888" : "#666666"} />
-                  <Text style={{ fontSize: 14, color: isDark ? "#888888" : "#666666" }}>{t("connection.status.ping")}</Text>
+                  <Ionicons name="pulse-outline" size={18} color={isDark ? colors.textSecondaryDark : colors.textSecondaryLight} />
+                  <Text style={{ fontSize: 14, color: isDark ? colors.textSecondaryDark : colors.textSecondaryLight }}>{t("connection.status.ping")}</Text>
                 </View>
                 {pingLoading ? (
-                  <ActivityIndicator size="small" color={isDark ? "#ffffff" : "#0a0a0a"} />
+                  <ActivityIndicator size="small" color={isDark ? colors.textPrimaryDark : colors.textPrimaryLight} />
                 ) : ping !== null ? (
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? "#ffffff" : "#0a0a0a" }}>{ping} ms</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? colors.textPrimaryDark : colors.textPrimaryLight }}>{ping} ms</Text>
                 ) : pingError ? (
-                  <Text style={{ fontSize: 13, color: "#ef4444" }}>{t("connection.status.unreachable")}</Text>
+                  <Text style={{ fontSize: 13, color: colors.error }}>{t("connection.status.unreachable")}</Text>
                 ) : (
-                  <Text style={{ fontSize: 13, color: "#888888" }}>—</Text>
+                  <Text style={{ fontSize: 13, color: colors.textSecondaryDark }}>—</Text>
                 )}
               </View>
 
@@ -238,15 +241,15 @@ export function ConnectionBadge({ isDark }: { isDark: boolean }) {
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  backgroundColor: isDark ? "#0a0a0a" : "#ffffff",
+                  backgroundColor: isDark ? colors.backgroundDark : colors.white,
                   borderWidth: 1,
-                  borderColor: isDark ? "#2a2a2a" : "#e5e5e5",
+                  borderColor: isDark ? colors.surfaceDark2 : colors.borderLight,
                   padding: 12,
                   borderRadius: 10,
                 }}
               >
-                <Ionicons name="refresh" size={16} color={isDark ? "#ffffff" : "#0a0a0a"} />
-                <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? "#ffffff" : "#0a0a0a" }}>
+                <Ionicons name="refresh" size={16} color={isDark ? colors.textPrimaryDark : colors.textPrimaryLight} />
+                <Text style={{ fontSize: 14, fontWeight: "600", color: isDark ? colors.textPrimaryDark : colors.textPrimaryLight }}>
                   {t("connection.status.refresh")}
                 </Text>
               </TouchableOpacity>

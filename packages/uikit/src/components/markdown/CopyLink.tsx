@@ -4,6 +4,7 @@ import * as Clipboard from "expo-clipboard"
 
 // Markdown link with Telegram-style behavior: a tap copies the URL,
 // a long press opens it. Brief "✓" confirms the copy inline.
+// Pure atom — no theme / store deps, no hex literals to tokenize.
 export function CopyLink({
   href,
   style,
