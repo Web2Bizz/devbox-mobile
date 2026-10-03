@@ -124,13 +124,22 @@ export default function SessionScreen() {
   const fieldRef = useRef<TextInput | null>(null)
   const [showInfo, setShowInfo] = useState(false)
   const [keyboardY, setKeyboardY] = useState<number | null>(null)
+  // Высота клавиатуры — нижний док (overlay) поднимается над ней вручную:
+  // KeyboardAvoidingView своим padding двигает только in-flow контент,
+  // абсолютно спозиционированный док его игнорирует.
+  const [keyboardH, setKeyboardH] = useState(0)
+  // Замеренная высота нижнего дока (квик-действия + ввод + промпты/аттачменты):
+  // уходит в нижний отступ списка сообщений, чтобы не проваливались под overlay.
+  const [dockHeight, setDockHeight] = useState(0)
 
   useEffect(() => {
     const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (event) => {
       setKeyboardY(event.endCoordinates.screenY)
+      setKeyboardH(event.endCoordinates.height ?? 0)
     })
     const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => {
       setKeyboardY(null)
+      setKeyboardH(0)
     })
     return () => {
       show.remove()
@@ -886,7 +895,9 @@ export default function SessionScreen() {
                   onLongPress={handleMessageLongPress}
                 />
               )}
-              contentContainerStyle={s.messageList}
+              // Список инвертирован: верх контентных координат = визуальный низ,
+              // поэтому запас под док даём через paddingTop.
+              contentContainerStyle={[s.messageList, { paddingTop: 16 + dockHeight }]}
               onScroll={handleScroll}
               scrollEventThrottle={100}
               onEndReached={handleLoadMore}
@@ -942,13 +953,23 @@ export default function SessionScreen() {
               </View>
             )}
             {showScrollButton && (
-              <TouchableOpacity style={[s.scrollBtn, isDark && s.scrollBtnDark]} onPress={() => scrollToBottom(true)}>
+              <TouchableOpacity
+                style={[s.scrollBtn, isDark && s.scrollBtnDark, { bottom: 16 + dockHeight }]}
+                onPress={() => scrollToBottom(true)}
+              >
                 <Ionicons name="chevron-down" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
               </TouchableOpacity>
             )}
           </View>
         )}
 
+        {/* Нижний док: квик-действия + ввод (+ промпты/аттачменты, когда видны) —
+            fixed overlay поверх чата. Высота замеряется (onLayout) и уходит
+            в отступ списка, клавиатура поднимает док через bottom. */}
+        <View
+          style={[s.dock, isDark && s.dockDark, { bottom: keyboardH, paddingBottom: Math.max(12, insets.bottom) }]}
+          onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
+        >
         {/* Permissions */}
         {permissions.map((perm) => (
           <PermissionPrompt
@@ -1009,14 +1030,7 @@ export default function SessionScreen() {
         )}
 
         {/* Input */}
-        <View
-          style={[
-            s.inputContainer,
-            isDark && s.inputContainerDark,
-            showFollowUps && s.inputContainerFlush,
-            { paddingBottom: Math.max(12, insets.bottom) },
-          ]}
-        >
+        <View style={[s.inputContainer, isDark && s.inputContainerDark, showFollowUps && s.inputContainerFlush]}>
           <View style={s.inputRow}>
             <TextInput
               ref={fieldRef}
@@ -1117,6 +1131,7 @@ export default function SessionScreen() {
               </View>
             </View>
           </View>
+        </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -1264,6 +1279,19 @@ const s = StyleSheet.create({
   textWhite: { color: "#ffffff" },
 
   // Input
+  // Нижний док — fixed overlay поверх чата (квик-действия + ввод).
+  // Непрозрачный фон обязателен: список на всю высоту скроллится под ним.
+  // Высота дока замеряется (onLayout) и уходит в отступ списка.
+  dock: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#ffffff",
+    zIndex: 2,
+    elevation: 4,
+  },
+  dockDark: { backgroundColor: "#0a0a0a" },
   inputContainer: {
     padding: COMPOSER_PADDING,
     borderTopWidth: 1,
