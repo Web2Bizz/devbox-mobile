@@ -436,6 +436,9 @@
       "patternOnly": "Pattern: {{pattern}}",
       "patternWithPath": "Pattern: {{pattern}} in {{path}}"
     },
+    "githubLink": {
+      "openButton": "Открыть в GitHub"
+    },
     "sessionInfo": {
       "noUsageData": "No usage data yet",
       "loading": "Loading...",
