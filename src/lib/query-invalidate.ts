@@ -10,4 +10,5 @@ export function invalidateConnectionScopeQueries() {
   void queryClient.invalidateQueries({ queryKey: queryKeys.catalog })
   void queryClient.invalidateQueries({ queryKey: queryKeys.projectInfo })
   void queryClient.invalidateQueries({ queryKey: queryKeys.serverProjects })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.projectRemotes })
 }
