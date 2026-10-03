@@ -1231,9 +1231,8 @@ const s = StyleSheet.create({
   followUpBar: {
     height: 45,
     justifyContent: "center",
-    // Same width as the composer field: inset by the composer's own padding
-    // (content keeps its paddingHorizontal 12, so chips align with the input
-    // text at 12 + 12).
+    // Same inset as the composer field; chips start flush at the bar edge —
+    // spacing lives only between chips (gap in followUpContent), not around.
     marginHorizontal: COMPOSER_PADDING,
     backgroundColor: "#ffffff",
   },
@@ -1242,8 +1241,8 @@ const s = StyleSheet.create({
   followUpContent: {
     flexDirection: "row",
     alignItems: "center",
+    // Только gap между чипами — без полей вокруг кнопок по краям скролла.
     gap: 8,
-    paddingHorizontal: 12,
     height: 45,
   },
   followUpChip: {
