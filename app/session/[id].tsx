@@ -756,7 +756,7 @@ export default function SessionScreen() {
   const aiSummary = `${agent || "build"} • ${model?.modelID ? model.modelID.split("/").pop() || model.modelID : "default"}`
 
   // Follow-up quick actions: same items/style as the empty-chat suggestions,
-  // but as a 30px horizontal strip above the composer. Visible when the chat
+  // but as a 45px horizontal strip above the composer. Visible when the chat
   // is non-empty and the agent is idle — i.e. right after it finishes working
   // (isSending flips back to false) — hidden while it is busy or loading.
   const showFollowUps = !isLoading && !isSending && messageData.length > 0
@@ -1010,7 +1010,12 @@ export default function SessionScreen() {
 
         {/* Input */}
         <View
-          style={[s.inputContainer, isDark && s.inputContainerDark, { paddingBottom: Math.max(12, insets.bottom) }]}
+          style={[
+            s.inputContainer,
+            isDark && s.inputContainerDark,
+            showFollowUps && s.inputContainerFlush,
+            { paddingBottom: Math.max(12, insets.bottom) },
+          ]}
         >
           <View style={s.inputRow}>
             <TextInput
@@ -1217,32 +1222,37 @@ const s = StyleSheet.create({
   suggestionChipDark: { borderColor: "#2a2a2a", backgroundColor: "#1a1a1a" },
   suggestionText: { fontSize: 14, fontWeight: "500", color: "#444444" },
   suggestionTextDark: { color: "#bbbbbb" },
-  // Follow-up strip above the composer: fixed 30px block, horizontal scroll.
+  // Follow-up strip above the composer: fixed 45px block, horizontal scroll.
   // Chips mirror suggestionChip (border + background) in a compact form to
-  // fit the 30px height.
+  // fit the 45px height.
+  // No top/bottom dividers — the strip floats between the list and the
+  // composer (the composer's own top border is also hidden while the strip
+  // is visible, see inputContainerFlush).
   followUpBar: {
-    height: 30,
+    height: 45,
     justifyContent: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
+    // Same width as the composer field: inset by the composer's own padding
+    // (content keeps its paddingHorizontal 12, so chips align with the input
+    // text at 12 + 12).
+    marginHorizontal: COMPOSER_PADDING,
     backgroundColor: "#ffffff",
   },
-  followUpBarDark: { borderTopColor: "#1a1a1a", backgroundColor: "#0a0a0a" },
-  followUpScroll: { height: 30 },
+  followUpBarDark: { backgroundColor: "#0a0a0a" },
+  followUpScroll: { height: 45 },
   followUpContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 12,
-    height: 30,
+    height: 45,
   },
   followUpChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 12,
-    height: 24,
-    borderRadius: 12,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: "#e5e5e5",
     backgroundColor: "#f5f5f5",
@@ -1262,6 +1272,9 @@ const s = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
   inputContainerDark: { borderTopColor: "#1a1a1a", backgroundColor: "#0a0a0a" },
+  // Hides the composer's top divider while the follow-up strip is shown —
+  // otherwise it reads as the strip's bottom line.
+  inputContainerFlush: { borderTopWidth: 0 },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
