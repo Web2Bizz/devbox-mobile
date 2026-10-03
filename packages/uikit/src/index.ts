@@ -32,6 +32,7 @@ export { CodeBlock } from "./components/markdown/CodeBlock"
 // Pure UI-support utils (unit-tested, no app imports).
 export { isLandscapeSize, shouldCapSheetContent, sheetContentCap } from "./utils/sheet-layout"
 export { parentOf, nameOf, breadcrumbsOf, stripTrailingSlash } from "./utils/path-utils"
+export { extractGitHubUrls } from "./utils/github-links"
 export { composerMaxHeight, keyboardVerticalOffset, COMPOSER_MIN_HEIGHT } from "./utils/session-layout"
 export type { LanCandidate } from "./utils/lan-discover"
 export type {
