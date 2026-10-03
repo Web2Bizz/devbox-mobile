@@ -1,8 +1,11 @@
 import { memo } from "react"
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from "react-native"
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Linking } from "react-native"
+import { Ionicons } from "@expo/vector-icons"
+import { useTranslation } from "react-i18next"
 import { Markdown } from "../markdown"
 import { ToolCallCard } from "./ToolCallCard"
 import { ReasoningBlock } from "./ReasoningBlock"
+import { extractGitHubUrls } from "../../utils/github-links"
 import type { Message, Part } from "../../types"
 
 const SCREEN_WIDTH = Dimensions.get("window").width
@@ -26,6 +29,7 @@ interface Props {
 export const MessageBubble = memo(
   function MessageBubble({ message, parts, isDark, onLongPress }: Props) {
     const isUser = message.role === "user"
+    const { t } = useTranslation()
 
     const textParts = parts.filter((p) => p.type === "text")
     const reasoningParts = parts.filter((p) => p.type === "reasoning")
@@ -33,6 +37,9 @@ export const MessageBubble = memo(
     const fileParts = parts.filter((p) => p.type === "file" && isImageMime(p.mime))
     const text = textParts.map((p) => p.text).join("\n") || ""
     const reasoning = reasoningParts.map((p) => p.text).join("\n") || ""
+    // GitHub links shared by the agent — one "open" button per unique URL
+    // under the message. User bubbles stay untouched (plain text, no links).
+    const githubUrls = isUser ? [] : extractGitHubUrls(text)
     // True when tools follow text/reasoning/images inside the SAME bubble:
     // then the toolList needs its own 16px top gap. When a bubble starts
     // with tools, marginTop stays 0 and the 16px comes from the surrounding
@@ -87,6 +94,28 @@ export const MessageBubble = memo(
               <Markdown>{text}</Markdown>
             </View>
           ))}
+
+        {/* GitHub links from the agent — direct "open" buttons under the text.
+            (Inline markdown links are tap-to-copy by design, see CopyLink.) */}
+        {githubUrls.length > 0 && (
+          <View style={s.githubList}>
+            {githubUrls.map((url) => (
+              <TouchableOpacity
+                key={url}
+                style={[s.githubBtn, isDark && s.githubBtnDark]}
+                onPress={() => void Linking.openURL(url).catch(() => {})}
+                testID="github-open-button"
+                accessibilityRole="button"
+                accessibilityLabel={t("chat.githubLink.openButton")}
+              >
+                <Ionicons name="logo-github" size={16} color={isDark ? "#e5e5e5" : "#0a0a0a"} />
+                <Text style={[s.githubBtnText, isDark && s.githubBtnTextDark]}>
+                  {t("chat.githubLink.openButton")}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Tool calls — uniform rhythm via the container gap, not per-card
             margins, so every row in a series sits equally apart.
@@ -168,6 +197,24 @@ const s = StyleSheet.create({
 
   tokens: { fontSize: 11, color: "#999999", marginTop: 8 },
   tokensDark: { color: "#666666" },
+
+  // "Open in GitHub" buttons under agent messages with github.com links.
+  githubList: { marginTop: 8, gap: 8 },
+  githubBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    backgroundColor: "#f5f5f5",
+  },
+  githubBtnDark: { borderColor: "#2a2a2a", backgroundColor: "#1a1a1a" },
+  githubBtnText: { fontSize: 14, fontWeight: "600", color: "#0a0a0a" },
+  githubBtnTextDark: { color: "#e5e5e5" },
 
   // Images
   imageScroll: { marginBottom: 8 },
