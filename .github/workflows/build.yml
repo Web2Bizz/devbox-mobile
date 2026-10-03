@@ -33,6 +33,9 @@ jobs:
         run: npm test
 
   build:
+    # Heavy native build runs only on real merges (push to main/dev/tags):
+    # an open PR gets the test job above and nothing more.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

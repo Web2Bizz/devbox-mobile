@@ -55,6 +55,9 @@ jobs:
   ios-build:
     name: Unsigned iOS Simulator build
     needs: test
+    # Same rule as build.yml: an open PR gets checks only, the simulator
+    # build runs after the merge (push to main).
+    if: github.event_name != 'pull_request'
     # macos-15 ships Xcode 16.x, which React Native 0.81 / Expo SDK 54 require.
     runs-on: macos-15
     timeout-minutes: 45
