@@ -533,6 +533,14 @@
       "private": "Private",
       "empty": "Nothing found",
       "targetLabel": "Clone into"
+    },
+    "header": {
+      "repositoriesLabel": "Repositories",
+      "showAll": "Show all ({{count}})"
+    },
+    "remotes": {
+      "title": "Repositories",
+      "empty": "No remote repositories"
     }
   },
   "tasks": {

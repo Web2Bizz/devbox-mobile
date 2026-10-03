@@ -163,6 +163,14 @@ export interface FileEntry {
   ignored: boolean
 }
 
+// GET /file/content — mirrors upstream FileRead. Throws ApiError (404 when
+// the server build lacks the route or the path doesn't exist), so callers
+// that treat "no file" as empty must catch, like file.roots() does.
+export interface FileContent {
+  type: "text" | "binary"
+  content: string
+}
+
 export interface Event {
   type: string
   properties: Record<string, unknown>
@@ -328,6 +336,13 @@ export function createClient(config: ClientConfig) {
       list: (params: { path?: string } = {}) => {
         const query = new URLSearchParams({ path: params.path ?? "." })
         return request<FileEntry[]>(config, `/file?${query.toString()}`)
+      },
+      // Read a single text file (e.g. ".git/config" for remote URLs).
+      // Binary responses resolve with type "binary" and unusable content —
+      // callers must check `type` before trusting `content`.
+      content: (path: string) => {
+        const query = new URLSearchParams({ path })
+        return request<FileContent>(config, `/file/content?${query.toString()}`)
       },
       // Enumerate the server's filesystem roots (mounted drives, home dir)
       // to seed the directory browser's pinned top-level entries. Resolves
