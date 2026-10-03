@@ -109,7 +109,7 @@ function ProjectCard({
         {directory}
       </Text>
       <Text style={[styles.projectCardMeta, isDark && styles.metaDark]}>
-        {t("sessionsList.filesCount", { count })} · {formatTime(lastUpdated, t)}
+        {t("sessionsList.sessionsCount", { count })} · {formatTime(lastUpdated, t)}
       </Text>
     </TouchableOpacity>
   )

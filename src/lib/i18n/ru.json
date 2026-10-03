@@ -288,6 +288,7 @@
       "daysAgo": "{{count}}d ago"
     },
     "filesCount": "{{count}} files",
+    "sessionsCount": "{{count}} sessions",
     "actions": {
       "rename": "Переименовать"
     },
