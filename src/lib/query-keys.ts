@@ -18,6 +18,11 @@ export const queryKeys = {
   // server's projects never collide with (or reuse) the cloud snapshot.
   // Prefix-invalidation on `serverProjects` still hits every entry below.
   serverProjectsFor: (connectionId: string) => ["project", "list", connectionId] as const,
+  // Git remotes parsed from the project's .git/config: one cache entry per
+  // (server, directory). Prefix-invalidation on `projectRemotes` hits all.
+  projectRemotes: ["project", "remotes"] as const,
+  projectRemotesFor: (connectionId: string, directory: string) =>
+    ["project", "remotes", connectionId, directory] as const,
 } as const
 
 // Prefix that matches every session-scoped key (list, detail, messages,

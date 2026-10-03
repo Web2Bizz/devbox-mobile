@@ -8,7 +8,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { useConnections } from "../stores/connections"
 import { queryKeys } from "../lib/query-keys"
-import type { Project } from "../lib/sdk"
+import { ApiError, type Project } from "../lib/sdk"
+import { parseGitConfigRemotes, toRepoLinks, type RepoLink } from "../lib/git-remotes"
 
 export interface ProjectInfo {
   project: Project | null
@@ -65,5 +66,40 @@ export function useServerProjects(enabled: boolean) {
     queryFn: () => fetchServerProjects(targetId || undefined),
     enabled: enabled && !!activeId && hasClient,
     staleTime: 60_000,
+  })
+}
+
+// Git remotes of a project directory, parsed from its `.git/config` on the
+// server (origin-aware via clientForDirectory, same as the folder browser).
+// Missing config / non-git dir / servers without GET /file/content all
+// resolve to [] — the UI hides the repositories section instead of erroring.
+async function fetchProjectRemotes(directory: string, connectionId?: string): Promise<RepoLink[]> {
+  const conn = useConnections.getState()
+  const client = conn.clientForDirectory(directory, connectionId) ?? conn.client
+  if (!client) throw new Error("No active connection")
+  let content: { type: string; content: string }
+  try {
+    content = await client.file.content(".git/config")
+  } catch (err) {
+    if (err instanceof ApiError) return []
+    throw err
+  }
+  if (!content || content.type !== "text" || !content.content) return []
+  return toRepoLinks(parseGitConfigRemotes(content.content))
+}
+
+export function useProjectRemotes(directory?: string, connectionId?: string) {
+  const activeId = useConnections((s) => s.activeConnection?.id)
+  const hasClient = useConnections((s) => !!s.client)
+  // Explicit connection wins; otherwise the active one. Empty string keeps
+  // the key a stable tuple while disabled (mirrors useServerProjects).
+  const targetId = connectionId ?? activeId ?? ""
+  const dir = directory ?? ""
+  return useQuery({
+    queryKey: queryKeys.projectRemotesFor(targetId, dir),
+    queryFn: () => fetchProjectRemotes(dir, connectionId ?? activeId ?? undefined),
+    enabled: !!dir && !!targetId && hasClient,
+    staleTime: 5 * 60_000,
+    retry: false,
   })
 }

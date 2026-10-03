@@ -533,6 +533,14 @@
       "private": "Приватный",
       "empty": "Ничего не найдено",
       "targetLabel": "Клонировать в"
+    },
+    "header": {
+      "repositoriesLabel": "Репозитории",
+      "showAll": "Показать все ({{count}})"
+    },
+    "remotes": {
+      "title": "Репозитории",
+      "empty": "Нет удалённых репозиториев"
     }
   },
   "tasks": {
