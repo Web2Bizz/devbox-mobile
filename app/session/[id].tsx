@@ -5,6 +5,7 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
+  ScrollView,
   StyleSheet,
   useColorScheme,
   KeyboardAvoidingView,
@@ -754,6 +755,12 @@ export default function SessionScreen() {
   // Summary label for the single AI settings button ("agent • model")
   const aiSummary = `${agent || "build"} • ${model?.modelID ? model.modelID.split("/").pop() || model.modelID : "default"}`
 
+  // Follow-up quick actions: same items/style as the empty-chat suggestions,
+  // but as a 30px horizontal strip above the composer. Visible when the chat
+  // is non-empty and the agent is idle — i.e. right after it finishes working
+  // (isSending flips back to false) — hidden while it is busy or loading.
+  const showFollowUps = !isLoading && !isSending && messageData.length > 0
+
   // Variants for current model (for reasoning effort picker)
   const currentModelVariants = useMemo(() => {
     if (!model) return undefined
@@ -971,6 +978,36 @@ export default function SessionScreen() {
         {/* Attachment preview */}
         <ImageAttachments attachments={attachments} isDark={isDark} onRemove={removeAttachment} />
 
+        {/* Follow-up quick actions (after the agent finishes) */}
+        {showFollowUps && (
+          <View style={[s.followUpBar, isDark && s.followUpBarDark]}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={s.followUpScroll}
+              contentContainerStyle={s.followUpContent}
+            >
+              {SUGGESTIONS.map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[s.followUpChip, isDark && s.followUpChipDark]}
+                  onPress={() => handleSuggestionPress(item.promptKey)}
+                  testID={`followup-${item.key}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(item.labelKey)}
+                >
+                  <Ionicons
+                    name={item.icon as keyof typeof Ionicons.glyphMap}
+                    size={13}
+                    color={isDark ? "#bbbbbb" : "#444444"}
+                  />
+                  <Text style={[s.followUpText, isDark && s.followUpTextDark]}>{t(item.labelKey)}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Input */}
         <View
           style={[s.inputContainer, isDark && s.inputContainerDark, { paddingBottom: Math.max(12, insets.bottom) }]}
@@ -1180,6 +1217,39 @@ const s = StyleSheet.create({
   suggestionChipDark: { borderColor: "#2a2a2a", backgroundColor: "#1a1a1a" },
   suggestionText: { fontSize: 14, fontWeight: "500", color: "#444444" },
   suggestionTextDark: { color: "#bbbbbb" },
+  // Follow-up strip above the composer: fixed 30px block, horizontal scroll.
+  // Chips mirror suggestionChip (border + background) in a compact form to
+  // fit the 30px height.
+  followUpBar: {
+    height: 30,
+    justifyContent: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#e5e5e5",
+    backgroundColor: "#ffffff",
+  },
+  followUpBarDark: { borderTopColor: "#1a1a1a", backgroundColor: "#0a0a0a" },
+  followUpScroll: { height: 30 },
+  followUpContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    height: 30,
+  },
+  followUpChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    backgroundColor: "#f5f5f5",
+  },
+  followUpChipDark: { borderColor: "#2a2a2a", backgroundColor: "#1a1a1a" },
+  followUpText: { fontSize: 12, fontWeight: "500", color: "#444444" },
+  followUpTextDark: { color: "#bbbbbb" },
   emptyHint: { fontSize: 13, color: "#bbbbbb", marginTop: 12 },
   metaDark: { color: "#666666" },
   textWhite: { color: "#ffffff" },
