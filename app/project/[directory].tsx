@@ -97,50 +97,51 @@ export default function ProjectSessionsScreen() {
     <>
       <Stack.Screen options={{ title: shortName, headerBackTitle: "Проекты" }} />
       <View style={[styles.container, isDark && styles.containerDark]}>
-        <View style={[styles.header, isDark && styles.headerDark]}>
-          <View style={styles.headerTop}>
-            <Ionicons name="folder" size={24} color={isDark ? colors.accentPale : colors.accentStrong} />
-            <View style={styles.headerInfo}>
-              <Text style={[styles.title, isDark && styles.textDark]} numberOfLines={1}>
-                {shortName}
-              </Text>
-              {description ? (
-                <Text style={[styles.description, isDark && styles.metaDark]} numberOfLines={2}>
-                  {description}
-                </Text>
-              ) : null}
-            </View>
-            <Text style={[styles.count, isDark && styles.metaDark]}>{projectSessions.length}</Text>
-          </View>
-
-          {remotes.length > 0 && (
-            <View style={styles.reposSection}>
-              <Text style={[styles.reposLabel, isDark && styles.metaDark]}>
-                {t("project.header.repositoriesLabel")}
-              </Text>
-              {visibleRemotes.map((repo) => (
-                <RepoLinkRow key={repo.name} repo={repo} isDark={isDark} />
-              ))}
-              {remotes.length > MAX_VISIBLE_REMOTES && (
-                <TouchableOpacity
-                  style={[styles.showAllBtn, isDark && styles.showAllBtnDark]}
-                  onPress={openAllRemotes}
-                  testID="show-all-remotes"
-                >
-                  <Text style={[styles.showAllText, isDark && styles.showAllTextDark]}>
-                    {t("project.header.showAll", { count: remotes.length })}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color={isDark ? "#888888" : "#666666"} />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
-
         <FlatList
           data={projectSessions}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={[styles.headerCard, isDark && styles.headerCardDark]} testID="project-header-card">
+              <View style={styles.headerTop}>
+                <Ionicons name="folder" size={24} color={isDark ? colors.accentPale : colors.accentStrong} />
+                <View style={styles.headerInfo}>
+                  <Text style={[styles.title, isDark && styles.textDark]} numberOfLines={1}>
+                    {shortName}
+                  </Text>
+                  {description ? (
+                    <Text style={[styles.description, isDark && styles.metaDark]} numberOfLines={2}>
+                      {description}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={[styles.count, isDark && styles.metaDark]}>{projectSessions.length}</Text>
+              </View>
+
+              {remotes.length > 0 && (
+                <View style={styles.reposSection}>
+                  <Text style={[styles.reposLabel, isDark && styles.metaDark]}>
+                    {t("project.header.repositoriesLabel")}
+                  </Text>
+                  {visibleRemotes.map((repo) => (
+                    <RepoLinkRow key={repo.name} repo={repo} isDark={isDark} />
+                  ))}
+                  {remotes.length > MAX_VISIBLE_REMOTES && (
+                    <TouchableOpacity
+                      style={[styles.showAllBtn, isDark && styles.showAllBtnDark]}
+                      onPress={openAllRemotes}
+                      testID="show-all-remotes"
+                    >
+                      <Text style={[styles.showAllText, isDark && styles.showAllTextDark]}>
+                        {t("project.header.showAll", { count: remotes.length })}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color={isDark ? "#888888" : "#666666"} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.sessionItem, isDark && styles.sessionItemDark]}
@@ -222,14 +223,18 @@ export default function ProjectSessionsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffff" },
   containerDark: { backgroundColor: "#0a0a0a" },
-  header: {
+  // Шапка проекта — статичная карточка внутри скролл-контейнера
+  // (ListHeaderComponent): те же токены, что у карточек сессий ниже
+  // (sessionItem: radius 12, border 1, padding 16).
+  headerCard: {
     gap: 12,
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
-    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    backgroundColor: "#ffffff",
   },
-  headerDark: { backgroundColor: "#1a1a1a", borderBottomColor: "#2a2a2a" },
+  headerCardDark: { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a" },
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
