@@ -156,10 +156,12 @@ function clearSessionStateEverywhere(sessionID: string) {
     return { sessionStatus, statusText, permissions, questions }
   })
   useSessions.setState((state) => {
-    if (!(sessionID in state.sending)) return state
+    if (!(sessionID in state.sending) && !(sessionID in state.queue)) return state
     const sending = { ...state.sending }
     delete sending[sessionID]
-    return { sending }
+    const queue = { ...state.queue }
+    delete queue[sessionID]
+    return { sending, queue }
   })
 }
 
