@@ -1030,7 +1030,7 @@ export default function SessionScreen() {
         )}
 
         {/* Input */}
-        <View style={[s.inputContainer, isDark && s.inputContainerDark, showFollowUps && s.inputContainerFlush]}>
+        <View style={[s.inputContainer, isDark && s.inputContainerDark]}>
           <View style={s.inputRow}>
             <TextInput
               ref={fieldRef}
@@ -1240,18 +1240,16 @@ const s = StyleSheet.create({
   // Follow-up strip above the composer: fixed 45px block, horizontal scroll.
   // Chips mirror suggestionChip (border + background) in a compact form to
   // fit the 45px height.
-  // No top/bottom dividers — the strip floats between the list and the
-  // composer (the composer's own top border is also hidden while the strip
-  // is visible, see inputContainerFlush).
+  // No dividers, transparent background — the strip floats over the list.
   followUpBar: {
     height: 45,
     justifyContent: "center",
     // Same inset as the composer field; chips start flush at the bar edge —
     // spacing lives only between chips (gap in followUpContent), not around.
     marginHorizontal: COMPOSER_PADDING,
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
   },
-  followUpBarDark: { backgroundColor: "#0a0a0a" },
+  followUpBarDark: { backgroundColor: "transparent" },
   followUpScroll: { height: 45 },
   followUpContent: {
     flexDirection: "row",
@@ -1280,28 +1278,23 @@ const s = StyleSheet.create({
 
   // Input
   // Нижний док — fixed overlay поверх чата (квик-действия + ввод).
-  // Непрозрачный фон обязателен: список на всю высоту скроллится под ним.
+  // Фон прозрачный: черты нет, контейнеры не перекрывают список плашкой.
   // Высота дока замеряется (onLayout) и уходит в отступ списка.
   dock: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
     zIndex: 2,
-    elevation: 4,
+    elevation: 0,
   },
-  dockDark: { backgroundColor: "#0a0a0a" },
+  dockDark: { backgroundColor: "transparent" },
   inputContainer: {
     padding: COMPOSER_PADDING,
-    borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
   },
-  inputContainerDark: { borderTopColor: "#1a1a1a", backgroundColor: "#0a0a0a" },
-  // Hides the composer's top divider while the follow-up strip is shown —
-  // otherwise it reads as the strip's bottom line.
-  inputContainerFlush: { borderTopWidth: 0 },
+  inputContainerDark: { backgroundColor: "transparent" },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
