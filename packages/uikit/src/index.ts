@@ -26,6 +26,7 @@ export { StatusIndicator, type StatusSnapshot } from "./components/chat/StatusIn
 export { SlashPopover, type SlashCommand } from "./components/chat/SlashPopover"
 export { ImageAttachments, type Attachment } from "./components/chat/ImageAttachments"
 export { SessionInfo } from "./components/chat/SessionInfo"
+export { MessageQueueSheet, type QueuedItem } from "./components/chat/MessageQueueSheet"
 export { CopyLink } from "./components/markdown/CopyLink"
 export { Markdown } from "./components/markdown/Markdown"
 export { CodeBlock } from "./components/markdown/CodeBlock"
