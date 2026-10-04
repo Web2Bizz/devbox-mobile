@@ -37,6 +37,7 @@ import {
   type Attachment,
 } from "@web2bizz/ui-native"
 import { useSessions } from "../../src/stores/sessions"
+import type { QueuedDraft } from "../../src/stores/sessions"
 import { useEvents, refreshPending } from "../../src/stores/events"
 import { useCatalogData } from "../../src/queries/catalog"
 import {
@@ -92,6 +93,11 @@ const SUGGESTIONS = [
   { key: "reviewCode", icon: "eye-outline", labelKey: "session.empty.suggestions.reviewCode", promptKey: "session.empty.prompts.reviewCode" },
   { key: "checkCicd", icon: "git-branch-outline", labelKey: "session.empty.suggestions.checkCicd", promptKey: "session.empty.prompts.checkCicd" },
 ] as const
+
+// Shared stable empty queue: the per-session selector below must not mint a
+// fresh `[]` on every store notification (new reference = re-render and new
+// downstream props on every unrelated update, e.g. per streamed token).
+const EMPTY_QUEUE: QueuedDraft[] = []
 
 function getShortDir(dir?: string): string | null {
   if (!dir) return null
@@ -188,10 +194,8 @@ export default function SessionScreen() {
   // disappeared even though the server was still busy. SSE status persists
   // globally across navigation, so it keeps the button visible.
   const optimisticSending = useSessions((s) => !!(currentSession && s.sending[currentSession.id]))
-  const queuedForSession = useSessions((s) => (currentSession ? (s.queue[currentSession.id] ?? []) : []))
+  const queuedForSession = useSessions((s) => (currentSession ? (s.queue[currentSession.id] ?? EMPTY_QUEUE) : EMPTY_QUEUE))
   const enqueueMessage = useSessions((s) => s.enqueueMessage)
-  const removeQueuedMessage = useSessions((s) => s.removeQueuedMessage)
-  const updateQueuedMessage = useSessions((s) => s.updateQueuedMessage)
   const sseBusy = useEvents(
     (s) => !!currentSession && !!s.sessionStatus[currentSession.id] && s.sessionStatus[currentSession.id].type !== "idle",
   )
@@ -520,6 +524,15 @@ export default function SessionScreen() {
     setInput(text)
   }, [])
 
+  // Outbox auto-flush bookkeeping (see the effect below): refs live next to
+  // the queue callbacks since handleUpdateQueued resets the parked head.
+  // wasBusyRef tracks the busy → idle transition — the only moment a flush
+  // may start. settledHeadRef parks the last attempted head so a failed
+  // send is NOT retried in a tight setState loop; it waits for the next
+  // busy → idle cycle, a new head, or an explicit edit.
+  const wasBusyRef = useRef(false)
+  const settledHeadRef = useRef<string | null>(null)
+
   // Outbox sheet: dismiss the keyboard first (same reason as openAiSheet —
   // expanding against a keyboard-resized layout leaves only the backdrop).
   const openQueueSheet = useCallback(() => {
@@ -527,6 +540,32 @@ export default function SessionScreen() {
     Keyboard.dismiss()
     requestAnimationFrame(() => queueSheetRef.current?.expand())
   }, [])
+
+  // Stable sheet props: fresh arrays/closures every render would re-render
+  // the BottomSheetFlatList on each unrelated update (per streamed token).
+  const queueItems = useMemo(
+    () => queuedForSession.map((d) => ({ id: d.id, text: d.text || t("session.queue.attachmentFallback") })),
+    [queuedForSession, t],
+  )
+  const handleRemoveQueued = useCallback(
+    (queueId: string) => {
+      const id = useSessions.getState().currentSession?.id
+      if (id) useSessions.getState().removeQueuedMessage(id, queueId)
+    },
+    [],
+  )
+  const handleUpdateQueued = useCallback(
+    (queueId: string, text: string) => {
+      const id = useSessions.getState().currentSession?.id
+      if (id) {
+        useSessions.getState().updateQueuedMessage(id, queueId, text)
+        // The head may have changed content while idle after a failed flush
+        // (which parks that head) — allow the fixed text to flush.
+        settledHeadRef.current = null
+      }
+    },
+    [],
+  )
 
   // Empty-chat quick action: prefill the composer with the suggestion prompt
   // and focus the field so the user can complete it. Never sends by itself.
@@ -724,35 +763,49 @@ export default function SessionScreen() {
   }
 
   // Auto-flush the outbox: when the session turns idle and something is
-  // queued, send the head. The send flips isSending back on, so the next
-  // item waits for the following idle — strictly one at a time, in order.
-  const flushingRef = useRef(false)
+  // queued, send the head. Strictly one at a time, in order: the send flips
+  // isSending back on, so the next item waits for the following idle.
+  //
+  // Two guards against update loops (see "Maximum update depth exceeded"):
+  // - flush ONLY on the busy → idle transition or when a NEW head appears
+  //   (never on every render while idle with a non-empty queue);
+  // - a failed head is parked (settledHeadRef) and re-queued at the FRONT
+  //   to preserve order, but NOT retried until the next cycle — otherwise a
+  //   persistently failing send retries forever, spamming setState + Alert.
   useEffect(() => {
-    if (isSending || !currentSession || queuedForSession.length === 0) return
-    if (flushingRef.current) return
-    flushingRef.current = true
-    const next = useSessions.getState().takeNextQueued(currentSession.id)
-    if (!next) {
-      flushingRef.current = false
+    if (!currentSession) return
+    if (isSending) {
+      wasBusyRef.current = true
       return
     }
+    if (queuedForSession.length === 0) {
+      wasBusyRef.current = false
+      settledHeadRef.current = null
+      return
+    }
+    const head = queuedForSession[0]
+    const shouldFlush = wasBusyRef.current || head.id !== settledHeadRef.current
+    wasBusyRef.current = false
+    if (!shouldFlush) return
+    settledHeadRef.current = head.id
+    const next = useSessions.getState().takeNextQueued(currentSession.id)
+    if (!next) return
     const sessionID = currentSession.id
     sendMessage(next.text, next.model ?? model ?? undefined, next.agent ?? agent ?? undefined, next.files, next.variant ?? variant ?? undefined)
       .catch((err) => {
         console.error("Queued send failed:", err)
         // Put it back at the FRONT so order is preserved and nothing is lost.
+        // No immediate retry: settledHeadRef already parks this head, so the
+        // effect above skips it until the next busy → idle cycle.
         useSessions.setState((state) => ({
           queue: { ...state.queue, [sessionID]: [next, ...(state.queue[sessionID] ?? [])] },
         }))
         Alert.alert(t("session.alerts.sendFailedTitle"), t("session.alerts.sendFailedMessage"))
       })
-      .finally(() => {
-        flushingRef.current = false
-      })
     // sendMessage/model/agent/variant are stable enough per render; the flush
-    // re-runs when isSending flips or the queue head changes.
+    // re-runs when isSending flips or the queue identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSending, currentSession?.id, queuedForSession.length, t])
+  }, [isSending, currentSession?.id, queuedForSession, t])
 
   // In inverted mode, offset 0 = bottom. Show scroll button when scrolled away from bottom.
   const handleScroll = useCallback((event: any) => {
@@ -836,30 +889,40 @@ export default function SessionScreen() {
     return found?.variants
   }, [model, providers])
 
+  // Memoized header options: expo-router's StackScreen forwards `options` by
+  // identity into a layout-effect setOptions call — an inline literal would
+  // fire setOptions on EVERY render (e.g. per streamed token), and the
+  // resulting navigation-state update re-renders this screen with fresh
+  // options again ("Maximum update depth exceeded", Screen → setOptions).
+  // Only real changes (title/dir/focus/theme) may produce a new object.
+  const screenTitle = currentSession?.title || t("session.titleFallback")
+  const headerRight = useCallback(() => {
+    return (
+      <View style={s.headerRight}>
+        {shortDir && (
+          <View style={[s.dirBadge, isDark && s.dirBadgeDark]}>
+            <Ionicons name="folder-outline" size={14} color={isDark ? "#888888" : "#666666"} />
+            <Text style={[s.dirText, isDark && s.dirTextDark]}>{shortDir}</Text>
+          </View>
+        )}
+        <TouchableOpacity onPress={() => setShowInfo((v) => !v)} hitSlop={8}>
+          <Ionicons
+            name={showInfo ? "stats-chart" : "stats-chart-outline"}
+            size={20}
+            color={showInfo ? "#3b82f6" : isDark ? "#888888" : "#666666"}
+          />
+        </TouchableOpacity>
+      </View>
+    )
+  }, [shortDir, showInfo, isDark])
+  const screenOptions = useMemo(
+    () => ({ title: screenTitle, headerRight }),
+    [screenTitle, headerRight],
+  )
+
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: currentSession?.title || t("session.titleFallback"),
-          headerRight: () => (
-            <View style={s.headerRight}>
-              {shortDir && (
-                <View style={[s.dirBadge, isDark && s.dirBadgeDark]}>
-                  <Ionicons name="folder-outline" size={14} color={isDark ? "#888888" : "#666666"} />
-                  <Text style={[s.dirText, isDark && s.dirTextDark]}>{shortDir}</Text>
-                </View>
-              )}
-              <TouchableOpacity onPress={() => setShowInfo((v) => !v)} hitSlop={8}>
-                <Ionicons
-                  name={showInfo ? "stats-chart" : "stats-chart-outline"}
-                  size={20}
-                  color={showInfo ? "#3b82f6" : isDark ? "#888888" : "#666666"}
-                />
-              </TouchableOpacity>
-            </View>
-          ),
-        }}
-      />
+      <Stack.Screen options={screenOptions} />
 
       <KeyboardAvoidingView
         style={[s.container, isDark && s.containerDark]}
@@ -1233,10 +1296,10 @@ export default function SessionScreen() {
       />
       <MessageQueueSheet
         sheetRef={queueSheetRef}
-        items={queuedForSession.map((d) => ({ id: d.id, text: d.text || t("session.queue.attachmentFallback") }))}
+        items={queueItems}
         isDark={isDark}
-        onRemove={(queueId) => currentSession && removeQueuedMessage(currentSession.id, queueId)}
-        onUpdate={(queueId, text) => currentSession && updateQueuedMessage(currentSession.id, queueId, text)}
+        onRemove={handleRemoveQueued}
+        onUpdate={handleUpdateQueued}
         testID="message-queue-sheet"
       />
       </View>
