@@ -31,6 +31,7 @@ import {
   SlashPopover,
   AiSettingsModal,
   ImageAttachments,
+  MessageQueueSheet,
   SessionInfo,
   type SlashCommand,
   type Attachment,
@@ -113,6 +114,7 @@ export default function SessionScreen() {
 
   const flatListRef = useRef<FlatList>(null)
   const aiSheetRef = useRef<BottomSheet | null>(null)
+  const queueSheetRef = useRef<BottomSheet | null>(null)
   const [input, setInput] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
   // Explicit composer height: the native multiline measurement doesn't reliably
@@ -186,6 +188,10 @@ export default function SessionScreen() {
   // disappeared even though the server was still busy. SSE status persists
   // globally across navigation, so it keeps the button visible.
   const optimisticSending = useSessions((s) => !!(currentSession && s.sending[currentSession.id]))
+  const queuedForSession = useSessions((s) => (currentSession ? (s.queue[currentSession.id] ?? []) : []))
+  const enqueueMessage = useSessions((s) => s.enqueueMessage)
+  const removeQueuedMessage = useSessions((s) => s.removeQueuedMessage)
+  const updateQueuedMessage = useSessions((s) => s.updateQueuedMessage)
   const sseBusy = useEvents(
     (s) => !!currentSession && !!s.sessionStatus[currentSession.id] && s.sessionStatus[currentSession.id].type !== "idle",
   )
@@ -514,6 +520,14 @@ export default function SessionScreen() {
     setInput(text)
   }, [])
 
+  // Outbox sheet: dismiss the keyboard first (same reason as openAiSheet —
+  // expanding against a keyboard-resized layout leaves only the backdrop).
+  const openQueueSheet = useCallback(() => {
+    fieldRef.current?.blur()
+    Keyboard.dismiss()
+    requestAnimationFrame(() => queueSheetRef.current?.expand())
+  }, [])
+
   // Empty-chat quick action: prefill the composer with the suggestion prompt
   // and focus the field so the user can complete it. Never sends by itself.
   const handleSuggestionPress = useCallback(
@@ -683,6 +697,19 @@ export default function SessionScreen() {
       }
     }
 
+    // While the agent is busy, follow-ups wait in the client-side outbox
+    // and flush FIFO when the session goes idle (see the auto-flush effect
+    // below) — instead of hitting the server concurrently.
+    if (isSending && currentSession) {
+      enqueueMessage(currentSession.id, text, {
+        ...(files.length ? { files } : {}),
+        ...(model ? { model } : {}),
+        ...(agent ? { agent } : {}),
+        ...(variant ? { variant } : {}),
+      })
+      return
+    }
+
     // Messages are queued server-side when the session is busy.
     // No need to abort - just send and it will be processed after current response.
     try {
@@ -695,6 +722,37 @@ export default function SessionScreen() {
       Alert.alert(t("session.alerts.sendFailedTitle"), t("session.alerts.sendFailedMessage"))
     }
   }
+
+  // Auto-flush the outbox: when the session turns idle and something is
+  // queued, send the head. The send flips isSending back on, so the next
+  // item waits for the following idle — strictly one at a time, in order.
+  const flushingRef = useRef(false)
+  useEffect(() => {
+    if (isSending || !currentSession || queuedForSession.length === 0) return
+    if (flushingRef.current) return
+    flushingRef.current = true
+    const next = useSessions.getState().takeNextQueued(currentSession.id)
+    if (!next) {
+      flushingRef.current = false
+      return
+    }
+    const sessionID = currentSession.id
+    sendMessage(next.text, next.model ?? model ?? undefined, next.agent ?? agent ?? undefined, next.files, next.variant ?? variant ?? undefined)
+      .catch((err) => {
+        console.error("Queued send failed:", err)
+        // Put it back at the FRONT so order is preserved and nothing is lost.
+        useSessions.setState((state) => ({
+          queue: { ...state.queue, [sessionID]: [next, ...(state.queue[sessionID] ?? [])] },
+        }))
+        Alert.alert(t("session.alerts.sendFailedTitle"), t("session.alerts.sendFailedMessage"))
+      })
+      .finally(() => {
+        flushingRef.current = false
+      })
+    // sendMessage/model/agent/variant are stable enough per render; the flush
+    // re-runs when isSending flips or the queue head changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSending, currentSession?.id, queuedForSession.length, t])
 
   // In inverted mode, offset 0 = bottom. Show scroll button when scrolled away from bottom.
   const handleScroll = useCallback((event: any) => {
@@ -999,6 +1057,24 @@ export default function SessionScreen() {
         {/* Attachment preview */}
         <ImageAttachments attachments={attachments} isDark={isDark} onRemove={removeAttachment} />
 
+        {/* Outbox: queued follow-ups waiting for idle */}
+        {queuedForSession.length > 0 && (
+          <View style={s.queueBar}>
+            <TouchableOpacity
+              style={[s.queueBtn, isDark && s.queueBtnDark]}
+              onPress={openQueueSheet}
+              testID="message-queue-button"
+              accessibilityRole="button"
+              accessibilityLabel={t("session.queue.button", { count: queuedForSession.length })}
+            >
+              <Ionicons name="time-outline" size={15} color={isDark ? "#bbbbbb" : "#444444"} />
+              <Text style={[s.queueBtnText, isDark && s.queueBtnTextDark]}>
+                {t("session.queue.button", { count: queuedForSession.length })}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Follow-up quick actions (after the agent finishes) */}
         {showFollowUps && (
           <View style={[s.followUpBar, isDark && s.followUpBarDark]}>
@@ -1155,6 +1231,14 @@ export default function SessionScreen() {
         onSelectModel={(providerID, modelID) => setModel({ providerID, modelID })}
         onSelectVariant={setVariant}
       />
+      <MessageQueueSheet
+        sheetRef={queueSheetRef}
+        items={queuedForSession.map((d) => ({ id: d.id, text: d.text || t("session.queue.attachmentFallback") }))}
+        isDark={isDark}
+        onRemove={(queueId) => currentSession && removeQueuedMessage(currentSession.id, queueId)}
+        onUpdate={(queueId, text) => currentSession && updateQueuedMessage(currentSession.id, queueId, text)}
+        testID="message-queue-sheet"
+      />
       </View>
     </>
   )
@@ -1272,6 +1356,27 @@ const s = StyleSheet.create({
   followUpChipDark: { borderColor: "#2a2a2a", backgroundColor: "#1a1a1a" },
   followUpText: { fontSize: 12, fontWeight: "500", color: "#444444" },
   followUpTextDark: { color: "#bbbbbb" },
+  // Outbox button row above the composer: compact, same chip language.
+  queueBar: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginHorizontal: COMPOSER_PADDING,
+    marginBottom: 8,
+  },
+  queueBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    backgroundColor: "#f5f5f5",
+  },
+  queueBtnDark: { borderColor: "#2a2a2a", backgroundColor: "#1a1a1a" },
+  queueBtnText: { fontSize: 13, fontWeight: "600", color: "#444444" },
+  queueBtnTextDark: { color: "#bbbbbb" },
   emptyHint: { fontSize: 13, color: "#bbbbbb", marginTop: 12 },
   metaDark: { color: "#666666" },
   textWhite: { color: "#ffffff" },

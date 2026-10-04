@@ -146,6 +146,18 @@
       "imageFailedMessage": "One or more images could not be processed. Please try a different photo.",
       "speechErrorTitle": "Voice input failed",
       "speechErrorMessage": "Could not use voice input. Check your microphone permission and try again."
+    },
+    "queue": {
+      "title": "Сообщения в очереди",
+      "empty": "Очередь пуста",
+      "edit": "Редактировать сообщение",
+      "remove": "Удалить сообщение",
+      "attachmentFallback": "[изображение]",
+      "button_one": "{{count}} сообщение в очереди",
+      "button_few": "{{count}} сообщения в очереди",
+      "button_many": "{{count}} сообщений в очереди",
+      "button": "{{count}} сообщений в очереди",
+      "button_other": "{{count}} сообщений в очереди"
     }
   },
   "connection": {

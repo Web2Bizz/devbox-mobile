@@ -4,6 +4,14 @@ import { useConnections } from "./connections"
 import { useSettings } from "./settings"
 import { mergeIncomingMessage } from "../lib/message-merge"
 import { applyIncomingParts } from "../lib/part-merge"
+import {
+  createQueuedDraft,
+  dequeueDraft,
+  enqueueDraft,
+  removeDraft,
+  updateDraftText,
+  type QueuedDraft,
+} from "../lib/message-queue"
 import { pruneRevertedTail } from "../lib/revert-prune"
 import { isColdSessionLoad, isLiveEventForSession } from "../lib/session-load-reconcile"
 import { queryClient } from "../lib/query-client"
@@ -48,6 +56,10 @@ interface SessionsState {
   loadingMore: boolean
   hasMore: boolean
   error: string | null
+  // Client-side outbox per session: follow-ups typed while the agent is
+  // busy wait here and flush FIFO when the session goes idle. Keyed by
+  // session id so leaving and re-entering a chat keeps its queue.
+  queue: Record<string, QueuedDraft[]>
 
   // Actions
   selectSession: (sessionID: string, directory?: string, connectionId?: string) => Promise<void>
@@ -64,6 +76,18 @@ interface SessionsState {
     variant?: string,
   ) => Promise<void>
   refreshMessages: () => Promise<void>
+
+  // Outbox ops (pure FIFO, see src/lib/message-queue.ts)
+  enqueueMessage: (
+    sessionID: string,
+    text: string,
+    opts?: Pick<QueuedDraft, "files" | "model" | "agent" | "variant">,
+  ) => QueuedDraft
+  removeQueuedMessage: (sessionID: string, queueId: string) => void
+  updateQueuedMessage: (sessionID: string, queueId: string, text: string) => void
+  // Pops the head of the queue (for the auto-flush). Returns undefined when empty.
+  takeNextQueued: (sessionID: string) => QueuedDraft | undefined
+  clearQueue: (sessionID: string) => void
 
   // Clear a surfaced store error (abort/unrevert failures). The session
   // screen shows it once via alert, then clears — without this the flag
@@ -85,6 +109,7 @@ export const abortedSessions = new Set<string>()
 // Monotonic suffix for optimistic ids: two sends within the same
 // millisecond must never share a `temp-` id — duplicate FlatList keys corrupt
 // rendering and message merging.
+export type { QueuedDraft }
 let tempSeq = 0
 
 // Monotonic token guarding selectSession against out-of-order resolution: a
@@ -117,6 +142,7 @@ export const useSessions = create<SessionsState>((set, get) => ({
   loadingMore: false,
   hasMore: false,
   error: null,
+  queue: {},
 
   selectSession: async (sessionID, directory, connectionId) => {
     // Resolve the origin server: explicit param (navigation) → tagged cache
@@ -372,6 +398,45 @@ export const useSessions = create<SessionsState>((set, get) => ({
 
   clearError: () => {
     set({ error: null })
+  },
+
+  enqueueMessage: (sessionID, text, opts) => {
+    const draft = createQueuedDraft(text, opts)
+    set((state) => ({ queue: { ...state.queue, [sessionID]: enqueueDraft(state.queue[sessionID] ?? [], draft) } }))
+    return draft
+  },
+
+  removeQueuedMessage: (sessionID, queueId) => {
+    set((state) => {
+      const current = state.queue[sessionID] ?? []
+      const next = removeDraft(current, queueId)
+      if (next === current) return state
+      return { queue: { ...state.queue, [sessionID]: next } }
+    })
+  },
+
+  updateQueuedMessage: (sessionID, queueId, text) => {
+    set((state) => {
+      const current = state.queue[sessionID] ?? []
+      const next = updateDraftText(current, queueId, text)
+      if (next === current) return state
+      return { queue: { ...state.queue, [sessionID]: next } }
+    })
+  },
+
+  takeNextQueued: (sessionID) => {
+    const current = get().queue[sessionID] ?? []
+    const { head, rest } = dequeueDraft(current)
+    if (!head) return undefined
+    set((state) => ({ queue: { ...state.queue, [sessionID]: rest } }))
+    return head
+  },
+
+  clearQueue: (sessionID) => {
+    set((state) => {
+      if (!state.queue[sessionID]?.length) return state
+      return { queue: { ...state.queue, [sessionID]: [] } }
+    })
   },
 
   handleEvent: (event) => {
