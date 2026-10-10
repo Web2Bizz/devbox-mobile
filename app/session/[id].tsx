@@ -1573,6 +1573,9 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
     borderRadius: 20,
+    // Обводка как у карточек проекта (projectCard): синхронно с дизайном.
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
     paddingTop: COMPOSER_PADDING,
     paddingBottom: 52,
     paddingLeft: COMPOSER_PADDING,
@@ -1582,7 +1585,7 @@ const s = StyleSheet.create({
     maxHeight: 240,
     color: "#0a0a0a",
   },
-  inputDark: { backgroundColor: "#1a1a1a", color: "#ffffff" },
+  inputDark: { backgroundColor: "#1a1a1a", color: "#ffffff", borderColor: "#2a2a2a" },
   inputListening: { borderWidth: 1, borderColor: "#ef4444" },
 
   // Header
