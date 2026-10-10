@@ -137,7 +137,8 @@ export default function SessionScreen() {
   // KeyboardAvoidingView своим padding двигает только in-flow контент,
   // абсолютно спозиционированный док его игнорирует.
   const [keyboardH, setKeyboardH] = useState(0)
-  // Замеренная высота нижнего дока (квик-действия + ввод + промпты/аттачменты):
+  // Замеренная высота нижнего дока (квик-действия + ввод + аттачменты;
+  // промпты — absolute-оверлей и в замер не входят):
   // уходит в нижний отступ списка сообщений, чтобы не проваливались под overlay.
   const [dockHeight, setDockHeight] = useState(0)
 
@@ -882,6 +883,12 @@ export default function SessionScreen() {
   // (isSending flips back to false) — hidden while it is busy or loading.
   const showFollowUps = !isLoading && !isSending && messageData.length > 0
 
+  // Active permission/question prompts cover the composer via the dock
+  // overlay (see promptOverlay below) instead of unmounting it: the input,
+  // quick actions and drafts stay mounted underneath and come back
+  // automatically once the prompt is answered/dismissed.
+  const hasActivePrompt = permissions.length > 0 || questions.length > 0
+
   // Variants for current model (for reasoning effort picker)
   const currentModelVariants = useMemo(() => {
     if (!model) return undefined
@@ -1085,9 +1092,10 @@ export default function SessionScreen() {
           </View>
         )}
 
-        {/* Нижний док: квик-действия + ввод (+ промпты/аттачменты, когда видны) —
+        {/* Нижний док: квик-действия + ввод (+ аттачменты, когда видны) —
             fixed overlay поверх чата. Высота замеряется (onLayout) и уходит
-            в отступ списка, клавиатура поднимает док через bottom. */}
+            в отступ списка, клавиатура поднимает док через bottom.
+            Промпты (permission/question) — absolute-оверлей поверх дока. */}
         <View
           style={[s.dock, isDark && s.dockDark, { bottom: keyboardH, paddingBottom: Math.max(12, insets.bottom) }]}
           onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
@@ -1105,26 +1113,42 @@ export default function SessionScreen() {
           style={s.dockGradient}
           pointerEvents="none"
         />
-        {/* Permissions */}
-        {permissions.map((perm) => (
-          <PermissionPrompt
-            key={perm.id}
-            permission={perm}
-            isDark={isDark}
-            onReply={(reply) => handlePermissionReply(perm.id, reply)}
-          />
-        ))}
-
-        {/* Questions */}
-        {questions.map((q) => (
-          <QuestionPrompt
-            key={q.id}
-            request={q}
-            isDark={isDark}
-            onReply={(answers) => handleQuestionReply(q.id, answers)}
-            onReject={() => handleQuestionReject(q.id)}
-          />
-        ))}
+        {/* Промпты поверх ввода: absolute-overlay на весь док (zIndex/elevation 5
+            выше поля и кнопок) со сплошным фоном в цвет экрана — поле ввода,
+            квик-действия и поповеры остаются смонтированы под ним, но не видны
+            и недоступны для тапов. После ответа/отклонения оверлей исчезает и
+            ввод «возвращается» сам (драфт цел, размонтирования не было).
+            Absolute-позиция не участвует в замере dockHeight — список не прыгает. */}
+        {hasActivePrompt && (
+          <View
+            style={[
+              s.promptOverlay,
+              isDark && s.promptOverlayDark,
+              {
+                paddingBottom: Math.max(12, insets.bottom),
+                maxHeight: Math.round(windowHeight * 0.6),
+              },
+            ]}
+          >
+            {permissions.map((perm) => (
+              <PermissionPrompt
+                key={perm.id}
+                permission={perm}
+                isDark={isDark}
+                onReply={(reply) => handlePermissionReply(perm.id, reply)}
+              />
+            ))}
+            {questions.map((q) => (
+              <QuestionPrompt
+                key={q.id}
+                request={q}
+                isDark={isDark}
+                onReply={(answers) => handleQuestionReply(q.id, answers)}
+                onReject={() => handleQuestionReject(q.id)}
+              />
+            ))}
+          </View>
+        )}
 
         {/* Slash popover */}
         {slashActive && (
@@ -1472,6 +1496,25 @@ const s = StyleSheet.create({
     elevation: 0,
   },
   dockDark: { backgroundColor: "transparent" },
+  // Оверлей промптов (permission/question): перекрывает весь док поверх ввода
+  // и квик-действий. Сплошной фон в цвет экрана прячет поле под собой, тапы
+  // ловит сам (контент под ним недоступен, но не размонтирован). maxHeight
+  // задаётся инлайном от высоты окна — длинные вопросы скроллятся внутри
+  // QuestionPrompt, а не разъезжаются на весь экран.
+  promptOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 5,
+    elevation: 5,
+    justifyContent: "flex-end",
+    backgroundColor: "#ffffff",
+    borderTopWidth: 1,
+    borderColor: "#e5e5e5",
+  },
+  promptOverlayDark: { backgroundColor: "#0a0a0a", borderColor: "#2a2a2a" },
   dockGradient: {
     position: "absolute",
     left: 0,
