@@ -1150,11 +1150,6 @@ export default function SessionScreen() {
           </View>
         )}
 
-        {/* Slash popover */}
-        {slashActive && (
-          <SlashPopover query={slashQuery} commands={allCommands} isDark={isDark} onSelect={handleSlashSelect} />
-        )}
-
         {/* Attachment preview */}
         <ImageAttachments attachments={attachments} isDark={isDark} onRemove={removeAttachment} />
 
@@ -1209,6 +1204,14 @@ export default function SessionScreen() {
         {/* Input */}
         <View style={[s.inputContainer, isDark && s.inputContainerDark]}>
           <View style={s.inputRow}>
+            {/* Список команд: absolute-оверлей, пристыкованный к верху поля
+                ввода (bottom 100% от строки ввода — без промежутка), растёт
+                вверх поверх быстрых действий. В замере dockHeight не участвует. */}
+            {slashActive && (
+              <View style={s.slashWrap}>
+                <SlashPopover query={slashQuery} commands={allCommands} isDark={isDark} onSelect={handleSlashSelect} />
+              </View>
+            )}
             <TextInput
               ref={fieldRef}
               style={[
@@ -1532,6 +1535,16 @@ const s = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
+  },
+  // Список команд: стыкуется с верхом поля ввода (низ обёртки = верх строки),
+  // по ширине совпадает с полем, растёт вверх поверх быстрых действий.
+  slashWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: "100%",
+    zIndex: 4,
+    elevation: 4,
   },
   overlayBtns: {
     position: "absolute",
