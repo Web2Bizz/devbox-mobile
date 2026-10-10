@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react"
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Platform } from "react-native"
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import type { Part } from "../../types"
@@ -346,9 +346,9 @@ export function ToolCallCard({ tool, isDark }: Props) {
           </Text>
           {elapsed && <Text style={[s.elapsed, isDark && s.elapsedDark]}>{elapsed}</Text>}
         </View>
+        {/* Справа только шеврон деталей: спиннера работы и крестика ошибки
+            здесь нет (статус виден по цвету иконки слева). */}
         <View style={s.headerRight}>
-          {status === "running" && <ActivityIndicator size="small" color={color} />}
-          {status === "error" && <Ionicons name="close-circle" size={16} color="#ef4444" />}
           {hasDetail && (
             <Ionicons
               name={expanded ? "chevron-up" : "chevron-down"}
