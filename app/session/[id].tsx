@@ -19,6 +19,7 @@ import { useLocalSearchParams, Stack, useRouter, useFocusEffect } from "expo-rou
 import type BottomSheet from "@gorhom/bottom-sheet"
 import { Ionicons } from "@expo/vector-icons"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { LinearGradient } from "expo-linear-gradient"
 import { useTranslation } from "react-i18next"
 import * as ImagePicker from "expo-image-picker"
 import * as ImageManipulator from "expo-image-manipulator"
@@ -1091,6 +1092,19 @@ export default function SessionScreen() {
           style={[s.dock, isDark && s.dockDark, { bottom: keyboardH, paddingBottom: Math.max(12, insets.bottom) }]}
           onLayout={(e) => setDockHeight(e.nativeEvent.layout.height)}
         >
+        {/* Затемнение под доком: полупрозрачный градиент сверху вниз
+            (прозрачный → 55% чёрного в тёмной теме / 90% белого в светлой,
+            в цвет фона). Лежит absolute-подложкой: контент дока
+            рисуется поверх, тапы сквозь (pointerEvents none), на layout не влияет. */}
+        <LinearGradient
+          colors={
+            isDark
+              ? (["rgba(0,0,0,0)", "rgba(0,0,0,0.55)"] as const)
+              : (["rgba(255,255,255,0)", "rgba(255,255,255,0.9)"] as const)
+          }
+          style={s.dockGradient}
+          pointerEvents="none"
+        />
         {/* Permissions */}
         {permissions.map((perm) => (
           <PermissionPrompt
@@ -1458,6 +1472,15 @@ const s = StyleSheet.create({
     elevation: 0,
   },
   dockDark: { backgroundColor: "transparent" },
+  dockGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    // Тянем градиент выше верхней кромки дока, чтобы затемнение начиналось
+    // плавно над квик-действиями, а не резкой чертой по их верху.
+    top: -40,
+  },
   inputContainer: {
     padding: COMPOSER_PADDING,
     backgroundColor: "transparent",
