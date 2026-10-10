@@ -31,9 +31,12 @@ export function SlashPopover({ query, commands, isDark, onSelect }: Props) {
   return (
     <View style={[s.popover, isDark && s.popoverDark]}>
       <ScrollView keyboardShouldPersistTaps="always" style={s.scroll}>
-        {filtered.map((cmd) => (
-          <TouchableOpacity key={cmd.trigger} style={[s.item, isDark && s.itemDark]} onPress={() => onSelect(cmd)}>
-            <Ionicons
+        {filtered.map((cmd, i) => (
+          <TouchableOpacity
+            key={cmd.trigger}
+            style={[s.item, isDark && s.itemDark, i < filtered.length - 1 && (isDark ? s.separatorDark : s.separator)]}
+            onPress={() => onSelect(cmd)}
+          >            <Ionicons
               name={cmd.icon as any}
               size={18}
               color={cmd.type === "custom" ? colors.accent : isDark ? "#888888" : "#666666"}
@@ -59,13 +62,22 @@ export function SlashPopover({ query, commands, isDark, onSelect }: Props) {
 }
 
 const s = StyleSheet.create({
+  // Карточка в языке приложения: скругление + рамка как у промптов/чипов,
+  // фон — как у поля ввода (#f5f5f5 / #1a1a1a), тень для отрыва от списка.
   popover: {
-    backgroundColor: "#ffffff",
-    borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
+    backgroundColor: "#f5f5f5",
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    borderRadius: 16,
     maxHeight: 220,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  popoverDark: { backgroundColor: "#1a1a1a", borderTopColor: "#2a2a2a" },
+  popoverDark: { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a" },
   scroll: { paddingVertical: 4 },
   item: {
     flexDirection: "row",
@@ -75,6 +87,8 @@ const s = StyleSheet.create({
     paddingVertical: 10,
   },
   itemDark: {},
+  separator: { borderBottomWidth: 1, borderBottomColor: "#e5e5e5" },
+  separatorDark: { borderBottomWidth: 1, borderBottomColor: "#2a2a2a" },
   textCol: { flex: 1 },
   trigger: { fontSize: 14, fontWeight: "600", color: "#0a0a0a" },
   textWhite: { color: "#ffffff" },
