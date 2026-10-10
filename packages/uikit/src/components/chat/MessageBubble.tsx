@@ -169,7 +169,13 @@ export const MessageBubble = memo(
 
 const s = StyleSheet.create({
   bubble: { marginBottom: 16, padding: 12, borderRadius: 12, maxWidth: "100%" },
-  user: { backgroundColor: "#f5f5f5", marginLeft: 32 },
+  user: {
+    backgroundColor: "#f5f5f5",
+    marginLeft: 32,
+    // Ширина по контенту: пузырь прижат вправо и ужатывается под текст,
+    // потолок — maxWidth 100% из базового стиля (как раньше на всю ширину).
+    alignSelf: "flex-end",
+  },
   userDark: { backgroundColor: "#1a1a1a" },
   assistant: {
     backgroundColor: "transparent",
