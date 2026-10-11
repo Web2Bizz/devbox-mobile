@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { memo, useEffect, useState } from "react"
 import { View, Text, StyleSheet } from "react-native"
 import MaskedView from "@react-native-masked-view/masked-view"
 import { LinearGradient } from "expo-linear-gradient"
@@ -25,6 +25,23 @@ const SHIMMER_SPAN = 0.45
 
 const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient)
 
+// Тик спиннера живёт в отдельном мемо-компоненте: setState каждые 80ms
+// перерисовывает только маленький Text, а не весь бар. Раньше кадр хранился
+// в StatusIndicator — каждый тик рекомпозитил MaskedView-маску и шиммер,
+// и анимация выглядела прерывистой. Маунтится только пока busy (родитель
+// в простое рисует плейсхолдер), так что отдельного флага не нужно —
+// монтирование стартует тик, размонтирование его останавливает.
+const BrailleSpinner = memo(function BrailleSpinner({ isDark }: { isDark: boolean }) {
+  const [frame, setFrame] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFrame((f) => (f + 1) % BRAILLE_FRAMES.length)
+    }, BRAILLE_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [])
+  return <Text style={[s.spinner, isDark && s.textDark]}>{BRAILLE_FRAMES[frame]}</Text>
+})
+
 // Server-reported session status, read by the parent from its own store and
 // passed in — the kit never imports app zustand stores (which do not exist
 // in the package). Extra fields on the caller's status object are fine.
@@ -42,9 +59,6 @@ interface Props {
 
 export function StatusIndicator({ status, statusText, optimistic, isDark }: Props) {
   const { t } = useTranslation()
-  // Кадр брайлевского спиннера — хук до раннего return (правила хуков),
-  // тикает только пока busy.
-  const [frame, setFrame] = useState(0)
 
   // Server status is the source of truth, but the optimistic `sending` flag
   // must also count on its own: it bridges the gap between the user tapping
@@ -54,15 +68,6 @@ export function StatusIndicator({ status, statusText, optimistic, isDark }: Prop
   // get stuck.
   const sseBusy = !!status && status.type !== "idle"
   const busy = sseBusy || optimistic
-
-  useEffect(() => {
-    if (!busy) return
-    setFrame(0)
-    const id = setInterval(() => {
-      setFrame((f) => (f + 1) % BRAILLE_FRAMES.length)
-    }, BRAILLE_INTERVAL_MS)
-    return () => clearInterval(id)
-  }, [busy])
 
   // Прогон шиммера — только пока busy, shared value живёт вне рендера.
   const sweep = useSharedValue(0)
@@ -96,7 +101,7 @@ export function StatusIndicator({ status, statusText, optimistic, isDark }: Prop
 
   return (
     <View style={[s.bar, isDark && s.barDark]}>
-      <Text style={[s.spinner, isDark && s.textDark]}>{BRAILLE_FRAMES[frame]}</Text>
+      <BrailleSpinner isDark={isDark} />
       {/* Маска вырезает градиент строго по форме букв — полоса бежит
           только по тексту, а не прямоугольником поверх строки. */}
       <MaskedView
