@@ -2,7 +2,7 @@
   "expo": {
     "name": "DevBox",
     "slug": "opencode-mobile",
-    "version": "0.5.8",
+    "version": "0.5.9",
     "orientation": "portrait",
     "scheme": "opencode",
     "userInterfaceStyle": "automatic",
@@ -30,7 +30,7 @@
     },
     "android": {
       "package": "cc.agentlabs.opencode",
-      "versionCode": 51,
+      "versionCode": 52,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1F1016"
