@@ -30,7 +30,14 @@ export function SlashPopover({ query, commands, isDark, onSelect }: Props) {
 
   return (
     <View style={[s.popover, isDark && s.popoverDark]}>
-      <ScrollView keyboardShouldPersistTaps="always" style={s.scroll}>
+      <ScrollView
+        keyboardShouldPersistTaps="always"
+        style={s.scroll}
+        contentContainerStyle={s.scrollContent}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+        bounces={false}
+      >
         {filtered.map((cmd, i) => (
           <TouchableOpacity
             key={cmd.trigger}
@@ -78,7 +85,12 @@ const s = StyleSheet.create({
     elevation: 4,
   },
   popoverDark: { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a" },
-  scroll: { paddingVertical: 4 },
+  // ScrollView должен сам быть ограничен по высоте (flexGrow: 0 + maxHeight):
+  // иначе он меряет полный контент, внешняя maxHeight: 220 лишь обрезает
+  // (overflow: hidden), а скролл не появляется. Паддинги — в contentContainer,
+  // чтобы не ломать измерение скроллируемой области.
+  scroll: { maxHeight: 212, flexGrow: 0 },
+  scrollContent: { paddingVertical: 4 },
   item: {
     flexDirection: "row",
     alignItems: "center",

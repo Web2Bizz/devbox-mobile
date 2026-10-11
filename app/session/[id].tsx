@@ -1191,11 +1191,11 @@ export default function SessionScreen() {
         {/* Input */}
         <View style={[s.inputContainer, isDark && s.inputContainerDark]}>
           <View style={s.inputRow}>
-            {/* Список команд: absolute-оверлей, пристыкованный к верху поля
-                ввода (bottom 100% от строки ввода — без промежутка), растёт
-                вверх поверх быстрых действий. В замере dockHeight не участвует. */}
+            {/* Список команд: absolute-оверлей, заходит за поле ввода
+                (низ палитры прячется под полем — выходит из-под блока ввода),
+                растёт вверх поверх быстрых действий. В замере dockHeight не участвует. */}
             {slashActive && (
-              <View style={s.slashWrap}>
+              <View style={[s.slashWrap, { paddingBottom: Math.max(0, composerFieldHeight - 16) }]}>
                 <SlashPopover query={slashQuery} commands={allCommands} isDark={isDark} onSelect={handleSlashSelect} />
               </View>
             )}
@@ -1523,15 +1523,19 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
   },
-  // Список команд: стыкуется с верхом поля ввода (низ обёртки = верх строки),
-  // по ширине совпадает с полем, растёт вверх поверх быстрых действий.
+  // Список команд: обёртка якорится к низу строки ввода (bottom: 0) и
+  // продлена вниз на высоту поля (paddingBottom = высота поля − 16):
+  // блок заходит за поле ввода, а палитра выходит из-под него — низ
+  // поповера (~16px) прячется за непрозрачным полем (поле выше по z).
+  // Растёт вверх поверх быстрых действий. В замере dockHeight не участвует.
   slashWrap: {
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: "100%",
-    zIndex: 4,
-    elevation: 4,
+    bottom: 0,
+    maxHeight: 340,
+    zIndex: 0,
+    elevation: 0,
   },
   overlayBtns: {
     position: "absolute",
@@ -1541,7 +1545,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    zIndex: 1,
+    zIndex: 2,
   },
   overlayGroup: {
     flexDirection: "row",
@@ -1563,6 +1567,10 @@ const s = StyleSheet.create({
     // Обводка как у карточек проекта (projectCard): синхронно с дизайном.
     borderWidth: 1,
     borderColor: "#e5e5e5",
+    // Поле непрозрачно перекрывает низ палитры команд (slashWrap zIndex 0):
+    // так палитра визуально выходит из-под блока ввода.
+    zIndex: 1,
+    elevation: 1,
     paddingTop: COMPOSER_PADDING,
     paddingBottom: 52,
     paddingLeft: COMPOSER_PADDING,
