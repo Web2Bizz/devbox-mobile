@@ -3,6 +3,7 @@ import { View, Text, useColorScheme, Platform, type StyleProp, type ViewStyle, t
 import { useMarkdown, Renderer } from "react-native-marked"
 import { CodeBlock } from "./CodeBlock"
 import { CopyLink } from "./CopyLink"
+import { colors } from "../../theme"
 
 // react-native-marked's base Renderer hardcodes `selectable` on every plain
 // text node it produces (text/strong/em/del/heading/codespan). On Android,
@@ -74,7 +75,7 @@ const lightTheme = {
   h1: { fontSize: 22, fontWeight: "700" as const, color: "#0a0a0a", marginBottom: 8, marginTop: 12 },
   h2: { fontSize: 19, fontWeight: "600" as const, color: "#0a0a0a", marginBottom: 6, marginTop: 10 },
   h3: { fontSize: 16, fontWeight: "600" as const, color: "#0a0a0a", marginBottom: 4, marginTop: 8 },
-  link: { color: "#2563eb" },
+  link: { color: colors.accentStrong },
   blockquote: {
     backgroundColor: "transparent",
     borderLeftWidth: 3,
@@ -116,7 +117,7 @@ const darkTheme = {
   h1: { ...lightTheme.h1, color: "#ffffff" },
   h2: { ...lightTheme.h2, color: "#ffffff" },
   h3: { ...lightTheme.h3, color: "#ffffff" },
-  link: { color: "#60a5fa" },
+  link: { color: colors.accentPale },
   blockquote: {
     ...lightTheme.blockquote,
     borderLeftColor: "#4a4a5a",

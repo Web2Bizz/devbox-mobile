@@ -904,7 +904,7 @@ export default function SessionScreen() {
           <Ionicons
             name={showInfo ? "stats-chart" : "stats-chart-outline"}
             size={20}
-            color={showInfo ? "#3b82f6" : isDark ? "#888888" : "#666666"}
+            color={showInfo ? "#FF2A7A" : isDark ? "#888888" : "#666666"}
           />
         </TouchableOpacity>
       </View>
@@ -1598,11 +1598,11 @@ const s = StyleSheet.create({
 
   // Pending revert (edit message) banner
   bannerRevert: {
-    backgroundColor: "#1e3a8a",
+    backgroundColor: "#7A1E43",
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  bannerAction: { color: "#93c5fd", fontSize: 13, fontWeight: "700" },
+  bannerAction: { color: "#FFB199", fontSize: 13, fontWeight: "700" },
 
   // Bottom-sheet layer: must sit above the composer overlay buttons and the
   // scroll button (see wrapper comment at the AiSettingsModal usage). No
