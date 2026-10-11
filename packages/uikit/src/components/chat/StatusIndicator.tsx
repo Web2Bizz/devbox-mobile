@@ -1,45 +1,79 @@
-import { memo, useEffect, useState } from "react"
-import { View, Text, StyleSheet } from "react-native"
+import { memo, useEffect } from "react"
+import { View, Text, StyleSheet, type StyleProp, type TextStyle } from "react-native"
 import MaskedView from "@react-native-masked-view/masked-view"
 import { LinearGradient } from "expo-linear-gradient"
 import Animated, {
   Easing,
   cancelAnimation,
-  useAnimatedProps,
+  useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated"
 import { useTranslation } from "react-i18next"
 
 // Классический терминальный спиннер точками Брайля — вместо системного
 // кружка показывает, что агент работает.
+//
+// Никакого React-состояния: и кадры, и шиммер едут на UI-потоке через shared
+// values, JS-поток их не дёргает даже под нагрузкой стриминга.
+// (Раньше тик шёл через setInterval+setState — под ререндерами списка кадров
+// интервал плыл; а шиммер гнался через animatedProps start/end градиента,
+// которые expo-linear-gradient не анимирует — полоса стояла за кадром.)
 const BRAILLE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const
 const BRAILLE_INTERVAL_MS = 80
+const TICK_LOOP_MS = BRAILLE_FRAMES.length * BRAILLE_INTERVAL_MS
 
-// Шиммер подписи как у ИИ-чатов: серая плашка с пробегающей белой
-// вертикальной полосой. Полоса — трёхстопный градиент [base, band, base],
-// окно start→end шириной SHIMMER_SPAN едет слева направо по UI-потоку.
+// Шиммер подписи как у ИИ-чатов: сплошная серая база + бегущая белая полоса
+// фиксированной ширины с мягкими краями. Движется только transform (translateX)
+// пинг-понгом — разворота нет, обёртка значения не нужна.
 const SHIMMER_DURATION_MS = 1600
-const SHIMMER_SPAN = 0.45
+const BAND_W = 48
 
-const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient)
+// Один кадр спиннера: видимость — из UI-потокового счётчика, без ререндеров.
+// Первый кадр в потоке задаёт размер бокса, остальные лежат поверх absolute.
+const FrameGlyph = memo(function FrameGlyph({
+  glyph,
+  index,
+  tick,
+  textStyle,
+}: {
+  glyph: string
+  index: number
+  tick: SharedValue<number>
+  textStyle: StyleProp<TextStyle>
+}) {
+  const frameStyle = useAnimatedStyle(() => ({
+    opacity: Math.floor(tick.value / BRAILLE_INTERVAL_MS) % BRAILLE_FRAMES.length === index ? 1 : 0,
+  }))
+  return (
+    <Animated.Text style={[s.spinner, textStyle, index > 0 && s.glyphOverlay, frameStyle]}>
+      {glyph}
+    </Animated.Text>
+  )
+})
 
-// Тик спиннера живёт в отдельном мемо-компоненте: setState каждые 80ms
-// перерисовывает только маленький Text, а не весь бар. Раньше кадр хранился
-// в StatusIndicator — каждый тик рекомпозитил MaskedView-маску и шиммер,
-// и анимация выглядела прерывистой. Маунтится только пока busy (родитель
-// в простое рисует плейсхолдер), так что отдельного флага не нужно —
-// монтирование стартует тик, размонтирование его останавливает.
-const BrailleSpinner = memo(function BrailleSpinner({ isDark }: { isDark: boolean }) {
-  const [frame, setFrame] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => {
-      setFrame((f) => (f + 1) % BRAILLE_FRAMES.length)
-    }, BRAILLE_INTERVAL_MS)
-    return () => clearInterval(id)
-  }, [])
-  return <Text style={[s.spinner, isDark && s.textDark]}>{BRAILLE_FRAMES[frame]}</Text>
+const BrailleSpinner = memo(function BrailleSpinner({
+  tick,
+  isDark,
+}: {
+  tick: SharedValue<number>
+  isDark: boolean
+}) {
+  return (
+    <View style={s.spinnerBox}>
+      {BRAILLE_FRAMES.map((glyph, index) => (
+        <FrameGlyph
+          key={glyph}
+          glyph={glyph}
+          index={index}
+          tick={tick}
+          textStyle={isDark ? s.textDark : null}
+        />
+      ))}
+    </View>
+  )
 })
 
 // Server-reported session status, read by the parent from its own store and
@@ -69,24 +103,35 @@ export function StatusIndicator({ status, statusText, optimistic, isDark }: Prop
   const sseBusy = !!status && status.type !== "idle"
   const busy = sseBusy || optimistic
 
-  // Прогон шиммера — только пока busy, shared value живёт вне рендера.
+  // Счётчик кадров спиннера — пила 0→800ms на UI-потоке, ререндеров нет.
+  // Маунтится только пока busy (в простое — плейсхолдер ниже).
+  const tick = useSharedValue(0)
+  useEffect(() => {
+    if (!busy) return
+    tick.value = withRepeat(
+      withTiming(TICK_LOOP_MS, { duration: TICK_LOOP_MS, easing: Easing.linear }),
+      -1,
+      false,
+    )
+    return () => cancelAnimation(tick)
+  }, [busy, tick])
+
+  // Прогон шиммера пинг-понгом 0→1 на UI-потоке; ширина подписи снимается
+  // один раз через onLayout в shared value (без ререндера).
   const sweep = useSharedValue(0)
+  const labelW = useSharedValue(0)
   useEffect(() => {
     if (!busy) return
     sweep.value = withRepeat(
       withTiming(1, { duration: SHIMMER_DURATION_MS, easing: Easing.linear }),
       -1,
-      false,
+      true,
     )
     return () => cancelAnimation(sweep)
   }, [busy, sweep])
-  const gradientProps = useAnimatedProps(() => {
-    const x = sweep.value * (1 + SHIMMER_SPAN) - SHIMMER_SPAN
-    return {
-      start: { x, y: 0 },
-      end: { x: x + SHIMMER_SPAN, y: 0 },
-    }
-  })
+  const bandStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -BAND_W + sweep.value * (labelW.value + BAND_W) }],
+  }))
 
   if (!busy) return <View style={s.barPlaceholder} />
 
@@ -94,15 +139,13 @@ export function StatusIndicator({ status, statusText, optimistic, isDark }: Prop
     status?.type === "retry" && typeof status.attempt === "number"
       ? t("chat.statusIndicator.retrying", { attempt: status.attempt })
       : statusText || t("chat.statusIndicator.working")
-  // База градиента — цвет подписи в текущей теме, полоса — белая.
-  const shimmerColors = isDark
-    ? (["#888888", "#ffffff", "#888888"] as const)
-    : (["#666666", "#ffffff", "#666666"] as const)
+  // База шиммера — цвет подписи в текущей теме, полоса — белая.
+  const shimmerBase = isDark ? "#888888" : "#666666"
 
   return (
     <View style={[s.bar, isDark && s.barDark]}>
-      <BrailleSpinner isDark={isDark} />
-      {/* Маска вырезает градиент строго по форме букв — полоса бежит
+      <BrailleSpinner tick={tick} isDark={isDark} />
+      {/* Маска вырезает слои строго по форме букв — полоса бежит
           только по тексту, а не прямоугольником поверх строки. */}
       <MaskedView
         style={s.labelMask}
@@ -112,13 +155,22 @@ export function StatusIndicator({ status, statusText, optimistic, isDark }: Prop
           </View>
         }
       >
-        <AnimatedGradient
-          colors={shimmerColors}
-          start={{ x: -SHIMMER_SPAN, y: 0 }}
-          end={{ x: 0, y: 0 }}
-          animatedProps={gradientProps}
-          style={s.labelGradient}
-        />
+        <View
+          style={s.labelFill}
+          onLayout={(e) => {
+            labelW.value = e.nativeEvent.layout.width
+          }}
+        >
+          <View style={[s.labelBase, { backgroundColor: shimmerBase }]} />
+          <Animated.View style={[s.band, bandStyle]}>
+            <LinearGradient
+              colors={["rgba(255,255,255,0)", "#ffffff", "rgba(255,255,255,0)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.bandGradient}
+            />
+          </Animated.View>
+        </View>
       </MaskedView>
     </View>
   )
@@ -138,13 +190,34 @@ const s = StyleSheet.create({
   barPlaceholder: { height: 36 },
   barDark: { backgroundColor: "transparent" },
   // Брайлевский спиннер: кегль крупнее подписи, цвет — как у неё.
-  spinner: { fontSize: 16, color: "#666666" },
+  // Кадры лежат стопкой: первый задаёт размер, остальные поверх.
+  spinner: { fontSize: 16, color: "#666666", textAlign: "center" },
+  spinnerBox: { justifyContent: "center", alignItems: "center" },
+  glyphOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    textAlign: "center",
+    textAlignVertical: "center",
+  },
   textDark: { color: "#888888" },
-  // Шиммер подписи: маска занимает остаток строки, градиент — её целиком.
+  // Шиммер подписи: маска занимает остаток строки; внутри — сплошная база
+  // в цвет подписи и absolute-полоса, едущая по UI-потоку.
   labelMask: { flex: 1, height: 36 },
   labelMaskInner: { flex: 1, justifyContent: "center" },
   // Метрики бывшей подписи (13px/500); цвет любой непрозрачный —
   // маска смотрит только на альфу.
   maskText: { fontSize: 13, fontWeight: "500", color: "#000000" },
-  labelGradient: { flex: 1 },
+  labelFill: { flex: 1 },
+  labelBase: { flex: 1 },
+  band: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: BAND_W,
+  },
+  bandGradient: { flex: 1 },
 })
