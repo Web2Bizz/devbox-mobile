@@ -1,4 +1,3 @@
-<<<<<<<< HEAD:packages/uikit/src/components/chat/Select.tsx
 import { useMemo, useState } from "react"
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
 import { BottomSheetFlatList, BottomSheetTextInput } from "@gorhom/bottom-sheet"
@@ -211,16 +210,3 @@ const s = StyleSheet.create({
   rowName: { fontSize: 15, fontWeight: "500", color: colors.textPrimaryLight },
   rowDesc: { fontSize: 12, color: colors.textTertiaryLight, marginTop: 1 },
 })
-========
-/**
- * Back-compat shim (uikit atoms card).
- *
- * Real component lives in `@opencode-ai/uikit`
- * (`packages/uikit/src/components/chat/Select.tsx`).
- * This file re-exports the package so existing imports
- * (`src/components/chat/Select`, `src/components/chat`, …) keep working —
- * `app/` is untouched.
- * New code should import from `@opencode-ai/uikit` directly.
- */
-export * from "@opencode-ai/uikit"
->>>>>>>> ef640f1 (chore(uikit): чистые атомы + chat-дельта + свитч импортов, без переименования):src/components/chat/Select.tsx
