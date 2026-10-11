@@ -100,12 +100,6 @@ const SUGGESTIONS = [
 // downstream props on every unrelated update, e.g. per streamed token).
 const EMPTY_QUEUE: QueuedDraft[] = []
 
-function getShortDir(dir?: string): string | null {
-  if (!dir) return null
-  const parts = dir.split("/").filter(Boolean)
-  return parts[parts.length - 1] || null
-}
-
 export default function SessionScreen() {
   const { id, directory, connectionId } = useLocalSearchParams<{
     id: string
@@ -245,7 +239,6 @@ export default function SessionScreen() {
   const permissions = useEvents((s) => (sessionID ? s.permissions[sessionID] : undefined)) || []
   const questions = useEvents((s) => (sessionID ? s.questions[sessionID] : undefined)) || []
 
-  const shortDir = getShortDir(currentSession?.directory)
   const [showScrollButton, setShowScrollButton] = useState(false)
 
   // SSE reconnect banner
@@ -907,12 +900,6 @@ export default function SessionScreen() {
   const headerRight = useCallback(() => {
     return (
       <View style={s.headerRight}>
-        {shortDir && (
-          <View style={[s.dirBadge, isDark && s.dirBadgeDark]}>
-            <Ionicons name="folder-outline" size={14} color={isDark ? "#888888" : "#666666"} />
-            <Text style={[s.dirText, isDark && s.dirTextDark]}>{shortDir}</Text>
-          </View>
-        )}
         <TouchableOpacity onPress={() => setShowInfo((v) => !v)} hitSlop={8}>
           <Ionicons
             name={showInfo ? "stats-chart" : "stats-chart-outline"}
@@ -922,7 +909,7 @@ export default function SessionScreen() {
         </TouchableOpacity>
       </View>
     )
-  }, [shortDir, showInfo, isDark])
+  }, [showInfo, isDark])
   const screenOptions = useMemo(
     () => ({ title: screenTitle, headerRight }),
     [screenTitle, headerRight],
@@ -1590,18 +1577,6 @@ const s = StyleSheet.create({
 
   // Header
   headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  dirBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#f5f5f5",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  dirBadgeDark: { backgroundColor: "#1a1a1a" },
-  dirText: { fontSize: 12, color: "#666666", fontWeight: "500" },
-  dirTextDark: { color: "#888888" },
 
   // SSE reconnect/connected banner
   banner: {
