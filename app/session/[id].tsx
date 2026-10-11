@@ -5,6 +5,7 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   StyleSheet,
   useColorScheme,
@@ -273,8 +274,10 @@ export default function SessionScreen() {
     clearSessionError()
   }, [sessionError, clearSessionError, t])
 
-  // Slash command state
-  const slashActive = input.startsWith("/") && !input.includes(" ")
+  // Slash command state. slashHidden закрывает палитру тапом мимо неё
+  // (текст сохраняется); любой ввод открывает заново.
+  const [slashHidden, setSlashHidden] = useState(false)
+  const slashActive = input.startsWith("/") && !input.includes(" ") && !slashHidden
   const slashQuery = slashActive ? input.slice(1) : ""
 
   const allCommands = useMemo<SlashCommand[]>(() => {
@@ -516,6 +519,7 @@ export default function SessionScreen() {
   // manual backspace-to-empty case behaves like a programmatic clear.
   const handleChangeText = useCallback((text: string) => {
     clearedRef.current = text.length === 0
+    setSlashHidden(false)
     setInput(text)
   }, [])
 
@@ -1076,6 +1080,19 @@ export default function SessionScreen() {
                 <Ionicons name="chevron-down" size={24} color={isDark ? "#ffffff" : "#0a0a0a"} />
               </TouchableOpacity>
             )}
+            {/* Подложка палитры команд: пока палитра открыта, перехватывает
+                все тапы/скроллы мимо неё — иначе скроллится список сообщений
+                под палитрой. Тап закрывает палитру (текст цел), палитра в доке
+                рисуется выше (zIndex дока 2), скролл внутри неё работает. */}
+            {slashActive && (
+              <Pressable
+                style={s.slashBackdrop}
+                onPress={() => setSlashHidden(true)}
+                testID="slash-backdrop"
+                accessibilityRole="button"
+                accessibilityLabel={t("session.actions.closeCommands")}
+              />
+            )}
           </View>
         )}
 
@@ -1536,6 +1553,12 @@ const s = StyleSheet.create({
     maxHeight: 340,
     zIndex: 0,
     elevation: 0,
+  },
+  // Подложка открытой палитры: прозрачная, на весь список (zIndex 1 выше
+  // FlatList, ниже дока zIndex 2) — перехватывает тапы/скроллы мимо палитры.
+  slashBackdrop: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1,
   },
   overlayBtns: {
     position: "absolute",

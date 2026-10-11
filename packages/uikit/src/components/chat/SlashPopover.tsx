@@ -69,13 +69,14 @@ export function SlashPopover({ query, commands, isDark, onSelect }: Props) {
 }
 
 const s = StyleSheet.create({
-  // Карточка в языке приложения: скругление + рамка как у промптов/чипов,
-  // фон — как у поля ввода (#f5f5f5 / #1a1a1a), тень для отрыва от списка.
+  // Карточка в языке приложения: БЕЗ скруглений — палитра выходит из-под
+  // блока ввода, низ прячется за полем, углы должны быть прямыми.
+  // Фон — как у поля ввода (#f5f5f5 / #1a1a1a), тень для отрыва от списка.
   popover: {
     backgroundColor: "#f5f5f5",
     borderWidth: 1,
     borderColor: "#e5e5e5",
-    borderRadius: 16,
+    borderRadius: 0,
     maxHeight: 220,
     overflow: "hidden",
     shadowColor: "#000",
