@@ -124,7 +124,8 @@
       "replace": "Replace",
       "send": "Send message",
       "stop": "Stop response",
-      "mic": "Voice input"
+      "mic": "Voice input",
+      "closeCommands": "Закрыть список команд"
     },
     "alerts": {
       "unknownCommandTitle": "Unknown command",
