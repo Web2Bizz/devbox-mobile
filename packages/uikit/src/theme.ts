@@ -3,8 +3,8 @@
  *
  * Goals:
  * - Single source of truth for every hex literal scattered across app/ and src/.
- * - Eliminate purple/indigo family entirely — replaced by blue accent that matches
- *   existing brand tones (splash #0F172A, telemetry #3b82f6, links #2563eb).
+ * - Accent follows the app icon gradient Pink -> Orange
+ *   (#FF2A7A -> #FF5E62 -> #FF9966, see assets/icon-source.svg).
  * - Provide light/dark-aware tokens so `isDark ? X : Y` branches become
  *   `isDark ? colors.accentDark : colors.accent` instead of raw hexes.
  *
@@ -16,35 +16,34 @@
  * When adding a new color, extend this file — never inline a hex elsewhere.
  */
 
-// ── Accent — replaces the former purple / indigo family ─────────────────────
-// Former values removed: #8b5cf6 #6d28d9 #a78bfa #c4b5fd #f5f3ff #e9d5ff
-// #f3e8ff #c7d2fe #6366f1 #3730a3 #1e1b4b #f0f0ff #e8e5f0 #2a2040 #1f1a2e
-// #2a1a3e #1a1030 #2a1a4a
-// All now map to blue / slate equivalents. Hue 258 (purple) → 217-221 (blue).
+// ── Accent — pink/orange ramp sampled from the app icon gradient ─────────────
+// Former blue values removed: #2563eb #1d4ed8 #3b82f6 #60a5fa #93c5fd
+// #eff6ff #dbeafe #1e293b #334155 #0f172a
+// (Hue 217-221 (blue) → 340 (pink) / 15-20 (orange).)
 const accent = {
-  /** Primary accent — icons, checkmarks, active text on light bg. Replaces #8b5cf6 / #6366f1. */
-  DEFAULT: "#2563eb",
-  /** Stronger variant for text on muted bg, light theme. Replaces #6d28d9. */
-  strong: "#1d4ed8",
-  /** Lighter for dark theme icons / checkmarks. Replaces #8b5cf6 on dark. */
-  light: "#3b82f6",
-  /** Pale for dark theme secondary text on muted. Replaces #c4b5fd / #a78bfa. */
-  pale: "#60a5fa",
-  /** Extra pale for dark muted text. Replaces #c4b5fd. */
-  extraPale: "#93c5fd",
-  /** Muted bg — selected rows, banners, chips on light. Replaces #f5f3ff / #e8e5f0 / #f0f0ff / #f3e8ff. */
-  muted: "#eff6ff",
-  /** Muted bg — dark. Replaces #1f1a2e / #2a2040 / #1e1b4b / #2a1a3e. */
-  mutedDark: "#1e293b",
-  /** Border on light muted bg. Replaces #e9d5ff / #c7d2fe. */
-  border: "#dbeafe",
-  /** Border on dark muted bg. Replaces #2a1a4a / #3730a3. */
-  borderDark: "#334155",
-  /** Banner dark bg. Replaces #1a1030. */
-  bannerDark: "#0f172a",
+  /** Primary accent — icons, checkmarks, active text on light bg. Icon pink. */
+  DEFAULT: "#FF2A7A",
+  /** Stronger variant for text on muted bg, light theme. Deep pink. */
+  strong: "#C81D5E",
+  /** Lighter for dark theme icons / checkmarks. Icon gradient mid. */
+  light: "#FF5E62",
+  /** Pale for dark theme secondary text on muted. Icon orange. */
+  pale: "#FF9966",
+  /** Extra pale for dark muted text. Light peach. */
+  extraPale: "#FFB199",
+  /** Muted bg — selected rows, banners, chips on light. Pink-peach tint. */
+  muted: "#FFF0EA",
+  /** Muted bg — dark. Warm maroon. */
+  mutedDark: "#2E1A22",
+  /** Border on light muted bg. Peach. */
+  border: "#FFD9CC",
+  /** Border on dark muted bg. Warm maroon edge. */
+  borderDark: "#4A2633",
+  /** Banner dark bg. Warm near-black. */
+  bannerDark: "#1F1016",
   /** Chip bg light/dark alias — kept explicit for call sites. */
-  chipBg: "#eff6ff",
-  chipBgDark: "#1e293b",
+  chipBg: "#FFF0EA",
+  chipBgDark: "#2E1A22",
 } as const
 
 // ── Neutral — grays / backgrounds used throughout the app ────────────────────
@@ -104,7 +103,7 @@ const semantic = {
   error: "#ef4444",
   errorStrong: "#dc2626",
   warning: "#f59e0b",
-  info: "#3b82f6",
+  info: "#FF5E62",
 } as const
 
 // ── Flat export — preferred for StyleSheet / inline color props ──────────────

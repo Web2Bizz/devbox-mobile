@@ -131,7 +131,7 @@ export function SessionInfo({
       {/* Token breakdown pills */}
       {hasTokens && (
         <View style={s.breakdown}>
-          <TokenPill label={t("chat.sessionInfo.pills.in")} value={stats.input} color="#3b82f6" isDark={isDark} />
+          <TokenPill label={t("chat.sessionInfo.pills.in")} value={stats.input} color={colors.accentLight} isDark={isDark} />
           <TokenPill label={t("chat.sessionInfo.pills.out")} value={stats.output} color="#10b981" isDark={isDark} />
           {stats.reasoning > 0 && (
             <TokenPill label={t("chat.sessionInfo.pills.think")} value={stats.reasoning} color="#f59e0b" isDark={isDark} />
@@ -273,7 +273,7 @@ const s = StyleSheet.create({
     height: "100%",
     borderRadius: 2,
   },
-  barOk: { backgroundColor: "#3b82f6" },
+  barOk: { backgroundColor: colors.accentLight },
   barMid: { backgroundColor: "#f59e0b" },
   barWarn: { backgroundColor: "#ef4444" },
   breakdown: {

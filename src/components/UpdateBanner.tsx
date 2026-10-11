@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react"
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
+import { colors } from "@web2bizz/ui-native"
 import { checkForUpdate, dismissUpdate, CURRENT_VERSION, type AvailableUpdate } from "../lib/update-check"
 
 export function UpdateBanner({ isDark }: { isDark: boolean }) {
@@ -49,7 +50,7 @@ export function UpdateBanner({ isDark }: { isDark: boolean }) {
 
   return (
     <View style={[styles.banner, isDark && styles.bannerDark]} testID="update-banner">
-      <Ionicons name="arrow-up-circle" size={20} color={isDark ? "#7dd3fc" : "#0369a1"} />
+      <Ionicons name="arrow-up-circle" size={20} color={isDark ? colors.accentPale : colors.accentStrong} />
       <View style={styles.text}>
         <Text style={[styles.title, isDark && styles.titleDark]}>{t("update.available")}</Text>
         <Text style={[styles.body, isDark && styles.bodyDark]} numberOfLines={1}>
@@ -60,15 +61,14 @@ export function UpdateBanner({ isDark }: { isDark: boolean }) {
         <Text style={[styles.action, isDark && styles.actionDark]}>{t("update.action")}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={onDismiss} testID="update-banner-dismiss" hitSlop={8}>
-        <Ionicons name="close" size={18} color={isDark ? "#94a3b8" : "#64748b"} />
+        <Ionicons name="close" size={18} color={isDark ? "#888888" : "#666666"} />
       </TouchableOpacity>
     </View>
   )
 }
 
-// NOTE: sky/slate scale (#e0f2fe #0c2b3d #0c4a6e #0369a1 #94a3b8 #7dd3fc
-// #64748b) has no theme tokens — theme only has info #3b82f6. Kept as-is
-// to avoid restyling; tokenize when banner palette lands in theme.ts.
+// Banner follows the app accent (pink/orange from the icon gradient) via
+// theme tokens — no raw sky/slate blues.
 const styles = StyleSheet.create({
   banner: {
     flexDirection: "row",
@@ -76,10 +76,10 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: "#e0f2fe",
+    backgroundColor: colors.accentMuted,
   },
   bannerDark: {
-    backgroundColor: "#0c2b3d",
+    backgroundColor: colors.accentMutedDark,
   },
   text: {
     flex: 1,
@@ -87,24 +87,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#0c4a6e",
+    color: colors.accentStrong,
   },
   titleDark: {
-    color: "#e0f2fe",
+    color: "#FFE4D9",
   },
   body: {
     fontSize: 12,
-    color: "#0369a1",
+    color: colors.accentStrong,
   },
   bodyDark: {
-    color: "#94a3b8",
+    color: colors.textSecondaryDark,
   },
   action: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#0369a1",
+    color: colors.accentStrong,
   },
   actionDark: {
-    color: "#7dd3fc",
+    color: colors.accentPale,
   },
 })
